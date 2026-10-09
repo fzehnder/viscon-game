@@ -1,0 +1,10 @@
+# Godot 4: Cache und Importdaten, wird auf jedem Rechner neu erzeugt
+.godot/
+
+# Exporte und Builds
+/android/
+/build/
+*.tmp
+
+# macOS
+.DS_Store
