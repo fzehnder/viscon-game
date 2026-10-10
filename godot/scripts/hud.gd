@@ -54,28 +54,41 @@ var arrows: Control
 var fx_layer: Control
 
 
-## Spinning star burst behind a celebration.
-class Burst:
+## Ink that flies out from under the stamp of a finished task when it comes down.
+class Splat:
 	extends Control
-	const UI2 = preload("res://scripts/ui.gd")
 	var col := Color.WHITE
-	var t := 0.0
+	var t := -1.0                 # seconds since the stamp hit (-1: not yet)
+	var drops: Array = []         # [angle, how far, radius, drawn out long]
+
+	func _init() -> void:
+		for i in 20:
+			drops.append([randf() * TAU, randf_range(170.0, 330.0), randf_range(3.5, 10.0), randf() < 0.4])
 
 	func _process(delta: float) -> void:
-		t += delta
-		queue_redraw()
+		if t >= 0.0:
+			t += delta
+			queue_redraw()
 
 	func _draw() -> void:
-		for i in 12:
-			var a := t * 0.8 + i * TAU / 12.0
-			var p1 := Vector2.from_angle(a - 0.12) * 40.0
-			var p2 := Vector2.from_angle(a + 0.12) * 40.0
-			var p3 := Vector2.from_angle(a) * 230.0
-			draw_colored_polygon(PackedVector2Array([p1, p3, p2]), Color(col, 0.16))
-		draw_colored_polygon(UI2.star_points(Vector2(-250, -10), 22, 9, t * 2.0), UI2.YELLOW)
-		draw_colored_polygon(UI2.star_points(Vector2(250, -10), 22, 9, -t * 2.0), UI2.YELLOW)
-		draw_colored_polygon(UI2.star_points(Vector2(-205, -60), 12, 5, -t * 3.0), UI2.PINK)
-		draw_colored_polygon(UI2.star_points(Vector2(210, 45), 12, 5, t * 3.0), UI2.GREEN)
+		if t < 0.0:
+			return
+		var out := 1.0 - pow(1.0 - clampf(t / 0.24, 0.0, 1.0), 3.0)     # fast at first, then it lands
+		var fade := clampf(1.0 - (t - 0.85) / 0.45, 0.0, 1.0)
+		var ring := clampf(t / 0.32, 0.0, 1.0)
+		if ring < 1.0:
+			draw_set_transform(Vector2.ZERO, 0.0, Vector2(1.0, 0.6))
+			draw_arc(Vector2.ZERO, 70.0 + 230.0 * ring, 0.0, TAU, 56, Color(col, 0.6 * (1.0 - ring)), 7.0 * (1.0 - ring) + 1.0, true)
+			draw_set_transform(Vector2.ZERO, 0.0, Vector2.ONE)
+		for d in drops:
+			var dirv := Vector2.from_angle(d[0])
+			var p: Vector2 = dirv * Vector2(1.0, 0.6) * float(d[1]) * out     # flatter than a circle: the stamp is wide
+			if d[3]:
+				draw_set_transform(p, dirv.angle(), Vector2(1.9, 0.75))
+				draw_circle(Vector2.ZERO, float(d[2]), Color(col, 0.9 * fade))
+				draw_set_transform(Vector2.ZERO, 0.0, Vector2.ONE)
+			else:
+				draw_circle(p, float(d[2]), Color(col, 0.9 * fade))
 
 
 ## Check box in front of a task: empty frame, filled with a tick once the task is done.
@@ -493,49 +506,85 @@ func toast(head: String, body: String, dur: float = 5.0) -> void:
 	UI.sfx("pop", -12.0)
 
 
-## Big "done!" moment: star burst, bouncing title, confetti and a chime.
+## A task is done: a stamp "ERLEDIGT" in the player's colour comes down, slanted, ink flies, a
+## chime. Short, and nothing is held up by it.
 ## side: 0 = left half, 1 = right half, -1 = middle of the screen.
 func celebrate(title: String, sub: String, col: Color, side: int = -1) -> void:
 	var vs: Vector2 = root.size
+	var wide := vs.x if side < 0 else vs.x / 2.0
 	var cx := vs.x / 2.0 if side < 0 else vs.x * (0.25 + 0.5 * side)
 	var center := Vector2(cx, vs.y * 0.38)
 	var holder := Control.new()
 	holder.mouse_filter = Control.MOUSE_FILTER_IGNORE
 	holder.position = center
 	fx_layer.add_child(holder)
-	var burst := Burst.new()
-	burst.col = col
-	burst.mouse_filter = Control.MOUSE_FILTER_IGNORE
-	holder.add_child(burst)
-	var big := UI.label(title, 50, col, 12)
-	big.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
-	big.position = Vector2(-400, -62)
-	big.size = Vector2(800, 70)
-	holder.add_child(big)
-	var done_l := UI.label("ERLEDIGT!", 24, UI.WHITE, 7)
-	done_l.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
-	done_l.position = Vector2(-400, -100)
-	done_l.size = Vector2(800, 34)
-	holder.add_child(done_l)
+	var splat := Splat.new()
+	splat.col = col
+	splat.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	holder.add_child(splat)
+	var turn := Control.new()      # the part that slams down; its origin is the middle of the stamp
+	turn.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	holder.add_child(turn)
+	var cc := CenterContainer.new()
+	cc.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	cc.position = Vector2(-450, -220)
+	cc.size = Vector2(900, 440)
+	turn.add_child(cc)
+	var v := VBoxContainer.new()
+	v.add_theme_constant_override("separation", 10)
+	v.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	cc.add_child(v)
+	# a plate with a double frame, as a stamp leaves it: the task small, the word big
+	var plate := PanelContainer.new()
+	plate.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	plate.size_flags_horizontal = Control.SIZE_SHRINK_CENTER
+	plate.add_theme_stylebox_override("panel", UI.box(Color(UI.NAVY, 0.93), col, 16, 7, 6, true))
+	v.add_child(plate)
+	var inner := PanelContainer.new()
+	inner.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	var isb := StyleBoxFlat.new()
+	isb.bg_color = Color(0, 0, 0, 0)
+	isb.border_color = col
+	isb.set_border_width_all(2)
+	isb.set_corner_radius_all(9)
+	isb.content_margin_left = 22
+	isb.content_margin_right = 22
+	isb.content_margin_top = 6
+	isb.content_margin_bottom = 4
+	inner.add_theme_stylebox_override("panel", isb)
+	plate.add_child(inner)
+	var pv := VBoxContainer.new()
+	pv.add_theme_constant_override("separation", -8)
+	inner.add_child(pv)
+	var task := UI.label(title, 22, UI.WHITE, 5, true)
+	task.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
+	task.custom_minimum_size = Vector2(minf(400.0, wide - 150.0), 0)
+	pv.add_child(task)
+	var word := UI.label("ERLEDIGT", 68, col, 12)
+	word.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
+	pv.add_child(word)
 	var small := UI.label(sub, 20, UI.WHITE, 6)
 	small.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
-	small.position = Vector2(-400, 14)
-	small.size = Vector2(800, 30)
-	holder.add_child(small)
-	holder.scale = Vector2(0.15, 0.15)
-	holder.rotation = -0.25
+	v.add_child(small)
+	turn.scale = Vector2(2.9, 2.9)
+	turn.rotation = -0.42
+	turn.modulate.a = 0.0
 	var tw := holder.create_tween()
-	tw.set_parallel(true)
-	tw.tween_property(holder, "scale", Vector2(1.12, 1.12), 0.32).set_trans(Tween.TRANS_BACK).set_ease(Tween.EASE_OUT)
-	tw.tween_property(holder, "rotation", 0.04, 0.32).set_trans(Tween.TRANS_BACK).set_ease(Tween.EASE_OUT)
-	tw.chain().tween_property(holder, "scale", Vector2.ONE, 0.18)
-	tw.chain().tween_property(holder, "rotation", 0.0, 0.12)
-	tw.chain().tween_interval(1.1)
-	tw.chain().tween_property(holder, "position", center + Vector2(0, -60), 0.45).set_trans(Tween.TRANS_SINE)
-	tw.parallel().tween_property(holder, "modulate:a", 0.0, 0.45)
-	tw.chain().tween_callback(holder.queue_free)
-	UI.confetti(fx_layer, center + Vector2(0, 30), 90, true, 80.0, 1.0)
-	UI.sfx("success")
+	tw.tween_property(turn, "scale", Vector2.ONE, 0.13).set_trans(Tween.TRANS_QUAD).set_ease(Tween.EASE_IN)
+	tw.parallel().tween_property(turn, "rotation", -0.09, 0.13)
+	tw.parallel().tween_property(turn, "modulate:a", 1.0, 0.07)
+	tw.tween_callback(func():
+		splat.t = 0.0
+		UI.sfx("stamp", -3.0)
+		UI.sfx("success", -10.0)
+		UI.confetti(fx_layer, center + Vector2(0, 20), 46, true, 80.0, 0.85)
+		UI.shake(holder, 10.0))
+	tw.tween_property(turn, "scale", Vector2(0.93, 0.93), 0.05)
+	tw.tween_property(turn, "scale", Vector2.ONE, 0.14).set_trans(Tween.TRANS_BACK).set_ease(Tween.EASE_OUT)
+	tw.tween_interval(1.05)
+	tw.tween_property(holder, "modulate:a", 0.0, 0.35)
+	tw.parallel().tween_property(holder, "position", center + Vector2(0, -40), 0.35).set_trans(Tween.TRANS_SINE)
+	tw.tween_callback(holder.queue_free)
 
 
 # ------------------------------------------------------------------ task cards

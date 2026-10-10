@@ -181,7 +181,7 @@ Auf `level-base`:
 - Dynamischer Zoom und Split Screen (`main.gd`): Das gemeinsame Bild zoomt beim Auseinanderlaufen bis 2.2x heraus (`OUT_MAX`), Grundzoom 2.5 / 1.3 (etwa 1.92), danach teilt es sich und zoomt langsam zurück (`ZOOM_BACK`); zusammen wieder unter `MERGE_OUT`. Die Trennlinie steht immer senkrecht zur Linie zwischen den Figuren (jede Figur auf ihrer echten Seite) und dreht mit. Bei einem Minigame für eine Person steht sie senkrecht, P1 links, P2 rechts. HUD bleibt fest. Nicht gespielt, nur geschrieben (10.10.2026, Finn)
 - HUD: Aufgaben pro Person auf ihrer Seite (P1 links, P2 rechts), Level und Zeit oben Mitte, Minimap unten Mitte
 - Karte: Hauptgebäude nach dem echten Grundriss des E-Geschosses (siehe "Karte")
-- Aufgabe wählen (Tab für P1, Komma für P2, oder Klick auf die Aufgabe): gestrichelte Pfeile in der Farbe der Person zeigen den kürzesten Weg zum nächsten Ort, an dem die Aufgabe lösbar ist, auch auf der Minimap. `main.picked` / `main.routes`, Ziele aus `main.task_targets(id, pid)` (Stationen, Bags, bei Koop-Aufgaben die andere Person, bei Level-Aufgaben der Hook `task_targets` oder ersatzweise `goal_positions`), gezeichnet in `fx.gd` (`_draw_route`). Nur auf Skriptfehler und einen kurzen Lauf geprüft, nicht gespielt
+- Aufgabe wählen (Tab für P1, Komma für P2, oder Klick auf die Aufgabe): ein Band mit fliessenden Winkeln in der Farbe der Person zeigt den kürzesten Weg zum nächsten Ort, an dem die Aufgabe lösbar ist, auch auf der Minimap. `main.picked` / `main.routes`, Ziele aus `main.task_targets(id, pid)` (Stationen, Bags, bei Koop-Aufgaben die andere Person, bei Level-Aufgaben der Hook `task_targets` oder ersatzweise `goal_positions`), gezeichnet in `fx.gd` (`_draw_route`). Nur auf Skriptfehler und einen kurzen Lauf geprüft, nicht gespielt Der Weg wird geglättet (`world.smooth_path`: gerade, wo die Gerade im A*-Raster frei ist, Ecken gerundet, alle 8 px ein Punkt), alle 0.2 s neu gesucht und dazwischen nur an den Füssen gekürzt; gezeichnet wird vom Ziel her gemessen (`fx._draw_route`), damit das Muster am Boden stehen bleibt, während man läuft.
 - Schleichen / Gehen / Sprinten, Stamina (2 s Sprint, ca. 3 s Regeneration), Geräuschkreise pro Schritt (`player.gd`, `fx.gd`)
 - Story-Intro im Menü: Startseite, Hack der Bewerbungsseite, Namen (Nachname optional, nur für die Legi), Legi-Foto von P1, dann P2, Charakter-Editor mit Studiengang, am Schluss beide Legis nebeneinander im Layout der echten ETH-Legi (`legi_card.gd`, Daten aus `Game`: `legi_ids`, `birthdays`, `surnames`, `programme_of`); Level-Auswahl als «Leistungsüberblick» im Aussehen von myStudies (ersetzt die Zeile «Direkt zu»), mit den besten Noten pro Level. START beginnt ein neues Studium und löscht Opps und Noten. Nur per Startlauf und einem Screenshot geprüft, nicht gespielt
 - Level 1 "Ersti-Tag" (Tag, 7 min): Ersti-Bag klauen (bei Deniz und Livia am Lesetisch, macht sie zu Opps), Legi validieren, Moodle & Code Expert einrichten, Koop-High-Five, Note 1 bis 6
@@ -220,6 +220,8 @@ Offen:
 | `levels.gd` | findet die Levels, enthält Level 1 (Positionen in Tiles, 1 Tile = 32 px) |
 | `level<N>/` | je ein weiteres Level: `level.gd`, eigene Figuren, `README.md` |
 | `cutscene.gd` | Cutscene-Abspieler |
+| `loading_screen.gd`, `loading.tscn` | Ladebildschirm vor jedem Level: Die Polybahn fährt vom Central zur Polyterrasse und ist der Ladebalken, dazu Level-Nummer, Name, Zeitvorgabe, ein gezeichnetes Motiv pro Level (`_motif`, nach Level-Nummer) und ein Tipp. Aus dem Menü (Stufe `loading`), zwischen zwei Levels (`main._next_level`) und beim Start aus dem Leistungsüberblick. Ein Level kann in seiner `DEF` `"tips": [...]` (eigene Tipps) und `"sky": "abend"` (Dämmerung) angeben |
+| `level_done.gd` | Szene am Ende jedes gewonnenen Levels, vor dem Sieg-Dialog (`main._win_day`): Blatt «Leistungsnachweis», Note zählt hoch, Stempel. Eine eigene Schlussszene eines Levels (`finale`) kommt davor |
 | `main.gd` | Spielablauf, Split Screen, Interaktion, Aufgaben, Sieg/Niederlage, Level-Hooks |
 | `player.gd`, `student.gd`, `professor.gd` | Spieler, Studierende/Erstis, Guards |
 | `opp.gd` | Leute, die zu Opps werden (Zustände, Kegel, Verdachtsbalken, klaubare Bag) |
@@ -227,7 +229,7 @@ Offen:
 | `map_data.gd`, `world.gd` | Kartendaten (Hauptgebäude in `_hauptgebaeude`), Zeichnen, Kollision, Wegfindung, Sichtlinien |
 | `menu.gd`, `legi_card.gd` | Story-Intro, Charakter-Erstellung |
 | `transcript.gd` | Level-Auswahl als Leistungsüberblick (myStudies-Look): Tabelle von Hand gezeichnet, Systemschrift Arial |
-| `hud.gd`, `ui.gd`, `fx.gd`, `sfx.gd` | Anzeigen (Aufgabenkarten, Zeit, Minimap), Popup-Stil, Effekte, Sounds |
+| `hud.gd`, `ui.gd`, `fx.gd`, `sfx.gd` | Anzeigen (Aufgabenkarten, Zeit, Minimap, Stempel «ERLEDIGT» bei einer erledigten Aufgabe: `hud.celebrate`), Popup-Stil, Effekte (auch der Weg zur Aufgabe), Sounds |
 | `tracking.gd`, `track_math.gd` | Autoload `Track`: Webcam (Gesicht, Hand, Körper) und Pusten ins Mikrofon für Minigames; Auswertungen dazu. Anleitung und Rezepte in `tracker/README.md`, Testszene `track_debug.tscn` |
 | `characters.gd`, `character_art.gd` | Looks, Quiz-/Moodle-Inhalte, Figuren-Zeichnung |
 
