@@ -107,8 +107,8 @@ const DEF := {
 	"time": 480.0,
 	"start": Vector2(27.0, 51.0),   # on the Polyterrasse, between the west entrance and the Mensa
 	"timer_title": "GARDEROBE SCHLIESST IN",
-	"intro": "Ende November, Polyball: 9000 Gäste im Hauptgebäude. In der Garderobe hängt der Mantel eines Professors, mit seinem Badge in der Innentasche. Im Hoodie kommt ihr nicht weit. Beide müssen alles erledigen:",
-	"hint": "Jede Verkleidung gilt nur an ihrem Ort: Abendgarderobe im Hauptgebäude, Küchenschürze in der Mensa. Richtig angezogen übersehen euch die Lichtkegel, falsch angezogen füllt sich der Balken schneller.",
+	"intro": "Polyball: 9000 Gäste im Hauptgebäude. In der Garderobe hängt der Mantel eines Professors, sein Badge steckt in der Innentasche. Im Hoodie kommt ihr nicht weit. Beide müssen alles erledigen:",
+	"hint": "Verkleidungen gelten nur an ihrem Ort: Abendgarderobe im Hauptgebäude, Küchenschürze in der Mensa. Falsch angezogen füllt sich der Balken schneller.",
 	"start_toast": ["Zuerst in die Mensa", "Dort ist heute die Küche. Gleich neben der Tür hängen Schürzen, hinten rechts die Fracks der Kellner."],
 	"win_title": "Badge gesichert",
 	"win_text": "%s & %s tanzen mit dem Badge eines Professors aus dem Polyball.",
@@ -132,11 +132,11 @@ const DEF := {
 		{"pos": Vector2(47.5, 54.5), "face": -PI / 2.0, "mode": "jagd"},
 	],
 	"tasks": [
-		{"id": "abend", "name": "Abendgarderobe organisieren", "where": "Fracks der Kellner in der Küche (Mensa)", "type": "level"},
-		{"id": "armband", "name": "Armband fälschen", "where": "Vorlage am Bändel-Tisch beim Eingang, Bastelecke in der Küche", "type": "level"},
-		{"id": "tanz", "name": "Im Takt über die Tanzfläche", "where": "zu zweit auf der Tanzfläche in der Rotunde", "type": "level"},
-		{"id": "badge", "name": "Prof-Badge holen", "where": "grüner Lodenmantel in der Garderobe", "type": "level"},
-		{"id": "buffet", "name": "Buffet plündern", "where": "Buffettische in der Haupthalle", "type": "level"},
+		{"id": "abend", "name": "Abendgarderobe organisieren", "where": "Fracks in der Küche (Mensa)", "type": "level"},
+		{"id": "armband", "name": "Armband fälschen", "where": "Vorlage beim Eingang, Bastelecke in der Küche", "type": "level"},
+		{"id": "tanz", "name": "Im Takt über die Tanzfläche", "where": "zu zweit in der Rotunde", "type": "level"},
+		{"id": "badge", "name": "Prof-Badge holen", "where": "grüner Lodenmantel, Garderobe", "type": "level"},
+		{"id": "buffet", "name": "Buffet plündern", "where": "Buffet in der Haupthalle", "type": "level"},
 	],
 }
 
