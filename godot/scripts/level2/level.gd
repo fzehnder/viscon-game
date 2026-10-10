@@ -9,6 +9,8 @@ extends Node2D
 ## are watched by the cashier (light cone). Noise makes people attentive (yellow "!"), then they
 ## close gaps at once. At the head of the line you get your menu (timing minigame), then both
 ## sit down at the same table and the cutscene with the Basisprüfung e-mail plays.
+## Whoever you push in front of becomes an Opp (see opp.gd and Game.opps): they stay in the line
+## here, but they remember your face and come back in later levels.
 ##
 ## All positions are in tiles (1 tile = 32 px) unless a name ends in _px.
 
@@ -56,6 +58,9 @@ const ENTER_D := 0.22 * TS              # this close to the middle of the lane =
 const LEAVE_D := 0.62 * TS              # further away than this = left the line
 const EAT := Vector2(30.0, 48.0)
 const N_SIT := 14                       # guests who already sit when the level starts
+const GRUDGE := 5.0                     # seconds until somebody realises that you slipped in in front of them
+const MAX_OPPS := 3                     # at most this many Opps come out of this level
+const OPP_NAMES := ["Jonas", "Mia", "Luca", "Sara", "Nico", "Elin", "Tim", "Lea"]
 
 # ---- cashier
 const TILL := Vector2(15.4, 75.6)
@@ -98,6 +103,8 @@ var p_seat: Array = [-1, -1]
 var p_col: Array = [[0, 0], [0, 0]]   # collision layer and mask before sitting down
 var hint_noise := false
 var hint_tail := false
+var opp_count := 0
+var opp_names: Array = []
 # tables and seats
 var tables: Array = []                # Rect2
 var table_props: Array = []
@@ -337,6 +344,12 @@ func _physics_process(delta: float) -> void:
 		_update_players(delta)
 	_update_queue(delta)
 	for g in guests.duplicate():
+		if g.grudge_t > 0.0:
+			g.grudge_t -= delta
+			if g.grudge_t <= 0.0:
+				var who := _make_opp(g, g.grudge_by, "vorgedrängelt")
+				if who != "" and main.state == "play":
+					main.hud.toast("Neuer Opp: %s" % who, "%s hat gemerkt, dass du dich vorgedrängelt hast, und merkt sich dein Gesicht. Ihr seht euch wieder." % who, 4.5)
 		if g.mode == "sit":
 			g.eat_t -= delta
 			if g.eat_t <= 0.0:
@@ -452,6 +465,9 @@ func _try_insert(pid: int, s: float) -> void:
 	p_member[pid] = true
 	p_qs[pid] = s
 	p_out[pid] = 0.0
+	if behind != null and not _is_player(behind) and behind.grudge_t <= 0.0:
+		behind.grudge_t = GRUDGE   # distracted now, but not for ever
+		behind.grudge_by = pid
 	if behind != null:
 		# somebody is behind us now: that is jumping the queue (a teammate may also keep a gap open)
 		if main.done[pid].has("queue"):
@@ -481,12 +497,42 @@ func _caught(pid: int, by, cashier: bool) -> void:
 	var pl = main.players[pid]
 	main.fx.sound(pl.global_position, 2.6 * TS, Color(1.0, 0.4, 0.4, 0.7), 0.6)
 	UI.sfx("fail")
+	var who := _make_opp(by, pid, "beim Vordrängeln erwischt")
+	var extra := "" if who == "" else " Neuer Opp: %s merkt sich dein Gesicht." % who
 	if cashier:
 		cone_flash = 1.0
-		main.hud.toast("Erwischt!", "Kassiererin: «Hallo? Hinten anstellen, gell!» Die vordersten Plätze hat sie im Blick.", 3.5)
+		main.hud.toast("Erwischt!", "Kassiererin: «Hallo? Hinten anstellen, gell!» Die vordersten Plätze hat sie im Blick.%s" % extra, 4.5)
 	else:
-		main.hud.toast("Erwischt!", "«Hey, nicht drängeln!» Nur wer gerade abgelenkt ist (grüne Blase), merkt nichts.", 3.5)
+		main.hud.toast("Erwischt!", "«Hey, nicht drängeln!» Nur wer gerade abgelenkt ist (grüne Blase), merkt nichts.%s" % extra, 4.5)
 	_eject(pid)
+
+
+## The guest `g` now has it in for player `pid`: an Opp, also in later levels. Returns the name
+## if this is a new Opp, "" otherwise (already one, or the level has made enough).
+func _make_opp(g, pid: int, why: String) -> String:
+	g.grudge_t = -1.0
+	if g.opp_id != "":
+		var by: Array = Game.opps[g.opp_id]["by"]
+		if not by.has(pid):
+			by.append(pid)
+			Game.add_opp(g.opp_id, g.pname, g.look, by, why)
+		g.angry_t = 3.0
+		return ""
+	if opp_count >= MAX_OPPS:
+		return ""
+	if opp_names.is_empty():
+		opp_names = OPP_NAMES.duplicate()
+		opp_names.shuffle()
+	g.pname = opp_names[opp_count % opp_names.size()]
+	opp_count += 1
+	g.opp_id = "draengler_%d" % opp_count
+	g.angry_t = 3.0
+	var look: Dictionary = g.look.duplicate(true)
+	_set_acc(look, "tray", false)
+	Game.add_opp(g.opp_id, g.pname, look, [pid], why)
+	UI.sfx("doom", -9.0)
+	main.fx.sound(g.global_position, 2.6 * TS, Color(1.0, 0.4, 0.4, 0.7), 0.8)
+	return g.pname
 
 
 ## Pushes a player out of the lane, into the room.

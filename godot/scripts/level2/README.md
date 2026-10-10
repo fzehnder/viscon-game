@@ -9,6 +9,7 @@ Tag-Level für zwei. Mittag, die Schlange in der Mensa ist endlos und die Ausgab
 - **Lärm** (gehen, sprinten, Fehler im Minigame) macht die Leute aufmerksam (gelbes «!»), dann rücken sie sofort nach. Leute mit Kopfhörern brauchen länger.
 - **Kassiererin:** Die vordersten vier Plätze liegen in ihrem Lichtkegel. Dort wird man immer erwischt.
 - **In der Schlange** rückt man selber mit auf. Wer vor sich eine Lücke lässt, kann die andere Person hineinlassen.
+- **Opps:** Vor wen ihr euch drängelt, der wird zum Opp. Wer euch erwischt, sofort; wer abgelenkt war, merkt es nach ein paar Sekunden. Opps bekommen ein rotes Namensschild, bleiben in diesem Level aber in der Schlange stehen. Sie merken sich, wer es war, und tauchen in späteren Levels wieder auf.
 - **Ganz vorne:** «Menü schöpfen» (Timing-Minigame), danach trägt die Figur ein Tablett.
 - **Hinsetzen:** beide an denselben Tisch. Dann kommt die Cutscene (Sprechzeilen, Handys vibrieren, E-Mail der Prüfungsplanstelle, Titelkarte «BASISPRÜFUNG») und der Siegbildschirm mit Note.
 
@@ -35,6 +36,8 @@ Allgemeines, das für dieses Level dazukam und allen Levels gehört: `scripts/cu
 | `Q_SPEED` | 1.7 Tiles/s | Tempo beim Aufrücken |
 | `ALERT` | 2.5 s | wie lange jemand nach Lärm aufpasst |
 | `CONE_RANGE`, `CONE_DIR`, `CONE_HALF` | 4.1 Tiles, schräg nach rechts oben, 45 Grad | Blickfeld der Kassiererin |
+| `GRUDGE` | 5 s | wie lange es dauert, bis jemand merkt, dass ihr euch unbemerkt vor ihn gestellt habt |
+| `MAX_OPPS` | 3 | so viele Opps entstehen in diesem Level höchstens |
 | `ENTER_D`, `LEAVE_D` | 0.22 und 0.62 Tiles | wie nah an der Mittellinie man «drin» ist und ab wann man wieder «draussen» ist |
 | `PATH` | Theke, Ostwand, Nordwand, Tür, Polyterrasse | Verlauf der Schlange, Kopf zuerst |
 
@@ -45,15 +48,17 @@ Allgemeines, das für dieses Level dazukam und allen Levels gehört: `scripts/cu
 - **Gäste sind für Spieler fest** (Kollisionslayer 32, die Spieler bekommen ihn in `_ready` in die Maske). So passt man nur in eine echte Lücke. Die Gäste selbst werden direkt gesetzt und kollidieren mit nichts.
 - **Kreislauf:** Bediente Gäste tragen ihr Tablett an einen freien Platz, essen und gehen über die Polyterrasse weg. `_spawn_joiner` schickt Nachschub, sodass die Schlange bei `N_QUEUE` bleibt. Gäste lassen immer einen Tisch mit zwei freien Plätzen übrig und meiden den Tisch, an dem schon eine Spielfigur sitzt.
 - **Sitzen:** Tische und Stuhllehnen sind kleine Nodes in `main.actors` und sortieren sich mit den Figuren. Wer hinter dem Tisch sitzt, steht in dessen Fläche, der Tisch verdeckt die Beine; vorne verdeckt die Stuhllehne die Beine. Sitzende Spieler haben keine Kollision, weil der hintere Platz im Kollisionsrechteck des Tisches liegt.
+- **Opps:** `_make_opp` gibt dem Gast eine `opp_id` (`draengler_1` bis `draengler_3`) und einen Namen und meldet ihn mit Aussehen und Spieler bei `Game.add_opp`. Erwischt eine Person, die schon Opp ist, auch die zweite Spielfigur, kommt diese nur auf ihre Liste. Die Wiederkehr in späteren Levels erledigt das allgemeine Opp-System (`scripts/opp.gd`, `opp_spots` im jeweiligen Level).
 - **Karte:** `build_map` ersetzt die einfachen Mensa-Möbel durch Theke, Tablett-Gestell, sechs Tische und Stühle und nimmt die Mensa aus den Zonen der herumlaufenden Studierenden.
 
 ## Stand
 
-Fertig und im Headless-Bot-Durchlauf geprüft: Schlange, erwischt werden (Gast und Kassiererin), vordrängeln mit echter Bewegung, aufrücken, Menü holen, hinsetzen, Cutscene, Siegbildschirm, Übergang von Level 1.
+Fertig und im Headless-Bot-Durchlauf geprüft: Schlange, erwischt werden (Gast und Kassiererin), vordrängeln mit echter Bewegung, aufrücken, Menü holen, hinsetzen, Cutscene, Siegbildschirm, Übergang von Level 1, Opps durch Vordrängeln und ihre Wiederkehr in einem Testlevel 3.
 
 Noch nie von Menschen gespielt. Zeitlimit, Reaktionszeit und Kegel sind geschätzt und müssen im Spieltest eingestellt werden.
 
 Offen und Ideen:
-- Die Gäste haben keine Folgen fürs Opp-System (wer vorgedrängelt wurde, könnte später ein Opp sein).
+- Opps aus Level 1 (Deniz und Livia vom Lesetisch) kommen in der Mensa nicht vor, das Level hat keine `opp_spots`. Laut Vorgabe tauchen Opps erst ab Level 3 wieder auf.
+- Ein Opp in der Schlange tut in diesem Level nichts weiter, er verlässt seinen Platz nicht.
 - Wer in der Schlange steht und nicht aufrückt, hält alle dahinter beliebig lange auf. Es gibt keine Reaktion der Wartenden.
 - Die Cutscene zeigt die sitzenden Figuren nur von oben; es gibt keine Reaktion der Figuren selbst (zum Beispiel ein «!» über den Köpfen).
