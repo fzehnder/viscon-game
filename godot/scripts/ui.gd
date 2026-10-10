@@ -1,5 +1,8 @@
 extends RefCounted
-## Shared playful UI kit: colours, chunky panels, 3D buttons, outlined labels, pop-in, shake, confetti.
+## Shared UI kit: colours, panels, buttons, labels, pop-in, shake, confetti.
+## Look (since 10.10.2026): cream white paper (PAPER) with dark ink (INK), ETH blue (ETH_BLUE) as the
+## accent instead of yellow. Popups, intros, menus and the HUD all use it. Text on PAPER is INK or
+## INK2; white text with a dark outline is only for text drawn straight onto the game world.
 
 const NAVY := Color("23264a")
 const NAVY2 := Color("30356a")
@@ -15,6 +18,13 @@ const PURPLE := Color("9b6bff")
 const ORANGE := Color("ff8c42")
 const RED := Color("ff4d5e")
 const ETH_BLUE := Color("215caf")
+const PAPER := Color("fffdf7")    # panel background
+const PAPER2 := Color("f1ede2")   # rows, swatches, fields on a panel
+const INK := Color("1c2033")      # text on paper
+const INK2 := Color("646b7d")     # secondary text on paper
+const LINE := Color("d9d2c2")     # thin lines on paper
+const OK := Color("1f9d63")       # green that reads on paper
+const WARN := Color("d9741c")     # orange that reads on paper (instead of yellow)
 const PARTY := ["ffc93c", "ff5d8f", "3ddc97", "4d8dff", "9b6bff", "ff8c42", "ffffff"]
 
 
@@ -38,26 +48,27 @@ static func box(bg: Color, border: Color, radius: int = 18, bw: int = 4, pad: fl
 	sb.content_margin_top = pad
 	sb.content_margin_bottom = pad + 2.0
 	if shadow:
-		sb.shadow_color = Color(0, 0, 0, 0.35)
-		sb.shadow_size = 2
-		sb.shadow_offset = Vector2(0, 7)
+		sb.shadow_color = Color(0.1, 0.1, 0.2, 0.22)
+		sb.shadow_size = 10
+		sb.shadow_offset = Vector2(0, 4)
 	return sb
 
 
-static func panel(bg: Color = NAVY, border: Color = YELLOW, radius: int = 18, pad: float = 14.0) -> PanelContainer:
+static func panel(bg: Color = PAPER, border: Color = ETH_BLUE, radius: int = 14, pad: float = 14.0) -> PanelContainer:
 	var p := PanelContainer.new()
-	p.add_theme_stylebox_override("panel", box(bg, border, radius, 4, pad))
+	p.add_theme_stylebox_override("panel", box(bg, border, radius, 2, pad))
 	p.mouse_filter = Control.MOUSE_FILTER_IGNORE
 	return p
 
 
-static func label(text: String, size: int, color: Color = WHITE, outline: int = 0, wrap: bool = false) -> Label:
+## `outline` only applies to light text (on the game world); dark text on paper stays clean.
+static func label(text: String, size: int, color: Color = INK, outline: int = 0, wrap: bool = false) -> Label:
 	var l := Label.new()
 	l.text = text
 	var ls := LabelSettings.new()
 	ls.font_size = size
 	ls.font_color = color
-	if outline > 0:
+	if outline > 0 and color.get_luminance() > 0.55:
 		ls.outline_size = outline
 		ls.outline_color = DARK
 		ls.shadow_size = 1
@@ -73,10 +84,10 @@ static func label(text: String, size: int, color: Color = WHITE, outline: int = 
 static func _btn_box(c: Color, bottom: int, top_pad: float) -> StyleBoxFlat:
 	var sb := StyleBoxFlat.new()
 	sb.bg_color = c
-	sb.border_color = c.darkened(0.35)
-	sb.set_border_width_all(3)
+	sb.border_color = c.darkened(0.3)
+	sb.set_border_width_all(0)
 	sb.border_width_bottom = bottom
-	sb.set_corner_radius_all(14)
+	sb.set_corner_radius_all(10)
 	sb.content_margin_left = 22
 	sb.content_margin_right = 22
 	sb.content_margin_top = top_pad
@@ -84,24 +95,23 @@ static func _btn_box(c: Color, bottom: int, top_pad: float) -> StyleBoxFlat:
 	return sb
 
 
-## Chunky 3D button: pops on hover, presses down on click, clicks audibly.
-static func button(text: String, c: Color = BLUE, size: int = 20) -> Button:
+## Flat button with a thin bottom edge: grows a little on hover, presses down on click, clicks audibly.
+static func button(text: String, c: Color = ETH_BLUE, size: int = 20) -> Button:
 	var b := Button.new()
 	b.text = text
 	b.focus_mode = Control.FOCUS_NONE
 	b.add_theme_font_size_override("font_size", size)
-	b.add_theme_stylebox_override("normal", _btn_box(c, 8, 10))
-	b.add_theme_stylebox_override("hover", _btn_box(c.lightened(0.12), 8, 10))
-	b.add_theme_stylebox_override("pressed", _btn_box(c.darkened(0.05), 3, 15))
+	b.add_theme_stylebox_override("normal", _btn_box(c, 4, 10))
+	b.add_theme_stylebox_override("hover", _btn_box(c.lightened(0.1), 4, 10))
+	b.add_theme_stylebox_override("pressed", _btn_box(c.darkened(0.08), 1, 13))
 	b.add_theme_stylebox_override("focus", StyleBoxEmpty.new())
 	for k in ["font_color", "font_hover_color", "font_pressed_color", "font_focus_color"]:
 		b.add_theme_color_override(k, WHITE)
-	b.add_theme_color_override("font_outline_color", c.darkened(0.5))
-	b.add_theme_constant_override("outline_size", 5)
+	b.add_theme_constant_override("outline_size", 0)
 	b.resized.connect(func(): b.pivot_offset = b.size / 2.0)
 	b.mouse_entered.connect(func():
 		var tw := b.create_tween()
-		tw.tween_property(b, "scale", Vector2(1.06, 1.06), 0.14).set_trans(Tween.TRANS_BACK).set_ease(Tween.EASE_OUT))
+		tw.tween_property(b, "scale", Vector2(1.03, 1.03), 0.12).set_trans(Tween.TRANS_SINE))
 	b.mouse_exited.connect(func():
 		var tw := b.create_tween()
 		tw.tween_property(b, "scale", Vector2.ONE, 0.12))
