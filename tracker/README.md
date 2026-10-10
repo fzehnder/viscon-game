@@ -172,7 +172,7 @@ Die Messwerte zittern von selbst um einige Millimeter. Für Rotlicht-Grünlicht 
 
 - **`Track.status` bleibt auf «Kamera startet …»:** Erster Start, uv lädt noch Pakete. Einmal `uv run tracker/tracker.py --selftest` von Hand laufen lassen.
 - **«keine Kamera (Zugriff erlaubt?)»:** macOS: Systemeinstellungen, Datenschutz & Sicherheit, Kamera, Godot einschalten (wer Godot aus dem Terminal startet: das Terminal). Windows: Einstellungen, Datenschutz, Kamera. Oder ein anderes Programm hält die Kamera fest.
-- **Falsche Kamera** (zum Beispiel das iPhone statt der eingebauten): Umgebungsvariable `VISCON_CAMERA=1` setzen, bevor Godot startet, oder beim Start von Hand `--camera 1`.
+- **Falsche Kamera:** Auf dem Mac nimmt der Tracker von selbst die eingebaute Kamera und nicht ein iPhone, das sich als Kamera anbietet. `uv run tracker/tracker.py --list-cameras` zeigt, welche Kameras es gibt und welche genommen wird. Eine andere wählen: Umgebungsvariable `VISCON_CAMERA` setzen, bevor Godot startet, oder beim Start von Hand `--camera`, je mit einer Nummer oder einem Teil des Namens (`VISCON_CAMERA=iPhone`). Unter Windows und Linux gibt es keine Namen, dort gilt Kamera 0, sonst die Nummer angeben. In `track_debug` steht oben, welche Kamera läuft.
 - **«kein Tracker»:** Weder uv noch eine `tracker/.venv` gefunden. Ein eigenes Python lässt sich mit der Umgebungsvariable `VISCON_PYTHON` angeben.
 - **Pusten reagiert nicht:** `M` in `track_debug` zeigt die rohen Pegel. Steht «tief» fest auf −80 dB, liefert das Mikrofon nichts (Freigabe für Godot, oder `audio/driver/enable_input` fehlt in `project.godot`).
 - **Mac mit Intel-Prozessor:** Für `mediapipe` 1.1.0 gibt es dort kein fertiges Paket. In der Kopfzeile von `tracker.py` eine ältere Version eintragen.
