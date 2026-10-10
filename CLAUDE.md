@@ -24,10 +24,10 @@ Jedes Level bekommt einen eigenen Branch. Kein Level-Branch hängt von einem and
 
 | Branch | Wer | Inhalt |
 |---|---|---|
-| `main` | alle | der zusammengeführte Stand: `level-base` und `level2-mensa` (Stand 10.10.2026), dazu das alte Phaser-Gerüst |
+| `main` | alle | der zusammengeführte Stand: `level-base`, `level2-mensa`, `level3-polyball` und `level4-labor` (Stand 10.10.2026), dazu das alte Phaser-Gerüst |
 | `level-base` | Leo | gemeinsamer Stand ohne Level-Ordner: Level 1, Level-Gerüst, Opp-System, HUD mit Minimap, fliessender Split Screen, Aufgabenwahl mit Pfeilen, Hauptgebäude nach echtem Grundriss. Hier zweigen neue Branches ab |
 | `level2-mensa` | Leo | `level-base` (regelmässig hineingemergt) plus Ordner `godot/scripts/level2/` |
-| `level4-labor` | Knuusper | Level 4 "Chemiepraktikum" in `godot/scripts/level4/`, fasst keine gemeinsame Datei an. Noch nicht auf `main` |
+| `level4-labor` | Knuusper | `level-base` (hineingemergt) plus Ordner `godot/scripts/level4/` (Level 4 "Chemiepraktikum" mit dem Kamera-Pipettieren). Seit dem 10.10.2026 auf `main` |
 | `tracking` | Deniz Acar | Kamera- und Mikrofon-Tracking für Minigames (siehe unten). Seit dem 10.10.2026 in `level-base` und damit auf `main` |
 | `level3-polyball` | Deniz Acar | `level-base` plus Ordner `godot/scripts/level3/` (Level 3 "Polyball"). Seit dem 10.10.2026 auf `main` |
 | `level1-coop`, `godot-eth-tag-nacht` | Finn | alte Stände vor dem Level-Gerüst, nicht mehr weiterführen |
@@ -54,10 +54,6 @@ Regeln:
 - `scripts/cutscene.gd`: Cutscenes aus Schritten (`say`, `phones`, `mail`, `title`), für alle Levels.
 - Opps: `"npcs"` und `"opp_spots"` in `DEF`, `Game.add_opp(...)` für eigene Auslöser, optionaler Hook `on_opp_catch(opp, pid) -> bool`. Siehe Abschnitt "Opp-System".
 - Ein lauffähiges Gerüst für ein neues Level steht in `godot/README.md` (getestet), die ausführliche Vorlage ist `scripts/level2/level.gd` auf `level2-mensa`.
-
-## Was die anderen gebaut haben (Stand 10.10.2026, noch nicht auf `main`)
-
-- **Level 4 "Chemiepraktikum"** (`origin/level4-labor`, Knuusper): Tag-Level im Labor im Südflügel bei Prof. Dr. Siedler. Erst pipettieren beide (Timing-Minigame als Platzhalter für das echte Experiment), dann schreiben beide ein Testat (eigenes Quiz, zwei Serien). Wer durchfällt, löst einen Wutanfall des Professors aus (Vollbild-Szene), und das Level beginnt neu. Alles in `godot/scripts/level4/`, Beschreibung in dessen `README.md`.
 
 ## Karte
 
@@ -110,7 +106,7 @@ Umsetzung (an den vorhandenen Code angepasst: Skripte statt `Npc.tscn`, Sicht pe
 - Level 1: Der "Rucksack" aus der Vorgabe **ist die Ersti-Bag**, es gibt dafür keine eigene Aufgabe. Deniz (`rucksack_a`) und Livia (`rucksack_b`) sitzen am Lesetisch in der Bibliothek, ihre Ersti-Bags stehen neben dem Stuhl; die Aufgabe "Ersti-Bag klauen" (jetzt Typ `"bag"`) wird dort erledigt. Die Ersti-Menge auf der Polyterrasse trägt keine Bags mehr (`"bags": 0`); der alte Weg (Bag einem Ersti aus der Menge per Timing-Minigame vom Rücken klauen, Typ `"steal"`) steckt noch in `main.gd` und `student.gd`, ist aber abgeschaltet.
 - Level 2 (auf `level2-mensa`): siehe dessen README.
 
-## Kamera- und Mikrofon-Tracking (gebaut, noch ohne Minigames)
+## Kamera- und Mikrofon-Tracking (gebaut; erstes Minigame: Pipettieren in Level 4)
 
 Vorgabe des Teams: Minigames mit Kamera-Erkennung (Pose nachstellen, in die Luft greifen, Pinch, nicht blinzeln, stillhalten, nicken oder Kopf schütteln) und Pusten ins Mikrofon. Die Minigames entstehen beim Bau der Levels, hier liegt nur das Fundament. Anleitung, Datenfelder und ein Rezept pro geplantem Minigame: `tracker/README.md`.
 
@@ -118,9 +114,13 @@ Vorgabe des Teams: Minigames mit Kamera-Erkennung (Pose nachstellen, in die Luft
 - Autoload `Track` (`scripts/tracking.gd`): `Track.use(self, ["face"])` (auch `"hand"`, `"pose"`) gilt, solange der Node im Baum ist. `Track.face(pid)`, `Track.hand(pid)`, `Track.pose(pid)` liefern, was in der Bildhälfte der Person ist (P1 sitzt links, P2 rechts), sonst `{}`. `Track.preview` ist das Kamerabild. `Track.use_mic(self)`, danach `Track.blow` (0 bis 1) und `Track.blowing`. Vor dem ersten `use` läuft nichts und kostet nichts.
 - `scripts/track_math.gd`: fertige Auswertungen (`eyes_closed`, `looking_away`, `moved_cm`, `pinch01`, `is_fist`, `pose_match`, Klassen `NodShake` und `Jitter`). Schwellen als Konstanten oben in der Datei.
 - **Jedes Kamera-Minigame braucht eine Tasten-Variante:** Ohne Kamera oder Tracker bleibt `Track.alive` auf `false`.
+- Erstes Minigame damit: Pipettieren zu zweit in Level 4 (`scripts/level4/pipette_game.gd`). Eine Person drückt Daumen und Zeigefinger genau richtig zusammen (`TM.pinch01`, Balken von Rot über Grün nach Rot), die andere hält die Hand waagrecht und ruhig (Neigung aus den Handpunkten 0 und 9, Zittern über `TM.Jitter`). Kamerabild mit eingezeichneten Händen, Tasten-Variante nach 6 s ohne Bild oder sofort, wenn `Track.status` mit «kein» beginnt. Als Vorlage für weitere Kamera-Minigames brauchbar. Das Level ruft `Track.use(self, ["hand"], false)` schon in `_ready`, damit die Kamera bereit ist, wenn die Figuren am Tisch ankommen, und gibt sie danach mit `Track.release(self)` zurück.
+- Falle beim Einrichten (macOS): Nimmt `uv` das Python von python.org, scheitert der erste Download der Modelle an `CERTIFICATE_VERIFY_FAILED`. `tracker/models/` bleibt dann leer, und das Spiel zeigt nur die Tasten-Variante. Abhilfe: `SSL_CERT_FILE=/etc/ssl/cert.pem uv run tracker/tracker.py --selftest`.
+- Die Kamera-Freigabe hängt am Programm, das startet. Aus der Claude-App heraus (und aus manchen Terminals) verweigert macOS die Kamera («not authorized to capture video»), auch wenn Tracker und Modelle in Ordnung sind: Der Selbsttest meldet dann `camera FAILED`. Die echte Kamera muss deshalb ein Mensch prüfen, der Godot selbst startet; nicht versuchen, das zu umgehen.
 - Testszene: `godot --path godot res://track_debug.tscn`. Ohne Kamera testen: den Tracker vorher von Hand mit `--fake bild.jpg` starten, das Spiel benutzt dann diesen.
 - `Track` rechnet seine Wartezeiten in Echtzeit, nicht in Spielzeit. In Bot-Läufen mit `--fixed-fps` startet der Tracker deshalb meist gar nicht; Kamera-Minigames dort über die Tasten-Variante prüfen.
-- Offen: Die Schwellen sind Startwerte und noch nicht im Spieltest eingestellt. Pusten ist nur mit Raumgeräusch geprüft. Vorzeichen von `pitch` und die Angabe linke/rechte Hand sind nicht von einem Menschen bestätigt.
+- Kamera-Minigames ohne Kamera und ohne Hände prüfen, zwei Wege: (a) Die Kette Spiel und Tracker mit `--fake` und irgendeinem Bild, auch einem grauen: `Track.alive` wird wahr, die Vorschau kommt an, Hände gibt es keine. Dazu das Spiel **ohne** `--fixed-fps` laufen lassen und den Tracker danach wieder beenden. (b) Die Auswertung mit künstlichen Händen im Bot, auch mit `--fixed-fps`: jeden Frame `Track._last_data = 1.0e12` setzen (hält `Track.alive` auf wahr) und `Track.hands` mit Einträgen im Format des Trackers füllen (`x`, `y`, `palm`, `pinch`, `open`, `side` und 21 `pts`; `x` unter 0.5 gehört P1).
+- Offen: Die Schwellen sind Startwerte und noch nicht im Spieltest eingestellt, auch die des Pipettierens (`PINCH_TARGET`, `LEVEL_TOL`, `SHAKE_LIMIT` in `pipette_game.gd`). Pusten ist nur mit Raumgeräusch geprüft. Vorzeichen von `pitch` und die Angabe linke/rechte Hand sind nicht von einem Menschen bestätigt. Mit echter Kamera und echten Händen ist noch kein Minigame gelaufen.
 
 ## Spielkonzept (Plan)
 
@@ -187,6 +187,8 @@ Auf `level2-mensa`: Level 2 "Mensa-Stau" komplett spielbar (Schlange als Stau, K
 
 Auf `level3-polyball`: Level 3 "Polyball" im Hauptgebäude (Verkleidung als Faktor auf das Opp-System, Frack, Armband zu zweit, Prof-Badge im Spielstand, Buffet, wiederkehrende Opps über `opp_spots`). Das Kamera-Minigame auf der Tanzfläche fehlt noch. Details, Stellschrauben und Offenes in `godot/scripts/level3/README.md`.
 
+Auf `level4-labor`: Level 4 "Chemiepraktikum" (Tag, 5 min) im Labor im Südflügel, per `build_map` zum Chemielabor umgebaut, mit Prof. Dr. Siedler und fünf Studierenden. Aufgabe 1 ist das Kamera-Pipettieren zu zweit (siehe "Kamera- und Mikrofon-Tracking"), Aufgabe 2 ein Testat in zwei Serien mit Fragen, die alle beantworten können (eigenes Quiz `chem_quiz.gd`, ein Fehler erlaubt). Wer trotzdem durchfällt, löst einen Wutanfall des Professors aus (Vollbild-Szene `prof_rage.gd`), und das Level beginnt für beide neu. Keine `opp_spots`. Per Bot geprüft: Tasten-Variante, künstliche Handdaten, echter Tracker auf einem Standbild, Testat bis Sieg und bis Wutanfall. Details, Stellschrauben und Offenes in `godot/scripts/level4/README.md`.
+
 Geprüft (per Bot, nach dem Kartenumbau): Level 1 mit Ersti-Bags und Opps bis zum Sieg, Kamera und HUD, Level 2 von der Schlange bis zum Siegbildschirm, Erreichbarkeit aller Räume bei Tag und Nacht. Von Menschen ist noch nichts davon gespielt worden: Schwierigkeit, Zeiten und das Gefühl des Split-Screen-Übergangs sind offen. Die Nacht ist nach dem Kartenumbau nur auf Erreichbarkeit geprüft, nicht gespielt.
 
 Altes Prototyp-Verhalten (Nacht), noch nicht nach Plan:
@@ -197,7 +199,7 @@ Offen:
 - Nacht laut Plan: Guard-Sprint bei Alarm, Rauswurf statt Game Over, Teammate holt den Spieler zurück, verloren erst wenn beide draussen sind
 - Opps: Kein Level hat bisher `opp_spots`, die Wiederkehr ist nur mit einem Testlevel geprüft. Offen ist auch, ob "erwischt ohne Beute = Level verloren" am Tag zu hart ist
 - Level 3: Das Kamera-Minigame auf der Tanzfläche fehlt noch, alles andere ist gebaut (siehe `godot/scripts/level3/README.md`)
-- `level4-labor` ist nicht gegen die neuesten Änderungen hier geprüft (Bag rausbringen, Aufgabenwahl, HUD)
+- Level 4: Das Kamera-Pipettieren ist noch nie mit echter Kamera und echten Händen gelaufen, die Schwellen sind geschätzt. Gegen Aufgabenwahl und neues HUD ist das Level nur mit Bot-Läufen und Screenshots geprüft, nicht gespielt
 - `tracking` und Level 3 sind nach dem Zusammenführen nur mit kurzen Startläufen gegen den neuen Stand geprüft, nicht neu durchgespielt
 - Die Möblierung der neuen Büros und Hörsäle ist schlicht (Pult, Stuhl, Bankreihen); die Hörsäle sind rechteckig mit Bühnennische statt fächerförmig, die Höfe neben den Hörsälen fehlen
 - Der Pages-Deploy-Workflow auf `main` baut weiterhin nur den Phaser-Platzhalter, das Godot-Spiel wird nirgends automatisch gebaut oder veröffentlicht
@@ -239,6 +241,9 @@ So funktioniert die Engine-Seite des Spiels:
 - **HUD-Plätze** (so vom Team gewünscht): oben links und rechts die Aufgabenkarten, oben Mitte Level und Zeit, unten Mitte die Minimap, unten links die Nacht-Fähigkeit, Eingabehinweise unten bei 25 % und 75 % der Breite, der Toast erscheint für ein paar Sekunden vor der Minimap. Damit im gemeinsamen Bild niemand hinter Zeit-Karte oder Minimap gerät, teilt sich der Bildschirm vertikal früher (`SPLIT_AT_Y` 0.42 statt 0.7 wie horizontal). Wer eine dieser Anzeigen grösser macht, muss `SPLIT_AT_Y` nachrechnen: Füsse der oberen Figur bei `360 - SPLIT_AT_Y * 360` px, eine Figur ist bei Zoom 2.5 etwa 115 px hoch.
 - **Minimap:** Klasse `MiniMap` in `hud.gd`, Kacheln einmal als Textur, Markierungen aus `main.goal_positions()`. Was ein Level dort zeigen will, liefert es über `goal_positions`.
 - **Aufgabe wieder öffnen:** `main.done[pid].erase(id)`; das HUD zieht den Chip von selbst zurück.
+- **Eigenes Minigame eines Levels** (wenn `minigame.gd` nicht passt, zum Beispiel eigene Fragen oder die Kamera): ein `CanvasLayer` mit `layer = 20` im Level-Ordner, der sich so anmeldet, wie es `main.open_minigame` tut: `main.minis[pid] = node`, `main.nears[pid] = null`, `main.players[pid].enabled = false`, `main.add_child(node)`; am Ende `main.minis[pid] = null` und `enabled = true`. Für eine Person auf ihrer Bildhälfte (`screen_side` und `_place_half` wie in `minigame.gd`), für beide dasselbe Objekt an beiden Plätzen von `main.minis`, dann bleibt das Bild ungeteilt. `main._close_minis` räumt solche Nodes mit auf. Beispiele: `level4/chem_quiz.gd` (eine Person) und `level4/pipette_game.gd` (beide).
+- **Koop-Aufgabe aus einem Level:** `main._coop_done(id)` erledigt eine Aufgabe für beide und feiert in Gelb, auch bei Aufgaben vom Typ `"level"`.
+- **Ein Level von sich aus verlieren lassen:** `main.state = "cutscene"` (die Uhr steht), eigene Szene abspielen, dann `main.state = "lost"` und `main.hud.show_overlay(Titel, Text, Hinweis, "Nochmals versuchen", true, "lose", "LEVEL %d" % Game.level)`. R, M und der Button laufen danach über `main.gd`. Was den Neustart überleben soll (zum Beispiel ein Zähler der Versuche), kommt in eine `static var` des Level-Skripts: `levels.gd` behält die Skripte im Speicher.
 - **Spielstand:** Alles, was `Game.save_game()` schreibt, landet im echten `user://`-Ordner des Rechners. Tests mit `--nosave` starten oder `Game.save_path` auf eine Testdatei umbiegen und diese am Ende löschen.
 
 GDScript-Fallen, in die ich getreten bin oder die ich umgangen habe:
@@ -249,6 +254,7 @@ GDScript-Fallen, in die ich getreten bin oder die ich umgangen habe:
 - Konstanten mit Funktionsaufruf (`const X := deg_to_rad(...)`) vermeiden, Zahl direkt hinschreiben.
 - In einer Schleife über `members.size()` die Liste nicht verändern; Abgänge merken und nach der Schleife entfernen.
 - Der Standard-Font kann «•», «·» und Guillemets, aber keine Emojis oder Pfeil-Symbole: Symbole zeichnen statt schreiben.
+- `preload` mit relativem Pfad (`preload("lab_person.gd")`) funktioniert innerhalb eines Level-Ordners. So lässt sich ein Level umnummerieren, ohne Pfade anzufassen.
 
 Damit ein Level zum Rest passt:
 - Farben und Bausteine aus `ui.gd`: Panels `UI.panel(UI.NAVY, Rahmenfarbe)`, Texte `UI.label`, Buttons `UI.button`, Einblenden `UI.pop_in`, Wackeln `UI.shake`, Konfetti `UI.confetti`. P1 ist Pink, P2 Blau (`KEYS.TAG_COLORS`), Gelb heisst "beide".
@@ -268,6 +274,10 @@ Zusammenarbeit:
 - Begriffe aus einer Vorgabe erst gegen das abgleichen, was es im Spiel schon gibt, bevor etwas Neues daneben entsteht. Der "Rucksack" in der Opp-Vorgabe war die vorhandene Ersti-Bag; ich hatte zuerst eine zweite Aufgabe gebaut.
 - Die Zeit-Karte hatte ich aus Sorge um verdeckte Figuren nach unten gelegt; das Team wollte sie oben und die Minimap unten in der Mitte. Richtig war: so platzieren wie gewünscht und das Verdecken über `SPLIT_AT_Y` lösen.
 - Ausführliches Testen nach jedem Schritt kostet dem Team zu viel Zeit (siehe "Arbeitsweise").
+- `level-base` ändert sich laufend: Während Level 4 entstand, wurde das Hauptgebäude umgebaut und das Labor lag danach woanders. Vor dem Zusammenführen `git fetch`, `level-base` hineinmergen und alle Positionen des Levels gegen die Tabelle unter "Karte" prüfen.
+
+Rechner und Werkzeuge:
+- Liegt das Repo in einem Ordner, den macOS mit iCloud abgleicht («Schreibtisch & Dokumente»), entstehen bei Git-Operationen Kopien wie `CLAUDE 2.md`, `project 2.godot` oder ein leerer Ordner `level4 2`. Das sind alte Fassungen (mit `git log --all --find-object=$(git hash-object "DATEI")` nachprüfbar), sie gehören nicht ins Repo. Am besten liegt das Repo ausserhalb von iCloud; sonst hält ein Muster wie `* [2-9].*` in `.git/info/exclude` sie aus `git status` heraus.
 
 ## Prüfen ohne Editor
 
@@ -286,5 +296,6 @@ godot --headless --path godot --fixed-fps 60 --quit-after 600 res://main.tscn --
 - Kamerabewegung nur mit echtem Laufen messen (`Input.action_press`), ein Teleport ist selbst ein Sprung. Nahtprüfung fürs gemeinsame Bild: rechte Kante der linken Kamera gleich linke Kante der rechten.
 - Fehler in Teleport-Tests sind oft Fehler des Tests: Abstände genau nachrechnen (eine Interaktion mit "kleiner als 1.1" greift bei genau 1.1 nicht), und Zähler gehen bei `reload_current_scene` verloren, weil die Testszene neu entsteht.
 - Screenshots brauchen ein echtes Fenster (headless rendert nicht): ohne `--headless`, mit `--audio-driver Dummy --disable-vsync` und einer temporären `override.cfg` mit `display/window/size/no_focus=true`; speichern mit `get_viewport().get_texture().get_image().save_png(...)`.
+- Level 4 wurde mit so einem Bot geprüft: Pult vor dem Pipettieren gesperrt, Pipettieren nur zu zweit, Tasten-Variante mit echten Tastendrücken (`Input.action_press("p1_interact")`, `"p2_left"`), Kamera-Weg mit künstlichen Handdaten (siehe "Kamera- und Mikrofon-Tracking"), Testat bis zum Sieg und bis zum Wutanfall. Das Testat beantwortet der Bot über `main.minis[pid].opts` und `_pick(i)`.
 - Temporäre Testdateien (`zz_*`, `override.cfg`, deren `.uid`) vor dem Commit wieder löschen.
 - Der Bot beweist, dass der Ablauf funktioniert, nicht dass er Spass macht oder die Schwierigkeit stimmt.
