@@ -58,8 +58,7 @@ Jeder Schritt sendet einen Geräusch-Kreis aus: schleichen fast lautlos, gehen n
 **Ablauf (Story-Modus, keine Departemente mehr):** Startseite → Hack der Bewerbungsseite → Namen → Legi-Foto pro Person (Kamera des Geräts, sonst gezeichnete Figur) → Figuren gestalten → Level 1.
 
 **Level 1 · Ersti-Tag (Tag):** Ihr startet in der Ersti-Menge auf der Polyterrasse. Beide müssen alles erledigen:
-- Ersti-Bag klauen: von hinten anschleichen. Wer laut ist, wird gehört, dann halten die Erstis ihre Bag fest. Die Bag erscheint danach auf eurer Figur.
-- Rucksack klauen: Am Lesetisch in der Bibliothek sitzen Deniz und Livia, neben jedem Stuhl steht ein Rucksack. Leise von hinten heran und mit der Interaktionstaste nehmen. Wer dabei gesehen wird, hat sofort einen Opp am Hals (siehe unten).
+- Ersti-Bag klauen: Am Lesetisch in der Bibliothek sitzen Deniz und Livia, neben jedem Stuhl steht eine Ersti-Bag. Leise von hinten heran und mit der Interaktionstaste nehmen, die Bag erscheint danach auf eurer Figur. Wer laut ist, wird gehört, und wer beim Klauen gesehen wird, hat sofort einen Opp am Hals (siehe unten).
 - Legi validieren: an einem der Terminals in der Haupthalle.
 - Moodle & Code Expert einrichten: an einem der PCs (Bibliothek, Seminarraum).
 - High Five: zu zweit, überall, wo ihr nebeneinander steht.
@@ -75,10 +74,10 @@ Ein Opp ist jemand, dem ihr etwas angetan habt. Die meisten Leute sind zuerst ne
 - **Verdachtsbalken:** Sieht euch ein Opp, füllt sich der Balken über seinem Kopf, näher dran geht es schneller. Erst bei 100 % beginnt die Jagd, vorher könnt ihr aus dem Kegel verschwinden.
 - **Lärm:** Gehen und Sprinten hört man, Schleichen nicht. Normale Leute stört das nicht. Wer in einem Level darauf achten soll (die beiden am Lesetisch), dreht sich um. Opps gehen nachsehen, das kann die andere Person ausnutzen und sie weglocken.
 - **Wer ist gemeint:** Ein Opp ist nur hinter denen her, die ihm etwas getan haben. Die andere Person lässt er in Ruhe.
-- **Erwischt:** Berührt euch ein Opp, während ihr seinen Rucksack tragt, ist die Beute weg: Er bringt sie zurück an den Platz, die Aufgabe ist wieder offen und es zählt als Fehler. Ohne Beute heisst erwischt: Level verloren.
+- **Erwischt:** Berührt euch ein Opp, während ihr seine Bag tragt, ist die Beute weg: Er bringt sie zurück an den Platz, die Aufgabe ist wieder offen und es zählt als Fehler. Ohne Beute heisst erwischt: Level verloren.
 - **Tempo:** Ein Opp ist schneller als Gehen und langsamer als Sprinten. Abhängen geht mit einem Sprint und einer Ecke oder einem Regal dazwischen.
 
-Rucksack in Level 1: Sieht der Besitzer den Diebstahl, wird er sofort zum Opp. Sieht er ihn nicht, merkt er es erst nach 6 bis 9 Sekunden (oder früher, wenn er sich umdreht und euch mit dem Rucksack sieht) und sucht dann in eure Richtung.
+Ersti-Bag in Level 1: Sieht Deniz oder Livia den Diebstahl, wird er oder sie sofort zum Opp. Sonst fällt es erst nach 6 bis 9 Sekunden auf (oder früher, wenn sich jemand umdreht und euch mit der Bag sieht), und dann wird in eure Richtung gesucht.
 
 Der Code steht in `scripts/opp.gd` (Zustände und Stellschrauben oben in der Datei), die Liste der Opps im Autoload `Game` (`game_state.gd`).
 
@@ -157,11 +156,11 @@ func finale(done: Callable) -> void:
 Opps im eigenen Level, alles über `DEF`, ohne weiteren Code:
 
 ```gdscript
-	# Leute, die Opps werden können. "bag" stellt einen klaubaren Rucksack daneben
-	# (dazu eine Aufgabe mit "type": "bag"). Ist die id schon ein Opp, startet die Person wütend.
+	# Leute, die Opps werden können. "bag" stellt etwas Klaubares daneben (dazu eine Aufgabe
+	# mit "type": "bag"), "bag_name" benennt es. Ist die id schon ein Opp, startet die Person wütend.
 	"npcs": [
 		{"id": "mate_max", "name": "Max", "pos": Vector2(41.0, 31.0), "face": PI / 2.0, "mode": "steht",
-			"bag": Vector2(41.7, 31.1), "hears": true, "if_opp": "lauert"},
+			"bag": Vector2(41.7, 31.1), "bag_name": "Rucksack", "hears": true, "if_opp": "lauert"},
 	],
 	# Plätze für Opps aus früheren Levels: "lauert" wartet dort, "jagd" kommt euch suchen.
 	"opp_spots": [{"pos": Vector2(30.0, 45.0), "face": 0.0, "mode": "lauert"}, {"pos": Vector2(60.0, 40.0), "mode": "jagd"}],
@@ -204,7 +203,7 @@ Eine neue Frisur oder ein neues Accessoire fügst du in `character_art.gd` hinzu
 | `scripts/world.gd` | Zeichnen der Karte (Tag/Nacht), Kollision, A*-Wege |
 | `scripts/minigame.gd` | Alle Minigames inklusive Moodle |
 | `scripts/player.gd`, `professor.gd`, `student.gd` | Figuren |
-| `scripts/opp.gd` | Leute, die zu Opps werden: Zustände, Sichtkegel, Verdachtsbalken, Rucksack |
+| `scripts/opp.gd` | Leute, die zu Opps werden: Zustände, Sichtkegel, Verdachtsbalken, klaubare Bag |
 | `scripts/hud.gd`, `scripts/fx.gd` | Anzeigen und Effekte |
 | `scripts/game_state.gd` | Autoload «Game»: gewählte Optionen |
 

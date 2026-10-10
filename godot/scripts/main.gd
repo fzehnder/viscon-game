@@ -541,7 +541,7 @@ func _update_near(i: int) -> void:
 		var db: float = p.distance_to(op.bag_pos / TS)
 		if db < best and db < 1.1:
 			best = db
-			nears[i] = {"use": "bag", "opp": op, "label": "Rucksack klauen",
+			nears[i] = {"use": "bag", "opp": op, "label": "%s klauen" % op.bag_name,
 				"rect": Rect2(op.bag_pos / TS - Vector2(0.35, 0.6), Vector2(0.7, 0.75))}
 	if night:
 		return
@@ -735,13 +735,15 @@ func _bag_task() -> String:
 
 func _steal_bag(i: int, op) -> void:
 	var pl = players[i]
-	if (pl.look.get("acc", []) as Array).has("loot"):
-		hud.toast("Hände voll", "Du trägst schon einen Rucksack.", 2.5)
-		return
-	ART.set_acc(pl.look, "loot", true)
+	for other in opps:
+		if other.bag_state == "stolen" and other.bag_thief == i:
+			hud.toast("Hände voll", "Du hast schon eine Beute dabei.", 2.5)
+			return
+	ART.set_acc(pl.look, op.bag_acc, true)
 	pl.look["loot_col"] = op.bag_col.to_html(false)
 	pl.queue_redraw()
 	UI.sfx("steal")
+	UI.confetti(fx, pl.global_position + Vector2(0, -30), 40, true, 70.0, 0.3)
 	var id := _bag_task()
 	if id != "":
 		_task_done(i, id)
@@ -760,7 +762,7 @@ func on_new_opp(op, seen: bool) -> void:
 		hud.toast("Neuer Opp: %s" % op.pname, "%s hat es bemerkt und sucht dich. Bleib ausser Sicht." % op.pname, 4.0)
 
 
-## An Opp touched a player. With their backpack on you: you lose it. Otherwise the level is over.
+## An Opp touched a player. With their bag on you: you lose it. Otherwise the level is over.
 func opp_catch(op, pl) -> void:
 	if state != "play":
 		return
@@ -769,7 +771,7 @@ func opp_catch(op, pl) -> void:
 		return
 	if op.bag_state == "stolen" and op.bag_thief == pid:
 		mistakes_total += 1
-		ART.set_acc(pl.look, "loot", false)
+		ART.set_acc(pl.look, op.bag_acc, false)
 		pl.queue_redraw()
 		done[pid].erase(_bag_task())
 		op.take_back()
@@ -783,7 +785,7 @@ func opp_catch(op, pl) -> void:
 				pl.enabled = true)
 		fx.sound(pl.global_position, 3.0 * TS, Color(1.0, 0.4, 0.4, 0.7), 0.8)
 		UI.sfx("fail")
-		hud.toast("Erwischt!", "%s hat den Rucksack zurück und passt jetzt besser auf. Hol ihn dir nochmals, wenn niemand hinschaut." % op.pname, 4.5)
+		hud.toast("Erwischt!", "%s hat die Beute zurück und passt jetzt besser auf. Hol sie dir nochmals, wenn niemand hinschaut." % op.pname, 4.5)
 		return
 	caught(op)
 

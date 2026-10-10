@@ -43,7 +43,7 @@ Regeln:
 
 ## Opp-System (gebaut, auf `level-base`)
 
-Vorgabe des Teams: Die meisten NPCs sind zuerst neutral, ein Ereignis macht sie zum Opp, der Status bleibt über Levels gespeichert. Level 1: zwei Studis am Lesetisch, Rucksack geklaut, Opp verfolgt dich. Level 2: Person in der Schlange, vor die man sich drängelt. Ab Level 3: Opps aus früheren Levels tauchen wieder auf, jagen direkt oder lauern.
+Vorgabe des Teams: Die meisten NPCs sind zuerst neutral, ein Ereignis macht sie zum Opp, der Status bleibt über Levels gespeichert. Level 1: zwei Studis am Lesetisch, Rucksack (gemeint ist die Ersti-Bag) geklaut, Opp verfolgt dich. Level 2: Person in der Schlange, vor die man sich drängelt. Ab Level 3: Opps aus früheren Levels tauchen wieder auf, jagen direkt oder lauern.
 
 Umsetzung (an den vorhandenen Code angepasst: Skripte statt `Npc.tscn`, Sicht per Rechnung und Raycast statt `Area2D`, Spawns in `DEF` statt in einer Textdatei):
 - `scripts/opp.gd`: `CharacterBody2D` mit Zuständen `NEUTRAL, MISSTRAUISCH, JAGD, SUCHEN, ZURUECK, LAUERN` (`enum` und `match`). Gezeichnet wie alle Figuren, Opps tragen ein rotes Namensschild.
@@ -51,11 +51,11 @@ Umsetzung (an den vorhandenen Code angepasst: Skripte statt `Npc.tscn`, Sicht pe
 - Verdachtsbalken `meter`: füllt sich in `_watch`, solange ein Gegner sichtbar ist, bei 1.0 beginnt die Jagd. Vor dem Losrennen 0.7 s Schrecksekunde (`START_DELAY`).
 - Lärm: `main.on_step` und Minigame-Fehler rufen `hear` auf. Neutrale reagieren nur mit `"hears": true`, Opps immer (sie gehen nachsehen).
 - `foes`: Ein Opp jagt nur die Spieler, die ihm etwas getan haben.
-- Erwischt (`main.opp_catch`): mit dessen Rucksack = Beute weg, Aufgabe wieder offen, Fehler; sonst `main.caught(opp)` = Level verloren. Level können das mit `on_opp_catch` übersteuern.
-- Rucksack: `"bag"` am NPC, Interaktion `"use": "bag"` in `main.gd`, Aufgabentyp `"bag"`, Accessoire `loot`. Gesehen = sofort Opp und Jagd, ungesehen = Timer `NOTICE` (6 bis 9 s), dann Suche in Richtung des Diebs.
+- Erwischt (`main.opp_catch`): mit dessen Bag = Beute weg, Aufgabe wieder offen, Fehler; sonst `main.caught(opp)` = Level verloren. Level können das mit `on_opp_catch` übersteuern.
+- Klaubare Bag: `"bag"` am NPC, Interaktion `"use": "bag"` in `main.gd`, Aufgabentyp `"bag"`. `"bag_acc"` bestimmt, wie der Dieb sie trägt (`erstibag` auf dem Rücken oder `loot` in der Hand), `"bag_name"` den Namen in Texten. Gesehen = sofort Opp und Jagd, ungesehen = Timer `NOTICE` (6 bis 9 s), dann Suche in Richtung des Diebs.
 - Speicher: `Game.opps` (`id -> {name, look, level, by, why}`), `ConfigFile` unter `user://save.cfg`. `Game.begin_level()` löscht beim (Neu-)Start eines Levels alle Opps, die in diesem oder einem späteren Level entstanden sind; `Game.new_game()` löscht alle. `--nosave` hält alles nur im Speicher (für Tests).
 - Wiederkehr: `main._spawn_npcs` setzt Opps aus früheren Levels an die `opp_spots` des Levels (`"lauert"` oder `"jagd"`). Level 1 und 2 haben keine `opp_spots`; ab Level 3 muss das Level welche angeben.
-- Level 1: Deniz (`rucksack_a`) und Livia (`rucksack_b`) am Lesetisch in der Bibliothek, neue Aufgabe "Rucksack klauen". Die Ersti-Bag-Aufgabe gibt es weiterhin.
+- Level 1: Der "Rucksack" aus der Vorgabe **ist die Ersti-Bag**, es gibt dafür keine eigene Aufgabe. Deniz (`rucksack_a`) und Livia (`rucksack_b`) sitzen am Lesetisch in der Bibliothek, ihre Ersti-Bags stehen neben dem Stuhl; die Aufgabe "Ersti-Bag klauen" (jetzt Typ `"bag"`) wird dort erledigt. Die Ersti-Menge auf der Polyterrasse trägt keine Bags mehr (`"bags": 0`); der alte Weg (Bag einem Ersti aus der Menge per Timing-Minigame vom Rücken klauen, Typ `"steal"`) steckt noch in `main.gd` und `student.gd`, ist aber abgeschaltet.
 - Level 2 (auf `level2-mensa`): siehe dessen README.
 
 ## Spielkonzept (Plan)
@@ -110,11 +110,11 @@ Auf `level-base`:
 - Dynamischer Split Screen (`main.gd`, `SPLIT_AT` / `MERGE_AT`), auch wenn jemand im Minigame ist
 - Schleichen / Gehen / Sprinten, Stamina (2 s Sprint, ca. 3 s Regeneration), Geräuschkreise pro Schritt (`player.gd`, `fx.gd`)
 - Story-Intro im Menü: Startseite, Hack der Bewerbungsseite, Namen, Legi-Foto, Charakter-Editor; Level-Auswahl «Direkt zu»
-- Level 1 "Ersti-Tag" (Tag, 7 min): Ersti-Bag klauen, Rucksack klauen, Legi validieren, Moodle & Code Expert einrichten, Koop-High-Five, Note 1 bis 6
+- Level 1 "Ersti-Tag" (Tag, 7 min): Ersti-Bag klauen (bei Deniz und Livia am Lesetisch, macht sie zu Opps), Legi validieren, Moodle & Code Expert einrichten, Koop-High-Five, Note 1 bis 6
 - Minigames (`minigame.gd`): Timing, Kabel, Sequenz, Quiz, Moodle, Setup, High Five
 - Karte ETH Zentrum mit Tag/Nacht, Kollision, A*-Wegfindung, HUD, Popups
 - Level-Gerüst, Cutscene-Abspieler, Übergang zum nächsten Level
-- Opp-System samt Rucksack-Diebstahl in Level 1 (siehe oben). Per Bot geprüft, von Menschen noch nicht gespielt
+- Opp-System samt Ersti-Bag-Diebstahl in Level 1 (siehe oben). Per Bot geprüft, von Menschen noch nicht gespielt
 
 Auf `level2-mensa`: Level 2 "Mensa-Stau" komplett spielbar (Schlange als Stau, Kassiererin, Menü, Tische, Basisprüfungs-Cutscene). Details, Stellschrauben und Offenes in `godot/scripts/level2/README.md`. Nur per Bot geprüft, noch nie von Menschen gespielt.
 
@@ -124,7 +124,7 @@ Altes Prototyp-Verhalten (Nacht), noch nicht nach Plan:
 
 Offen:
 - Nacht laut Plan: Guard-Sprint bei Alarm, Rauswurf statt Game Over, Teammate holt den Spieler zurück, verloren erst wenn beide draussen sind
-- Opps: Kein Level hat bisher `opp_spots`, die Wiederkehr ist nur mit einem Testlevel geprüft. Offen ist auch, ob der Rucksack in Level 1 die Ersti-Bag ersetzen soll und ob "erwischt ohne Beute = Level verloren" am Tag zu hart ist
+- Opps: Kein Level hat bisher `opp_spots`, die Wiederkehr ist nur mit einem Testlevel geprüft. Offen ist auch, ob "erwischt ohne Beute = Level verloren" am Tag zu hart ist
 - Level 3 komplett
 - Nichts davon ist auf `main` gemergt; der Pages-Deploy-Workflow baut weiterhin nur den Phaser-Platzhalter
 
@@ -181,9 +181,12 @@ Damit ein Level zum Rest passt:
 Leveldesign:
 - Das Zeitfenster, um das sich ein Level dreht, sichtbar machen (ablaufender Ring, Markierung am Boden), sonst wirkt Erwischtwerden willkürlich.
 - Den "ehrlichen" Weg nachrechnen: In Level 2 muss Anstehen länger dauern als das Zeitlimit, sonst drängelt niemand.
-- Lösbarkeit garantieren statt hoffen (Gäste lassen immer zwei Plätze an einem Tisch frei; ein lauernder Opp lässt sich durch Lärm vom Rucksack weglocken).
+- Lösbarkeit garantieren statt hoffen (Gäste lassen immer zwei Plätze an einem Tisch frei; ein lauernder Opp lässt sich durch Lärm von seiner Bag weglocken).
 - Wer direkt neben einem NPC etwas tut und gesehen wird, wäre ohne Schrecksekunde sofort gefangen. Verfolger brauchen eine kurze Verzögerung, sonst gibt es keine Flucht.
 - Alle Stellschrauben als Konstanten oben in `level.gd` und in der Level-README erklären; das Team stellt sie im Spieltest ein.
+
+Zusammenarbeit:
+- Begriffe aus einer Vorgabe erst gegen das abgleichen, was es im Spiel schon gibt, bevor etwas Neues daneben entsteht. Der "Rucksack" in der Opp-Vorgabe war die vorhandene Ersti-Bag; ich hatte zuerst eine zweite Aufgabe gebaut.
 
 ## Prüfen ohne Editor
 

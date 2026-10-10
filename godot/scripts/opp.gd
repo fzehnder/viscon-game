@@ -14,9 +14,11 @@ extends CharacterBody2D
 ##
 ## Levels place these NPCs through "npcs" in their definition (see _spawn_npcs in main.gd):
 ##   {"id": "rucksack_a", "name": "Deniz", "pos": Vector2(tile), "face": angle, "mode": "sitzt",
-##    "bag": Vector2(tile), "hears": true, "if_opp": "lauert" | "jagd"}
-## A "bag" is a backpack next to them that players can steal: if the owner sees it, they turn into
-## an Opp at once, otherwise they notice a little later.
+##    "bag": Vector2(tile), "bag_acc": "erstibag", "bag_name": "Ersti-Bag", "hears": true,
+##    "if_opp": "lauert" | "jagd"}
+## A "bag" stands next to them and players can steal it: if the owner sees it, they turn into an
+## Opp at once, otherwise they notice a little later. "bag_acc" is the accessory the thief then
+## wears: "erstibag" (the green Ersti bag, on the back) or "loot" (a backpack in the hand).
 
 const TS := 32.0
 const ART = preload("res://scripts/character_art.gd")
@@ -68,6 +70,8 @@ var glance_to := 0.0
 var bag_state := "none"             # none, there, stolen, carried (on the way back to its place)
 var bag_pos := Vector2.ZERO         # px
 var bag_col := Color("b5523a")
+var bag_acc := "loot"               # what it looks like on whoever carries it
+var bag_name := "Rucksack"
 var bag_thief := -1
 var notice_t := -1.0
 var bag_node: Node2D
@@ -89,11 +93,25 @@ var cone: Polygon2D
 class Bag:
 	extends Node2D
 	var col := Color("b5523a")
+	var ersti := false
 
 	func _draw() -> void:
 		draw_set_transform(Vector2(0, 1), 0.0, Vector2(1.0, 0.4))
 		draw_circle(Vector2.ZERO, 8.0, Color(0, 0, 0, 0.3))
 		draw_set_transform(Vector2.ZERO, 0.0, Vector2.ONE)
+		if ersti:
+			# the green drawstring bag from the Ersti-Tag, same colours as on a character's back
+			var green := Color("2f9e5b")
+			var cord := Color("f3efe2")
+			draw_rect(Rect2(-7.0, -14.0, 14.0, 12.5), green)
+			draw_set_transform(Vector2(0, -1.5), 0.0, Vector2(1.0, 0.35))
+			draw_circle(Vector2.ZERO, 7.0, green)
+			draw_set_transform(Vector2.ZERO, 0.0, Vector2.ONE)
+			draw_rect(Rect2(-7.0, -14.0, 14.0, 1.8), green.darkened(0.25))
+			draw_line(Vector2(-7.0, -13.1), Vector2(7.0, -13.1), cord, 1.1)
+			draw_rect(Rect2(-2.8, -9.5, 5.6, 4.4), cord)
+			draw_rect(Rect2(-1.7, -8.5, 3.4, 1.0), green)
+			return
 		draw_rect(Rect2(-6.5, -14.0, 13.0, 14.0), col)
 		draw_rect(Rect2(-6.5, -14.0, 13.0, 4.0), col.darkened(0.25))
 		draw_rect(Rect2(-4.0, -7.5, 8.0, 5.0), col.lightened(0.25))
@@ -122,6 +140,8 @@ func setup(d: Dictionary, m) -> void:
 		bag_state = "there"
 		bag_pos = (d["bag"] as Vector2) * TS
 		bag_col = Color(String(d.get("bag_col", look.get("accent", "b5523a"))))
+		bag_acc = String(d.get("bag_acc", "loot"))
+		bag_name = String(d.get("bag_name", "Rucksack"))
 	if opp_id != "" and Game.is_opp(opp_id):
 		# an old acquaintance: starts angry
 		var known: Dictionary = Game.opps[opp_id]
@@ -155,6 +175,7 @@ func _ready() -> void:
 	if bag_state == "there":
 		bag_node = Bag.new()
 		bag_node.col = bag_col
+		bag_node.ersti = bag_acc == "erstibag"
 		bag_node.position = bag_pos
 		main.actors.add_child(bag_node)
 	if state == SUCHEN:
@@ -251,7 +272,7 @@ func bag_taken(pid: int) -> void:
 		bag_node.visible = false
 	var pl = main.players[pid]
 	if can_see(pl) or state == JAGD or state == SUCHEN:
-		become_opp(pid, true, "Rucksack geklaut")
+		become_opp(pid, true, "%s geklaut" % bag_name)
 		_chase(pl)
 	else:
 		notice_t = randf_range(NOTICE.x, NOTICE.y)
@@ -265,11 +286,11 @@ func _bag_clock(delta: float) -> void:
 	if can_see(thief):
 		# turned around and saw somebody walk off with it
 		notice_t = -1.0
-		become_opp(bag_thief, true, "Rucksack geklaut")
+		become_opp(bag_thief, true, "%s geklaut" % bag_name)
 		_chase(thief)
 	elif notice_t <= 0.0:
 		notice_t = -1.0
-		become_opp(bag_thief, false, "Rucksack geklaut")
+		become_opp(bag_thief, false, "%s geklaut" % bag_name)
 		# gets up and looks for the thief, a few steps in the direction they went
 		var to: Vector2 = thief.global_position - global_position
 		last_seen = global_position + to.limit_length(6.0 * TS)
@@ -281,7 +302,7 @@ func take_back() -> void:
 	bag_state = "carried"
 	bag_thief = -1
 	notice_t = -1.0
-	ART.set_acc(look, "loot", true)
+	ART.set_acc(look, bag_acc, true)
 	look["loot_col"] = bag_col.to_html(false)
 	meter = 0.0
 	calm_t = CALM
@@ -332,7 +353,7 @@ func _arrive_home() -> void:
 	dir = home_dir
 	if bag_state == "carried":
 		bag_state = "there"
-		ART.set_acc(look, "loot", false)
+		ART.set_acc(look, bag_acc, false)
 		if bag_node:
 			bag_node.visible = true
 	state = LAUERN if angry else NEUTRAL
