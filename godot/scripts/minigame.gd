@@ -970,8 +970,8 @@ func _on_draw() -> void:
 				c.draw_circle(hp, 18, col if pressed else Color(0.2, 0.25, 0.3))
 				c.draw_arc(hp, 18, 0, TAU, 28, col, 2.0)
 				var tag: String = KEYS.TAGS[j]
-				var tsz := font.get_string_size(tag, HORIZONTAL_ALIGNMENT_LEFT, -1, 14)
-				c.draw_string(font, hp + Vector2(-tsz.x / 2.0, 5), tag, HORIZONTAL_ALIGNMENT_LEFT, -1, 14, Color("1a1a1a") if pressed else INK)
+				var tsz := font.get_string_size(tr(tag), HORIZONTAL_ALIGNMENT_LEFT, -1, 14)
+				c.draw_string(font, hp + Vector2(-tsz.x / 2.0, 5), tr(tag), HORIZONTAL_ALIGNMENT_LEFT, -1, 14, Color("1a1a1a") if pressed else INK)
 		"wiring":
 			for i in n_wires:
 				var lp := _node_pos(0, i)
@@ -1016,4 +1016,4 @@ func _on_draw() -> void:
 			for i in seq.size():
 				var dc := Vector2(470 + (i % 6) * 22, 40 + (i / 6) * 22)
 				c.draw_circle(dc, 7, OKC if i < input_i else Color(0.25, 0.3, 0.36))
-			c.draw_string(font, Vector2(470, 20), "Fortschritt", HORIZONTAL_ALIGNMENT_LEFT, -1, 13, TEXT2)
+			c.draw_string(font, Vector2(470, 20), tr("Fortschritt"), HORIZONTAL_ALIGNMENT_LEFT, -1, 13, TEXT2)

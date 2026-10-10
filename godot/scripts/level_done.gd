@@ -196,15 +196,15 @@ func _verdict() -> Array:        # [word on the stamp, colour]
 
 func _text(pos: Vector2, s: String, size: int, col: Color, align := HORIZONTAL_ALIGNMENT_LEFT, outline := 0, out_col := Color("15162b")) -> void:
 	var font := ThemeDB.fallback_font
-	var w := font.get_string_size(s, HORIZONTAL_ALIGNMENT_LEFT, -1, size).x
+	var w := font.get_string_size(tr(s), HORIZONTAL_ALIGNMENT_LEFT, -1, size).x
 	var p := pos
 	if align == HORIZONTAL_ALIGNMENT_CENTER:
 		p.x -= w / 2.0
 	elif align == HORIZONTAL_ALIGNMENT_RIGHT:
 		p.x -= w
 	if outline > 0:
-		canvas.draw_string_outline(font, p, s, HORIZONTAL_ALIGNMENT_LEFT, -1, size, outline, out_col)
-	canvas.draw_string(font, p, s, HORIZONTAL_ALIGNMENT_LEFT, -1, size, col)
+		canvas.draw_string_outline(font, p, tr(s), HORIZONTAL_ALIGNMENT_LEFT, -1, size, outline, out_col)
+	canvas.draw_string(font, p, tr(s), HORIZONTAL_ALIGNMENT_LEFT, -1, size, col)
 
 
 func _draw_scene() -> void:
@@ -225,7 +225,7 @@ func _draw_scene() -> void:
 	# head line
 	var tag := String(info.get("tag", ""))
 	if tag != "":
-		var tw := ThemeDB.fallback_font.get_string_size(tag, HORIZONTAL_ALIGNMENT_LEFT, -1, 16).x
+		var tw := ThemeDB.fallback_font.get_string_size(tr(tag), HORIZONTAL_ALIGNMENT_LEFT, -1, 16).x
 		canvas.draw_rect(Rect2(W / 2.0 - tw / 2.0 - 12.0, 26.0, tw + 24.0, 28.0), UI.ETH_BLUE)
 		_text(Vector2(W / 2.0, 46.0), tag, 16, UI.WHITE, HORIZONTAL_ALIGNMENT_CENTER)
 	_text(Vector2(W / 2.0, 104.0), String(info.get("name", "")), 46, UI.ETH_BLUE, HORIZONTAL_ALIGNMENT_CENTER)
@@ -269,7 +269,7 @@ func _draw_scene() -> void:
 	for i in rows.size():
 		if i > row_i:
 			break
-		var value := String(rows[i][1])
+		var value := tr(String(rows[i][1]))   # translated before it is typed letter by letter
 		if i == row_i and beat == "rows":
 			value = value.substr(0, int(row_t * TYPE_SPEED))
 		_text(Vector2(left, y), String(rows[i][0]), 14, INK2)
@@ -304,14 +304,14 @@ func _draw_scene() -> void:
 			sc = 1.0 - 0.06 * maxf(0.0, 1.0 - (stamp_t - 0.13) / 0.12)
 		var font := ThemeDB.fallback_font
 		var fs := 44
-		var ww := font.get_string_size(word, HORIZONTAL_ALIGNMENT_LEFT, -1, fs).x
+		var ww := font.get_string_size(tr(word), HORIZONTAL_ALIGNMENT_LEFT, -1, fs).x
 		var at := mid + Vector2(44.0, 40.0) + jolt           # in the gap between the lines and the grade
 		canvas.draw_set_transform(o + at * k, -0.13, Vector2(k * sc, k * sc))
 		var fr := Rect2(-ww / 2.0 - 22.0, -38.0, ww + 44.0, 74.0)
 		canvas.draw_rect(fr, Color(scol, 0.12 * slam))
 		canvas.draw_rect(fr, Color(scol, slam), false, 7.0)
 		canvas.draw_rect(fr.grow(-8.0), Color(scol, slam), false, 2.0)
-		canvas.draw_string(font, Vector2(-ww / 2.0, 15.0), word, HORIZONTAL_ALIGNMENT_LEFT, -1, fs, Color(scol, slam))
+		canvas.draw_string(font, Vector2(-ww / 2.0, 15.0), tr(word), HORIZONTAL_ALIGNMENT_LEFT, -1, fs, Color(scol, slam))
 		if bool(info.get("best", false)):
 			canvas.draw_set_transform(o + (at + Vector2(128.0, -66.0)) * k, -0.13, Vector2(k, k))
 			var pop := clampf((stamp_t - 0.35) / 0.2, 0.0, 1.0)

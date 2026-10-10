@@ -755,11 +755,11 @@ func _draw_arrows() -> void:
 		var label: String = String(p.pname).replace("Prof. Dr. ", "")
 		if on_screen:
 			arrows.draw_arc(sp + Vector2(0, -26), 28.0, 0.0, TAU, 32, UI.BLUE, 2.0)
-			arrows.draw_string(font, sp + Vector2(-40, -62), label, HORIZONTAL_ALIGNMENT_LEFT, -1, 13, UI.WHITE)
+			arrows.draw_string(font, sp + Vector2(-40, -62), tr(label), HORIZONTAL_ALIGNMENT_LEFT, -1, 13, UI.WHITE)
 			continue
 		var dirv := (sp - centre).normalized()
 		var edge := centre + dirv * minf(absf((vs.x / 2.0 - 46) / dirv.x) if absf(dirv.x) > 0.001 else 1e9,
 			absf((vs.y / 2.0 - 46) / dirv.y) if absf(dirv.y) > 0.001 else 1e9)
 		var pv := Vector2(-dirv.y, dirv.x)
 		arrows.draw_colored_polygon(PackedVector2Array([edge + dirv * 16, edge - dirv * 8 + pv * 11, edge - dirv * 8 - pv * 11]), UI.BLUE)
-		arrows.draw_string(font, edge - dirv * 30 + Vector2(-36, 4), label, HORIZONTAL_ALIGNMENT_LEFT, -1, 13, UI.WHITE)
+		arrows.draw_string(font, edge - dirv * 30 + Vector2(-36, 4), tr(label), HORIZONTAL_ALIGNMENT_LEFT, -1, 13, UI.WHITE)

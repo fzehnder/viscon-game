@@ -238,9 +238,9 @@ func _draw() -> void:
 		var top: Vector2 = pl.global_position + Vector2(0, -60)
 		var tc := Color(KEYS.TAG_COLORS[i])
 		var tag: String = Game.name_of(i)
-		var sz := font.get_string_size(tag, HORIZONTAL_ALIGNMENT_LEFT, -1, 11)
+		var sz := font.get_string_size(tr(tag), HORIZONTAL_ALIGNMENT_LEFT, -1, 11)
 		draw_rect(Rect2(top + Vector2(-sz.x / 2.0 - 4, -11), Vector2(sz.x + 8, 14)), Color(0.08, 0.09, 0.17, 0.75))
-		draw_string(font, top + Vector2(-sz.x / 2.0, 0), tag, HORIZONTAL_ALIGNMENT_LEFT, -1, 11, tc)
+		draw_string(font, top + Vector2(-sz.x / 2.0, 0), tr(tag), HORIZONTAL_ALIGNMENT_LEFT, -1, 11, tc)
 		var f: float = pl.stamina_frac()
 		if f < 0.999:
 			var bar := Rect2(top + Vector2(-14, 6), Vector2(28, 3))
