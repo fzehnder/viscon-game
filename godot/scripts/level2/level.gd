@@ -813,8 +813,7 @@ func finale(done: Callable) -> void:
 	main.hud.visible = false
 	for pl in main.players:
 		pl.enabled = false
-	var cam: Camera2D = main.cams[0]
-	create_tween().tween_property(cam, "zoom", Vector2(3.5, 3.5), 0.9).set_trans(Tween.TRANS_SINE)
+	create_tween().tween_property(main, "zoom", 3.5, 0.9).set_trans(Tween.TRANS_SINE)   # main.zoom moves both cameras
 	var a: String = Game.name_of(0)
 	var b: String = Game.name_of(1)
 	var steps := [
