@@ -8,6 +8,7 @@ extends Node2D
 ##   goal_positions(id, n0, n1)   markers for a "level" task: [[position px, colour], ...]
 ##   on_noise(at, radius)         footsteps and minigame mistakes
 ##   finale(done)                 after the last task, e.g. a cutscene; must call done
+##   task_targets(id, pid)        where a "level" task can be done right now (px), for the dashed way
 ## Camera: one shared view while the players are close, split screen when they drift apart
 ## or while one of them is in a minigame (the minigame then opens on that player's half).
 ## There are always two half-screen views. While the players are together, the two cameras sit
@@ -80,6 +81,11 @@ var lab_open := false
 var has_item := false
 # day progress: per player, task id -> true
 var done: Array = [{}, {}]
+# the task each player has picked (index into LV.tasks(), -1 = none) and the dashed way to where
+# it can be done: points in px, drawn by fx.gd and on the mini map
+var picked: Array = [-1, -1]
+var routes: Array = [[], []]
+var route_t: Array = [0.0, 0.0]
 # abilities (night, P1)
 var ability: Dictionary
 var cooldown := 0.0
@@ -157,7 +163,7 @@ func _ready() -> void:
 	hud.main = self
 	add_child(hud)
 	_update_cameras(0.0, true)
-	var controls := "%s: WASD · E · Shift sprinten · Ctrl schleichen\n%s: Pfeile · Enter · . sprinten · - schleichen" % [Game.name_of(0), Game.name_of(1)]
+	var controls := "%s: WASD · E · Shift sprinten · Ctrl schleichen · Tab Weg zur Aufgabe\n%s: Pfeile · Enter · . sprinten · - schleichen · , Weg zur Aufgabe" % [Game.name_of(0), Game.name_of(1)]
 	if night:
 		var d: Dictionary = CH.DEPTS[dept]
 		hud.show_overlay("Nacht", "Es ist 00:30. %s\n\nBleibt nicht zu lange im Lichtkegel der Professoren." % d["night_text"],
@@ -453,11 +459,15 @@ func _process(delta: float) -> void:
 					nears[i] = null
 					continue
 				_update_near(i)
+				if Input.is_action_just_pressed(KEYS.action(i, "select")):
+					pick_next(i)
 				if Input.is_action_just_pressed(KEYS.action(i, "interact")):
 					_interact(i)
 					if state != "play":
 						break
 			near = nears[0]
+			if state == "play":
+				_update_routes(delta)
 			if state == "play" and night and Input.is_action_just_pressed("ability"):
 				_use_ability()
 			if state == "play" and night and has_item:
@@ -1076,6 +1086,88 @@ func goal_positions() -> Array:
 				for p in _obj_center(func(o): return o.get("use", "") == "station" and o.get("task", "") == id):
 					out.append([p, c])
 	return out
+
+
+# ------------------------------------------------------------------ picked task and the way to it
+## Next task this player still has to do; after the last one nothing is picked.
+func pick_next(pid: int) -> void:
+	if night:
+		return
+	var tasks: Array = LV.tasks()
+	var k: int = picked[pid] + 1
+	while k < tasks.size() and done[pid].has(tasks[k]["id"]):
+		k += 1
+	pick(pid, k if k < tasks.size() else -1)
+
+
+## Picks task number k for a player (again: drops it). Also called by a click on the task card.
+func pick(pid: int, k: int) -> void:
+	if night or state != "play":
+		return
+	picked[pid] = -1 if (k == picked[pid] or k < 0 or done[pid].has(LV.tasks()[k]["id"])) else k
+	routes[pid] = []
+	route_t[pid] = 0.0
+	UI.sfx("click")
+
+
+## Where task `id` can be done by player `pid` right now, in px.
+func task_targets(id: String, pid: int) -> Array:
+	var out: Array = []
+	match String(LV.task(id).get("type", "")):
+		"bag":
+			for op in opps:
+				if op.bag_state == "there":
+					out.append(op.bag_pos)
+		"steal":
+			for st in students:
+				if st.has_bag:
+					out.append(st.global_position)
+		"coop":
+			out.append(players[1 - pid].global_position)   # together: go to the other one
+		"level":
+			if logic != null and logic.has_method("task_targets"):
+				out = logic.task_targets(id, pid)
+			elif logic != null and logic.has_method("goal_positions"):
+				for g in logic.goal_positions(id, pid == 0, pid == 1):
+					out.append(g[0])
+		_:
+			out = _obj_center(func(o): return o.get("use", "") == "station" and o.get("task", "") == id)
+	return out
+
+
+## Keeps the dashed way of each player up to date: the shortest way to the nearest place.
+func _update_routes(delta: float) -> void:
+	var tasks: Array = LV.tasks()
+	for pid in players.size():
+		var k: int = picked[pid]
+		if k >= 0 and (k >= tasks.size() or done[pid].has(tasks[k]["id"])):
+			picked[pid] = -1   # done, nothing left to show
+			k = -1
+		if k < 0 or busy(pid):
+			routes[pid] = []
+			continue
+		var from: Vector2 = players[pid].global_position
+		route_t[pid] -= delta
+		if route_t[pid] > 0.0:
+			if not routes[pid].is_empty():
+				routes[pid][0] = from   # the line starts at the feet, also between two searches
+			continue
+		route_t[pid] = 0.35
+		var best: Array = []
+		var best_len := INF
+		for target in task_targets(tasks[k]["id"], pid):
+			var p: Array = world.find_path(from, target)
+			if p.size() > 1:
+				p.pop_front()   # the first tile is where the player stands anyway
+			p.push_front(from)
+			p.append(target)
+			var total := 0.0
+			for j in range(1, p.size()):
+				total += (p[j - 1] as Vector2).distance_to(p[j])
+			if total < best_len:
+				best_len = total
+				best = p
+		routes[pid] = best if best_len > 1.5 * TS else []   # standing in front of it: no line needed
 
 
 func time_left() -> float:

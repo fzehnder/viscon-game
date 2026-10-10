@@ -41,7 +41,7 @@ Regeln:
 - `scripts/levels.gd` findet Levels selbst: Es prüft `res://scripts/level<N>/level.gd` für N = 2 bis 20 (`LV.numbers()`), Level 1 steht direkt in `levels.gd` (`LEVEL1`). Nichts muss registriert werden. Fehlt eine Nummer (Branch mit Level 1 und 3), wird sie übersprungen: `LV.next_after(n)`.
 - `LV.current` ist das laufende Level, gesetzt vom Autoload `Game` (`Game.set_level(n)`). `LV.level()` liefert die Beschreibung, `LV.tasks()` / `LV.task(id)` die Aufgaben.
 - `level.gd` eines Levels: `extends Node2D`, `const DEF` (Felder wie `LEVEL1`: `name`, `tag`, `mode`, `time`, `start`, `intro`, `tasks`; optionale Texte `hint`, `start_toast`, `timer_title`, `win_title`, `win_text` mit zweimal `%s`, `lose_title`, `lose_text`), optional `static func build_map(md)`. Die Datei ist zugleich der Logik-Node, den `main.gd` als `main.logic` in die Welt hängt (`main` ist vor `_ready` gesetzt).
-- Aufgaben mit `"type": "level"` gehören dem Level. Hooks, die `main.gd` aufruft, alle optional: `update_near(pid)` (setzt `main.nears[pid] = {"use": "level", "label", "rect", ...}`), `interact(pid, o)`, `goal_positions(id, n0, n1)`, `on_noise(at, radius)`, `finale(done)`. Aufgabe erledigt: `main._task_done(pid, id)`.
+- Aufgaben mit `"type": "level"` gehören dem Level. Hooks, die `main.gd` aufruft, alle optional: `update_near(pid)` (setzt `main.nears[pid] = {"use": "level", "label", "rect", ...}`), `interact(pid, o)`, `goal_positions(id, n0, n1)`, `task_targets(id, pid)`, `on_noise(at, radius)`, `finale(done)`. Aufgabe erledigt: `main._task_done(pid, id)`.
 - Aufgaben mit `"spots"` (wie in Level 1) werden ohne eigene Logik zu Stationen mit Minigame.
 - Nach dem Sieg zeigt `main.gd` "Weiter zu Level N", solange es ein nächstes gibt.
 - `scripts/cutscene.gd`: Cutscenes aus Schritten (`say`, `phones`, `mail`, `title`), für alle Levels.
@@ -148,6 +148,7 @@ Auf `level-base`:
 - Dynamischer Split Screen (`main.gd`, `SPLIT_AT` / `MERGE_AT`), auch wenn jemand im Minigame ist, mit fliessendem Übergang (`split_k`, `SPLIT_TIME`)
 - HUD: Aufgaben pro Person auf ihrer Seite (P1 links, P2 rechts), Level und Zeit oben Mitte, Minimap unten Mitte
 - Karte: Hauptgebäude nach dem echten Grundriss des E-Geschosses (siehe "Karte")
+- Aufgabe wählen (Tab für P1, Komma für P2, oder Klick auf die Aufgabe): gestrichelte Pfeile in der Farbe der Person zeigen den kürzesten Weg zum nächsten Ort, an dem die Aufgabe lösbar ist, auch auf der Minimap. `main.picked` / `main.routes`, Ziele aus `main.task_targets(id, pid)` (Stationen, Bags, bei Koop-Aufgaben die andere Person, bei Level-Aufgaben der Hook `task_targets` oder ersatzweise `goal_positions`), gezeichnet in `fx.gd` (`_draw_route`). Nur auf Skriptfehler und einen kurzen Lauf geprüft, nicht gespielt
 - Schleichen / Gehen / Sprinten, Stamina (2 s Sprint, ca. 3 s Regeneration), Geräuschkreise pro Schritt (`player.gd`, `fx.gd`)
 - Story-Intro im Menü: Startseite, Hack der Bewerbungsseite, Namen, Legi-Foto, Charakter-Editor; Level-Auswahl «Direkt zu»
 - Level 1 "Ersti-Tag" (Tag, 7 min): Ersti-Bag klauen (bei Deniz und Livia am Lesetisch, macht sie zu Opps), Legi validieren, Moodle & Code Expert einrichten, Koop-High-Five, Note 1 bis 6
