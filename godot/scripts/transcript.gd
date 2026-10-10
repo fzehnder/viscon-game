@@ -6,6 +6,7 @@ extends Control
 ##
 ## A level can set "course" (course number), "ects" (credit points, also the weight of its grade)
 ## and "block" ("A" or "B") in its DEF. Without them the values follow from the level number.
+## "block": "W" puts a level under "Wahlfächer" instead of the Basisprüfung (an elective).
 ## Grades come from Game.grades: the best grade per level, written by main.gd when a level is won.
 
 signal start_level(n: int)
@@ -372,8 +373,12 @@ func _cat(text: String, depth: int, got: int, need: int) -> Dictionary:
 ## Rows of the table, and `order` (the levels from top to bottom).
 func _rows() -> Array:
 	var blocks := {}
+	var electives: Array = []
 	for n in LV.numbers():
 		var b: String = course(n)["block"]
+		if b == "W":
+			electives.append(n)
+			continue
 		if not blocks.has(b):
 			blocks[b] = []
 		(blocks[b] as Array).append(n)
@@ -406,14 +411,29 @@ func _rows() -> Array:
 		body.append({"x": 44.0, "text": "Basisprüfungsblock %s" % b, "sess": SESSION if wsum > 0.0 else "",
 			"grade": grade_text(gsum / wsum) if wsum > 0.0 else "", "obt": str(obt)})
 		body.append_array(lines)
+	# electives: no block, every passed one counts on its own
+	var el_lines: Array = []
+	var el_got := 0
+	for n in electives:
+		var c: Dictionary = course(n)
+		var g: float = Game.grade_of(n)
+		if g >= PASS:
+			el_got += int(c["ects"])
+		order.append(n)
+		el_lines.append({"x": 44.0, "code": c["code"], "text": "Wahlfach · %s" % LV.level(n)["name"],
+			"sess": SESSION if g > 0.0 else "", "grade": grade_text(g) if g > 0.0 else "", "wgt": str(c["ects"]), "level": n})
 	var rest := 0
 	for c in LATER:
 		rest += int(c[1])
-	var rows: Array = [_cat(PROGRAMME, 0, got, need + rest), _cat("Obligatorische Fächer des Basisjahres", 1, got, need),
+	var rows: Array = [_cat(PROGRAMME, 0, got + el_got, need + rest), _cat("Obligatorische Fächer des Basisjahres", 1, got, need),
 		_cat("Basisprüfung (bestanden)" if got == need else "Basisprüfung", 2, got, need)]
 	rows.append_array(body)
 	for c in LATER:
-		rows.append(_cat(String(c[0]), 1, 0, int(c[1])))
+		if String(c[0]) == "Wahlfächer":
+			rows.append(_cat(String(c[0]), 1, el_got, int(c[1])))
+			rows.append_array(el_lines)
+		else:
+			rows.append(_cat(String(c[0]), 1, 0, int(c[1])))
 	return rows
 
 
@@ -421,7 +441,7 @@ func _select(n: int) -> void:
 	sel = n
 	table.sel = n
 	table.queue_redraw()
-	start_btn.text = "Level %d starten" % n
+	start_btn.text = "Wahlfach starten" if LV.is_elective(n) else "Level %d starten" % n
 	# keep the chosen course in view when the list is longer than the screen
 	var y := table.global_position.y - inner.global_position.y + table.row_y(n)
 	if y < scroll.scroll_vertical:
