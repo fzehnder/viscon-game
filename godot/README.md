@@ -63,7 +63,7 @@ Jeder Schritt sendet einen Geräusch-Kreis aus: schleichen fast lautlos, gehen n
 **Ablauf (Story-Modus, keine Departemente mehr):** Startseite → Hack der Bewerbungsseite → Namen → Legi-Foto pro Person (Kamera des Geräts, sonst gezeichnete Figur) → Figuren gestalten → Level 1.
 
 **Level 1 · Ersti-Tag (Tag):** Ihr startet in der Ersti-Menge auf der Polyterrasse. Beide müssen alles erledigen:
-- Ersti-Bag klauen: Am Lesetisch in der Bibliothek sitzen Deniz und Livia, neben jedem Stuhl steht eine Ersti-Bag. Leise von hinten heran und mit der Interaktionstaste nehmen, die Bag erscheint danach auf eurer Figur. Wer laut ist, wird gehört, und wer beim Klauen gesehen wird, hat sofort einen Opp am Hals (siehe unten).
+- Ersti-Bag klauen: Am Lesetisch in der Bibliothek sitzen Deniz und Livia, neben jedem Stuhl steht eine Ersti-Bag. Leise von hinten heran und mit der Interaktionstaste nehmen, die Bag erscheint danach auf eurer Figur. Erledigt ist die Aufgabe erst, wenn ihr die Bibliothek mit der Bag verlassen habt, ohne erwischt zu werden (auf der Aufgabenkarte steht so lange «raus!»). Wer laut ist, wird gehört, und wer beim Klauen gesehen wird, hat sofort einen Opp am Hals (siehe unten).
 - Legi validieren: an einem der Terminals in der Haupthalle.
 - Moodle & Code Expert einrichten: an einem der PCs (Bibliothek, Seminarraum).
 - High Five: zu zweit, überall, wo ihr nebeneinander steht.
@@ -94,9 +94,9 @@ Der Code steht in `scripts/opp.gd` (Zustände und Stellschrauben oben in der Dat
 Levels entstehen gleichzeitig auf eigenen Branches. Damit sich niemand in die Quere kommt, gehört einem Level genau ein Ordner, und gemeinsame Dateien bleiben unangetastet.
 
 1. Branch vom gemeinsamen Stand abzweigen: `git fetch`, dann `git switch -c level3-name origin/level-base`. Nicht von einem anderen Level-Branch abzweigen und nicht auf dessen Push warten.
-2. Ordner `scripts/level3/` anlegen, darin `level.gd`. Mehr braucht es nicht: `scripts/levels.gd` findet den Ordner über den Namen, das Level erscheint auf der Startseite unter «Direkt zu» und nach dem Level davor als «Weiter zu Level 3». Fehlt auf einem Branch ein Level dazwischen, wird es übersprungen.
+2. Ordner `scripts/level3/` anlegen, darin `level.gd`. Mehr braucht es nicht: `scripts/levels.gd` findet den Ordner über den Namen, das Level erscheint als Fach im Leistungsüberblick (Startseite, «Leistungsüberblick · Level wählen») und nach dem Level davor als «Weiter zu Level 3». Fehlt auf einem Branch ein Level dazwischen, wird es übersprungen.
 3. Alles, was nur dieses Level braucht (Figuren, Möbel, Texte, eine `README.md`), kommt in diesen Ordner.
-4. Testen: auf der Startseite «Direkt zu», oder `godot --path godot res://main.tscn -- --level=3`.
+4. Testen: auf der Startseite «Leistungsüberblick · Level wählen» und das Fach anklicken, oder `godot --path godot res://main.tscn -- --level=3`.
 5. Fertige Levels kommen per Pull Request nach `level-base`. Weil jedes Level nur seinen Ordner hinzufügt, gibt es dabei keine Konflikte. Die anderen Level-Branches holen sich den neuen Stand mit `git merge origin/level-base`.
 
 Braucht ein Level doch etwas Allgemeines (einen neuen Hook in `main.gd`, ein Accessoire in `character_art.gd`, einen Sound), dann als eigenen kleinen Commit, der möglichst früh nach `level-base` geht, damit alle ihn haben.
@@ -250,6 +250,8 @@ Eine neue Frisur oder ein neues Accessoire fügst du in `character_art.gd` hinzu
 | `scripts/player.gd`, `professor.gd`, `student.gd` | Figuren |
 | `scripts/opp.gd` | Leute, die zu Opps werden: Zustände, Sichtkegel, Verdachtsbalken, klaubare Bag |
 | `scripts/hud.gd`, `scripts/fx.gd` | Anzeigen und Effekte |
+| `scripts/tracking.gd`, `scripts/track_math.gd` | Autoload «Track»: Webcam und Mikrofon für Minigames, siehe `../tracker/README.md` |
+| `track_debug.tscn`, `scripts/track_debug.gd` | Testszene für das Tracking, nicht Teil des Spiels |
 | `scripts/game_state.gd` | Autoload «Game»: gewählte Optionen |
 
 Die Karte ist an die ETH Zentrum angelehnt, aber vereinfacht. Professoren und Figuren sind erfunden. Die Datei `scripts/person_draw.gd` aus der ersten Version wird nicht mehr gebraucht und kann gelöscht werden.

@@ -467,6 +467,8 @@ func _process(delta: float) -> void:
 						break
 			near = nears[0]
 			if state == "play":
+				_check_escapes()
+			if state == "play":
 				_update_routes(delta)
 			if state == "play" and night and Input.is_action_just_pressed("ability"):
 				_use_ability()
@@ -778,10 +780,53 @@ func _steal_bag(i: int, op) -> void:
 	pl.queue_redraw()
 	UI.sfx("steal")
 	UI.confetti(fx, pl.global_position + Vector2(0, -30), 40, true, 70.0, 0.3)
-	var id := _bag_task()
-	if id != "":
-		_task_done(i, id)
 	op.bag_taken(i)   # the owner reacts at once if they saw it, otherwise a little later
+	# the task is not done yet: the thief has to get out of the room with it (_check_escapes)
+	if state == "play" and not op.angry:
+		hud.toast("Geklaut!", "Jetzt leise raus hier. Die Beute zählt erst, wenn du draussen bist (%s verlassen), ohne erwischt zu werden." % op.home_zone, 4.5)
+
+
+## A stolen bag counts once its thief has left the room it was taken from without being caught.
+func _check_escapes() -> void:
+	var id := _bag_task()
+	if id == "":
+		return
+	for op in opps:
+		if op.bag_state != "stolen" or op.bag_thief < 0:
+			continue
+		var pid: int = op.bag_thief
+		if not done[pid].has(id) and world.zone_at(players[pid].global_position) != op.home_zone:
+			_task_done(pid, id)
+
+
+## The Opp whose bag this player is carrying out right now (stolen, not out of the room yet), or null.
+func _carrying(pid: int):
+	var id := _bag_task()
+	for op in opps:
+		if op.bag_state == "stolen" and op.bag_thief == pid and not done[pid].has(id):
+			return op
+	return null
+
+
+## Nearest free tile outside the room `zone_name`, seen from where the player stands.
+func _way_out(pid: int, zone_name: String) -> Vector2:
+	var start := Vector2i((players[pid].global_position / TS).floor())
+	var seen := {start: true}
+	var todo: Array = [start]
+	var i := 0
+	while i < todo.size() and i < 2500:
+		var c: Vector2i = todo[i]
+		i += 1
+		var p := (Vector2(c) + Vector2(0.5, 0.5)) * TS
+		if world.zone_at(p) != zone_name:
+			return p
+		for d in [Vector2i(1, 0), Vector2i(-1, 0), Vector2i(0, 1), Vector2i(0, -1)]:
+			var n: Vector2i = c + d
+			if seen.has(n) or not world.astar.is_in_boundsv(n) or world.astar.is_point_solid(n):
+				continue
+			seen[n] = true
+			todo.append(n)
+	return players[pid].global_position
 
 
 ## Somebody turned into an Opp just now (called by opp.gd, or by a level for its own people).
@@ -870,6 +915,7 @@ func _win_day() -> void:
 	grade = clampf(snappedf(grade, 0.25), 1.0, 6.0)
 	var verdict := "Hervorragend!" if grade >= 5.5 else ("Gut gemacht." if grade >= 4.5 else ("Bestanden." if grade >= 4.0 else "Knapp daneben."))
 	var t := int(time_played)
+	Game.add_grade(Game.level, grade, t, mistakes_total)   # for the transcript in the menu
 	var story: String = String(lv.get("win_text", "%s & %s haben den ersten Tag überlebt.")) % [Game.name_of(0), Game.name_of(1)]
 	var nxt := LV.next_after(Game.level)
 	var more := nxt > 0
@@ -1017,7 +1063,7 @@ func _use_ability() -> void:
 
 
 # ------------------------------------------------------------------ status for HUD / FX
-## Night: [text, done, active]. Day: [name, where, [done P1, done P2]].
+## Night: [text, done, active]. Day: [name, where, [done P1, done P2], [note P1, note P2]].
 func objectives() -> Array:
 	if night:
 		return [
@@ -1030,7 +1076,13 @@ func objectives() -> Array:
 	var out: Array = []
 	for tk in LV.tasks():
 		var id: String = tk["id"]
-		out.append([tk["name"], tk["where"], [done[0].has(id), done[1].has(id)]])
+		# fourth entry: a short note per player while the task is half done (bag taken, not out yet)
+		var notes: Array = ["", ""]
+		if String(tk.get("type", "")) == "bag":
+			for pid in 2:
+				if _carrying(pid) != null:
+					notes[pid] = "raus!"
+		out.append([tk["name"], tk["where"], [done[0].has(id), done[1].has(id)], notes])
 	return out
 
 
@@ -1115,9 +1167,13 @@ func task_targets(id: String, pid: int) -> Array:
 	var out: Array = []
 	match String(LV.task(id).get("type", "")):
 		"bag":
-			for op in opps:
-				if op.bag_state == "there":
-					out.append(op.bag_pos)
+			var mine = _carrying(pid)
+			if mine != null:
+				out.append(_way_out(pid, mine.home_zone))   # got it: now out of the room
+			else:
+				for op in opps:
+					if op.bag_state == "there":
+						out.append(op.bag_pos)
 		"steal":
 			for st in students:
 				if st.has_bag:
