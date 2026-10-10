@@ -10,6 +10,7 @@ const KEYS = preload("res://scripts/controls.gd")
 const LV = preload("res://scripts/levels.gd")
 const LegiCard = preload("res://scripts/legi_card.gd")
 const Transcript = preload("res://scripts/transcript.gd")
+const EthFront = preload("res://scripts/eth_front.gd")
 
 const HACK := [
 	["> verbinde mit bewerbung.ethz.ch ...", false],
@@ -118,18 +119,28 @@ class Preview:
 		ART2.draw_character(self, look, order[facing], t * 7.0, true, c, sc)
 
 
-## Floating confetti-like shapes on a navy background.
+## Floating confetti-like shapes on a navy background, or the ETH main building (start page).
 class Bg:
 	extends Control
 	const UI2 = preload("res://scripts/ui.gd")
 	var t := 0.0
 	var dark := false
+	var photo: Texture2D
+	var show_photo := false
 
 	func _process(delta: float) -> void:
 		t += delta
 		queue_redraw()
 
 	func _draw() -> void:
+		if show_photo and photo:
+			# Cover the whole screen, keep the aspect ratio, crop what sticks out.
+			var ps := photo.get_size()
+			var sc := maxf(size.x / ps.x, size.y / ps.y)
+			var ds := ps * sc
+			draw_texture_rect(photo, Rect2((size - ds) / 2.0, ds), false)
+			draw_rect(Rect2(Vector2.ZERO, size), Color(UI2.NAVY, 0.25))
+			return
 		draw_rect(Rect2(Vector2.ZERO, size), Color("0b0f14") if dark else UI2.NAVY)
 		var step := 48.0
 		var gx := fmod(t * 12.0, step)
@@ -182,6 +193,8 @@ func _ready() -> void:
 	mono = SystemFont.new()
 	mono.font_names = PackedStringArray(["Menlo", "Monaco", "Consolas", "Courier New", "monospace"])
 	bg = Bg.new()
+	bg.photo = ImageTexture.create_from_image(EthFront.render())
+	bg.texture_filter = CanvasItem.TEXTURE_FILTER_NEAREST
 	bg.mouse_filter = Control.MOUSE_FILTER_IGNORE
 	add_child(bg)
 	bg.set_anchors_and_offsets_preset(Control.PRESET_FULL_RECT)
@@ -204,6 +217,7 @@ func _go(s: String) -> void:
 	for c in stage_root.get_children():
 		c.queue_free()
 	bg.dark = s == "hack" or s == "names"
+	bg.show_photo = s == "title"
 	stage_root.modulate.a = 0.0
 	stage_root.create_tween().tween_property(stage_root, "modulate:a", 1.0, 0.25)
 	match s:
@@ -259,9 +273,11 @@ func _build_title() -> void:
 	if Game.has_profile():
 		var cont := UI.button("Weiterspielen als %s & %s" % [Game.name_of(0), Game.name_of(1)], UI.BLUE, 20)
 		cont.size_flags_horizontal = Control.SIZE_SHRINK_CENTER
-		cont.pressed.connect(func(): _go("loading"))
+		cont.pressed.connect(func():
+			Game.set_level(Game.story_level)   # not the elective that was played last
+			_go("loading"))
 		v.add_child(cont)
-	v.add_child(_centered(UI.label("Enter drücken", 15, UI.MUTED)))
+	v.add_child(_centered(UI.label("Enter drücken", 15, UI.WHITE, 5)))
 	# the levels as a transcript of records: grades so far, and a click goes straight into a level
 	# (skips the intro), handy for testing and demos
 	var levels := UI.button("Leistungsüberblick · Level wählen", UI.NAVY2.lightened(0.15), 16)

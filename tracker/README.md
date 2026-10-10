@@ -45,7 +45,7 @@ func _ready() -> void:
 ```
 
 - `Track.use(self, [...])` gilt, solange der Node im Baum ist. Wird das Minigame geschlossen, geht die Kamera von selbst wieder aus.
-- `Track.face(pid)`, `Track.hand(pid)`, `Track.pose(pid)` liefern, was in der Bildhälfte dieser Person zu sehen ist: **P1 sitzt links, P2 rechts**. Ist dort nichts, kommt `{}`. Mit `-1` kommt, was der Bildmitte am nächsten ist (eine Person allein).
+- `Track.face(pid)`, `Track.hand(pid)`, `Track.pose(pid)` liefern, was in der Bildhälfte dieser Person zu sehen ist: **P1 sitzt links, P2 rechts**. Ist dort nichts, kommt `{}`. Bei Gesichtern und Körpern zählen dabei nur die beiden grössten im Bild, damit Zuschauer hinter den Spielenden nicht übernehmen. Mit `-1` kommt, was der Bildmitte am nächsten ist (eine Person allein).
 - `Track.faces`, `Track.hands`, `Track.poses` sind alle Treffer, von links nach rechts.
 - Wer ist wer, wenn die Leute nicht brav auf ihrer Seite sitzen oder Zuschauer im Bild stehen: Der Tracker meldet bis zu vier Personen. `TM.front(liste, n)` liefert die n grössten Einträge von links nach rechts, also die, die der Kamera am nächsten sind. `TM.mine(Track.faces, pid)` nimmt von den beiden grössten den in der Bildhälfte der Person und sonst den einzigen (wer allein spielt, sitzt selten auf «seiner» Seite). `TM.pair(Track.poses)` liefert für etwas, das beide gleichzeitig tun, `[Person 1, Person 2]`: die beiden grössten, links und rechts.
 - Die Daten der Kamera sind unruhig: Punkte zittern, Leute fehlen für einzelne Bilder, und bei mehreren Personen ist die Reihenfolge nicht fest. Wer etwas davon anzeigt, sollte glätten und kurze Aussetzer überbrücken. Ein fertiges Beispiel ist die Klasse `Followed` in `godot/scripts/level3/kamera_spiel.gd`.

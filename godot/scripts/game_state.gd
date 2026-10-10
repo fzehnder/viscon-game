@@ -6,6 +6,7 @@ const CH = preload("res://scripts/characters.gd")
 const LV = preload("res://scripts/levels.gd")
 
 var level := 1
+var story_level := 1       # last story level that was started (electives do not count): "Weiterspielen"
 var mode := "day"          # set from the level, never chosen by the player
 var dept := "D-INFK"       # internal content set for quiz/Moodle texts and night content; not choosable
 
@@ -54,6 +55,8 @@ func _apply_level() -> void:
 	if not LV.has_level(level):
 		level = 1
 	LV.current = level
+	if not LV.is_elective(level):
+		story_level = level
 	mode = String(LV.level().get("mode", "day"))
 
 
@@ -101,6 +104,8 @@ func add_item(id: String) -> void:
 
 ## A level starts (again): what happened in it and after it has not happened yet.
 func begin_level() -> void:
+	if LV.is_elective(level):
+		return   # an elective is outside the story, it does not undo anything
 	var changed := false
 	for id in opps.keys():
 		if int(opps[id]["level"]) >= level:
