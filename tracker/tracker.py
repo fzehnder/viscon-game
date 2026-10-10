@@ -11,6 +11,11 @@ on localhost. The camera is only open while the game asks for something.
     uv run tracker/tracker.py --show --want face,hand,pose     look at it without the game
     uv run tracker/tracker.py --selftest      load all models, measure speed
     uv run tracker/tracker.py --fake photo.jpg                 a still picture instead of the camera
+    uv run tracker/tracker.py --list-cameras  which cameras there are and which one is taken
+
+Camera: by default the one built into the computer, not a phone that offers itself as a camera
+(on a Mac the iPhone does that). --camera or the environment variable VISCON_CAMERA takes a
+number or a part of the name instead.
 
 Everything is sent as in a mirror: x = 0 is the left edge of what the players see, y = 0 the top.
 Lists are sorted from left to right, so with two players index 0 is P1 (sits left).
@@ -21,6 +26,7 @@ import json
 import math
 import os
 import socket
+import subprocess
 import sys
 import time
 import urllib.request
@@ -45,7 +51,9 @@ KINDS = ("face", "hand", "pose")
 IRIS_CM = 1.17          # the human iris is about 11.7 mm wide for everyone: a ruler in every face
 GAME_SILENT = 3.0       # no command from the game for this long: release the camera
 CHILD_EXIT = 20.0       # started by the game (--child) and no command for this long: quit
-PREVIEW_SIZE = (320, 240)
+PREVIEW_HEIGHT = 240    # the preview keeps the shape of the camera picture (320 x 240 for 4:3)
+# cameras that are not the computer's own: phones and tablets nearby, virtual cameras
+NOT_BUILT_IN = ("iphone", "ipad", "desk view", "schreibtischansicht", "continuity", "obs", "virtual", "snap camera")
 PREVIEW_FPS = 15.0
 PREVIEW_QUALITY = 55
 MAX_PACKET = 60000
@@ -175,9 +183,50 @@ class Detectors:
         return out
 
 
+def list_cameras() -> list:
+    """The cameras with the numbers OpenCV gives them, and their names: [{"index", "name", "model"}].
+    Only macOS tells the names without extra packages; elsewhere the list is empty."""
+    if sys.platform != "darwin":
+        return []
+    try:
+        raw = subprocess.run(["system_profiler", "SPCameraDataType", "-json"], capture_output=True, timeout=10).stdout
+        cams = json.loads(raw).get("SPCameraDataType", [])
+    except Exception:
+        return []
+    # OpenCV sorts the devices by their unique id and counts from 0 (cap_avfoundation_mac.mm).
+    # A phone that comes into reach can therefore push the built-in camera from 0 to 1.
+    cams.sort(key=lambda c: str(c.get("spcamera_unique-id", "")))
+    return [{"index": i, "name": str(c.get("_name", "?")), "model": str(c.get("spcamera_model-id", ""))}
+            for i, c in enumerate(cams)]
+
+
+def is_built_in(cam: dict) -> bool:
+    text = (cam["name"] + " " + cam["model"]).lower()
+    return not any(word in text for word in NOT_BUILT_IN)
+
+
+def pick_camera(spec: str) -> tuple:
+    """(number for OpenCV, name or ""). spec: "auto", a number, or a part of the name."""
+    cams = list_cameras()
+    names = {c["index"]: c["name"] for c in cams}
+    spec = spec.strip()
+    if spec.lstrip("-").isdigit():
+        return int(spec), names.get(int(spec), "")
+    if spec.lower() not in ("", "auto"):
+        for c in cams:
+            if spec.lower() in c["name"].lower():
+                return c["index"], c["name"]
+        log(f"no camera with '{spec}' in its name, choosing one myself")
+    for c in cams:
+        if is_built_in(c):
+            return c["index"], c["name"]
+    return 0, names.get(0, "")
+
+
 class Camera:
-    def __init__(self, index: int, fake: str):
-        self.index = index
+    def __init__(self, spec: str, fake: str):
+        self.spec = str(spec)
+        self.name = ""
         self.cap = None
         self.retry_at = 0.0
         self.still = None
@@ -194,7 +243,8 @@ class Camera:
             if time.monotonic() < self.retry_at:
                 return None
             backend = {"darwin": cv2.CAP_AVFOUNDATION, "win32": cv2.CAP_DSHOW}.get(sys.platform, cv2.CAP_ANY)
-            cap = cv2.VideoCapture(self.index, backend)
+            index, self.name = pick_camera(self.spec)   # every time: the numbers change when a phone comes or goes
+            cap = cv2.VideoCapture(index, backend)
             if not cap.isOpened():
                 cap.release()
                 self.retry_at = time.monotonic() + 2.0    # no permission or in use: do not hammer it
@@ -203,7 +253,7 @@ class Camera:
             cap.set(cv2.CAP_PROP_FRAME_HEIGHT, 480)
             cap.set(cv2.CAP_PROP_BUFFERSIZE, 1)
             self.cap = cap
-            log("camera on")
+            log(f"camera on: number {index}" + (f", {self.name}" if self.name else ""))
         ok, frame = self.cap.read()
         return frame if ok else None
 
@@ -265,7 +315,7 @@ def selftest(args) -> int:
         frame = np.full((480, 640, 3), 128, np.uint8)
         ok = False
     else:
-        print(f"camera  ok ({frame.shape[1]}x{frame.shape[0]})")
+        print(f"camera  ok ({frame.shape[1]}x{frame.shape[0]}" + (f", {cam.name})" if cam.name else ")"))
     det = Detectors()
     for kind in KINDS:
         det.run(frame, [kind])      # first run loads the model
@@ -285,8 +335,9 @@ def main() -> int:
     ap = argparse.ArgumentParser(description=__doc__, formatter_class=argparse.RawDescriptionHelpFormatter)
     ap.add_argument("--port", type=int, default=47800, help="game listens here")
     ap.add_argument("--cmd-port", type=int, default=47801, help="tracker listens here")
-    ap.add_argument("--camera", type=int, default=int(os.environ.get("VISCON_CAMERA", "0")),
-                    help="camera number, also settable with the environment variable VISCON_CAMERA")
+    ap.add_argument("--camera", default=os.environ.get("VISCON_CAMERA", "auto"),
+                    help="auto (the built-in one), a number, or a part of the name; also the environment variable VISCON_CAMERA")
+    ap.add_argument("--list-cameras", action="store_true", help="show the cameras and which one would be used")
     ap.add_argument("--fake", default="", help="use this picture instead of the camera")
     ap.add_argument("--want", default="", help="always track these, e.g. face,hand,pose (without the game)")
     ap.add_argument("--show", action="store_true", help="open a window with the result")
@@ -294,6 +345,14 @@ def main() -> int:
     ap.add_argument("--selftest", action="store_true")
     args = ap.parse_args()
 
+    if args.list_cameras:
+        cams = list_cameras()
+        chosen, name = pick_camera(args.camera)
+        if not cams:
+            print(f"This system does not tell the names. Camera number {chosen} is used; try --camera 1, 2, ... with --show.")
+        for c in cams:
+            print(f"{'->' if c['index'] == chosen else '  '} {c['index']}  {c['name']}" + ("" if is_built_in(c) else "   (phone or virtual camera)"))
+        return 0
     if args.selftest:
         return selftest(args)
 
@@ -362,11 +421,13 @@ def main() -> int:
             fps, frames, fps_t = frames / (now - fps_t), 0, now
         data["fps"] = r(fps, 1)
         data["aspect"] = r(frame.shape[1] / frame.shape[0], 3)
+        data["cam"] = cam.name
         send(data)
 
         if (want_preview and silent < GAME_SILENT) and now - last_preview >= 1.0 / PREVIEW_FPS:
             last_preview = now
-            small = cv2.flip(cv2.resize(frame, PREVIEW_SIZE), 1)
+            pw = int(round(PREVIEW_HEIGHT * frame.shape[1] / frame.shape[0] / 2.0)) * 2
+            small = cv2.flip(cv2.resize(frame, (pw, PREVIEW_HEIGHT)), 1)
             ok, jpg = cv2.imencode(".jpg", small, [cv2.IMWRITE_JPEG_QUALITY, PREVIEW_QUALITY])
             if ok and len(jpg) < MAX_PACKET:
                 try:

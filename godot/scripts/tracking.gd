@@ -35,6 +35,7 @@ var alive := false             # the tracker is sending results from a camera pi
 var status := "aus"            # short German text for the UI
 var fps := 0.0
 var aspect := 4.0 / 3.0        # width / height of the camera picture
+var camera := ""                # name of the camera the tracker uses, if the system tells it (macOS)
 var faces: Array = []
 var hands: Array = []
 var poses: Array = []
@@ -211,6 +212,7 @@ func _apply(d: Dictionary) -> void:
 	_last_data = _now
 	fps = float(d.get("fps", 0.0))
 	aspect = float(d.get("aspect", aspect))
+	camera = String(d.get("cam", camera))
 	faces = d.get("faces", [])
 	hands = d.get("hands", [])
 	poses = d.get("poses", [])

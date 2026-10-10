@@ -110,6 +110,8 @@ func _draw() -> void:
 	var flags := "[1] Gesicht %s   [2] Hand %s   [3] Körper %s   [M] Mikrofon %s   [F] einfrieren   [P] Zielpose   [Esc]" % [
 		_onoff(on["face"]), _onoff(on["hand"]), _onoff(on["pose"]), _onoff(mic)]
 	_text(Vector2(30, 76), "Tracker: %s · %.0f Bilder/s      %s" % [Track.status, Track.fps, flags], 15, UI.MUTED)
+	if Track.camera != "":
+		_text(Vector2(30, 92), "Kamera: %s" % Track.camera, 13, UI.MUTED)
 
 	draw_rect(PIC, UI.DARK)
 	if Track.preview.get_width() > 0:
