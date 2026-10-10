@@ -12,6 +12,7 @@ const LegiCard = preload("res://scripts/legi_card.gd")
 const Transcript = preload("res://scripts/transcript.gd")
 const EthFront = preload("res://scripts/eth_front.gd")
 const LoadingScreen = preload("res://scripts/loading_screen.gd")
+const SkinMenu = preload("res://scripts/skin_menu.gd")
 
 const HACK := [
 	["> verbinde mit bewerbung.ethz.ch ...", false],
@@ -85,9 +86,6 @@ var shoot_btn: Button
 var countdown := -1.0
 var count_l: Label
 var flash_rect: ColorRect
-# custom
-var previews: Array = [null, null]
-var swatches: Array = [{}, {}]
 
 
 ## Rotating character on a little podium (also used as the camera fallback).
@@ -279,6 +277,12 @@ func _build_title() -> void:
 			Game.set_level(Game.story_level)   # not the elective that was played last
 			_go("loading"))
 		v.add_child(cont)
+		var again := UI.button("Figuren ändern", UI.PURPLE, 16)
+		again.size_flags_horizontal = Control.SIZE_SHRINK_CENTER
+		again.pressed.connect(func():
+			Game.set_level(Game.story_level)
+			_go("custom"))
+		v.add_child(again)
 	v.add_child(_centered(UI.label("Enter drücken", 15, UI.WHITE, 5)))
 	# the levels as a transcript of records: grades so far, and a click goes straight into a level
 	# (skips the intro), handy for testing and demos
@@ -811,119 +815,9 @@ func _legi_next() -> void:
 
 # ------------------------------------------------------------------ 6 · character design
 func _build_custom() -> void:
-	var v := _vbox(14)
-	_center().add_child(v)
-	v.add_child(_centered(UI.label("Gestaltet eure Figuren", 40, UI.YELLOW, 9)))
-	var row := HBoxContainer.new()
-	row.add_theme_constant_override("separation", 26)
-	row.alignment = BoxContainer.ALIGNMENT_CENTER
-	v.add_child(row)
-	for i in 2:
-		row.add_child(_custom_column(i))
-	var go := UI.button("Weiter zur Legi", UI.GREEN, 28)
-	go.custom_minimum_size = Vector2(340, 70)
-	go.size_flags_horizontal = Control.SIZE_SHRINK_CENTER
-	go.pressed.connect(func(): _go("legi"))
-	v.add_child(go)
-	UI.pulse(go, 0.05, 1.0)
-	v.add_child(_centered(UI.label("Enter = weiter", 14, UI.MUTED)))
-
-
-func _custom_column(i: int) -> Control:
-	var pc := Color(KEYS.TAG_COLORS[i])
-	var card := UI.panel(UI.NAVY, pc, 22, 16)
-	card.mouse_filter = Control.MOUSE_FILTER_PASS
-	var v := _vbox(8)
-	card.add_child(v)
-	v.add_child(_centered(UI.label(Game.name_of(i), 30, pc, 7)))
-	var pv := Preview.new()
-	pv.look = Game.player_looks[i]
-	pv.accent = pc
-	pv.custom_minimum_size = Vector2(260, 220)
-	pv.mouse_filter = Control.MOUSE_FILTER_IGNORE
-	v.add_child(pv)
-	previews[i] = pv
-	var grid := GridContainer.new()
-	grid.columns = 4
-	grid.add_theme_constant_override("h_separation", 8)
-	grid.add_theme_constant_override("v_separation", 6)
-	v.add_child(grid)
-	swatches[i] = {}
-	var rows := [["hair_style", "Frisur", CH.HAIR_STYLES], ["hair", "Haarfarbe", CH.HAIR_COLORS], ["skin", "Hautton", CH.SKIN_TONES],
-		["top", "Oberteil", CH.TOP_COLORS], ["pants", "Hose", CH.PANTS_COLORS]]
-	for r in rows:
-		var key: String = r[0]
-		var opts: Array = r[2]
-		var nl := UI.label(r[1], 15, UI.MUTED)
-		nl.custom_minimum_size = Vector2(88, 0)
-		grid.add_child(nl)
-		var prev := UI.button("<", UI.NAVY2.lightened(0.15), 16)
-		prev.pressed.connect(func(): _cycle(i, key, opts, -1))
-		grid.add_child(prev)
-		var sw := PanelContainer.new()
-		sw.custom_minimum_size = Vector2(118, 34)
-		var swl := UI.label("", 15, UI.WHITE, 4)
-		swl.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
-		sw.add_child(swl)
-		grid.add_child(sw)
-		swatches[i][key] = [sw, swl]
-		var nxt := UI.button(">", UI.NAVY2.lightened(0.15), 16)
-		nxt.pressed.connect(func(): _cycle(i, key, opts, 1))
-		grid.add_child(nxt)
-	# study programme, printed on the Legi
-	var pl := UI.label("Studium", 15, UI.MUTED)
-	pl.custom_minimum_size = Vector2(88, 0)
-	grid.add_child(pl)
-	var pprev := UI.button("<", UI.NAVY2.lightened(0.15), 16)
-	grid.add_child(pprev)
-	var psw := PanelContainer.new()
-	psw.custom_minimum_size = Vector2(118, 34)
-	psw.add_theme_stylebox_override("panel", UI.box(UI.NAVY2, UI.MUTED, 10, 2, 4, false))
-	var psl := UI.label("", 14, UI.WHITE, 4)
-	psl.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
-	psw.add_child(psl)
-	grid.add_child(psw)
-	var pnext := UI.button(">", UI.NAVY2.lightened(0.15), 16)
-	grid.add_child(pnext)
-	var show_prog := func():
-		psl.text = String(Game.PROGRAMMES[int(Game.programmes[i])][0])
-	var step_prog := func(dir: int):
-		var n: int = Game.PROGRAMMES.size()
-		Game.programmes[i] = (int(Game.programmes[i]) + dir + n) % n
-		UI.sfx("pop", -8.0)
-		show_prog.call()
-	pprev.pressed.connect(func(): step_prog.call(-1))
-	pnext.pressed.connect(func(): step_prog.call(1))
-	show_prog.call()
-	_refresh_swatches(i)
-	return card
-
-
-func _cycle(i: int, key: String, opts: Array, dir: int) -> void:
-	var lk: Dictionary = Game.player_looks[i]
-	var k := opts.find(lk.get(key, opts[0]))
-	k = (k + dir + opts.size()) % opts.size()
-	lk[key] = opts[k]
-	if key == "top" and lk.get("top_style", "") == "overall":
-		lk["pants"] = opts[k]
-	if previews[i]:
-		previews[i].look = lk
-		previews[i].hop = 1.0
-	UI.sfx("pop", -8.0)
-	_refresh_swatches(i)
-
-
-func _refresh_swatches(i: int) -> void:
-	var lk: Dictionary = Game.player_looks[i]
-	for key in swatches[i]:
-		var sw: PanelContainer = swatches[i][key][0]
-		var swl: Label = swatches[i][key][1]
-		if key == "hair_style":
-			sw.add_theme_stylebox_override("panel", UI.box(UI.NAVY2, UI.MUTED, 10, 2, 4, false))
-			swl.text = String(lk.get(key, "kurz")).capitalize()
-		else:
-			sw.add_theme_stylebox_override("panel", UI.box(Color(String(lk.get(key, "888888"))), UI.WHITE, 10, 3, 4, false))
-			swl.text = ""
+	var sm := SkinMenu.new()          # both choose at once with their own keys (skin_menu.gd)
+	stage_root.add_child(sm)
+	sm.done.connect(func(): _go("legi"))
 
 
 # ------------------------------------------------------------------ 7 · into the level
@@ -962,6 +856,3 @@ func _unhandled_input(event: InputEvent) -> void:
 		"legi":
 			if ok:
 				_legi_next()
-		"custom":
-			if k in [KEY_ENTER, KEY_KP_ENTER]:
-				_go("legi")
