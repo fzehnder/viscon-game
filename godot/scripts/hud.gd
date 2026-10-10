@@ -137,7 +137,7 @@ func _ready() -> void:
 	tag_l = pill[1]
 	zone_l = UI.label("", 13, UI.MUTED)
 	head.add_child(zone_l)
-	title_l = UI.label("Nacht" if main.night else "Ersti-Tag", 28, UI.YELLOW, 6)
+	title_l = UI.label("Nacht" if main.night else String(main.lv["name"]), 28, UI.YELLOW, 6)
 	v.add_child(title_l)
 	task_box = VBoxContainer.new()
 	task_box.add_theme_constant_override("separation", 4)
@@ -155,7 +155,7 @@ func _ready() -> void:
 	var v2 := VBoxContainer.new()
 	v2.add_theme_constant_override("separation", 4)
 	timer_card.add_child(v2)
-	meter_title = UI.label("SICHTBARKEIT" if main.night else "ZEIT BIS FEIERABEND", 12, UI.MUTED)
+	meter_title = UI.label("SICHTBARKEIT" if main.night else String(main.lv.get("timer_title", "ZEIT BIS FEIERABEND")), 12, UI.MUTED)
 	v2.add_child(meter_title)
 	meter_l = UI.label("", 34, UI.GREEN, 7)
 	v2.add_child(meter_l)

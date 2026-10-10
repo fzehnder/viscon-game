@@ -251,7 +251,7 @@ func _build_title() -> void:
 	var start := UI.button("START", UI.GREEN, 38)
 	start.custom_minimum_size = Vector2(320, 86)
 	start.size_flags_horizontal = Control.SIZE_SHRINK_CENTER
-	start.pressed.connect(func(): _go("hack"))
+	start.pressed.connect(_new_game)
 	v.add_child(start)
 	UI.pulse(start, 0.06, 1.0)
 	if Game.has_profile():
@@ -260,11 +260,28 @@ func _build_title() -> void:
 		cont.pressed.connect(func(): _go("loading"))
 		v.add_child(cont)
 	v.add_child(_centered(UI.label("Enter drücken", 15, UI.MUTED)))
+	# straight into a level (skips the intro), handy for testing and demos
+	var jump := HBoxContainer.new()
+	jump.alignment = BoxContainer.ALIGNMENT_CENTER
+	jump.add_theme_constant_override("separation", 10)
+	v.add_child(jump)
+	jump.add_child(UI.label("Direkt zu:", 15, UI.MUTED))
+	for n in LV.numbers():
+		var jb := UI.button("%d · %s" % [n, LV.level(n)["name"]], UI.NAVY2.lightened(0.15), 15)
+		jb.pressed.connect(func():
+			Game.set_level(n)
+			_go("loading"))
+		jump.add_child(jb)
 	UI.pop_in(title, 0.05, 0.3)
 	title.resized.connect(func(): title.pivot_offset = title.size / 2.0)
 	var tw := title.create_tween().set_loops()
 	tw.tween_property(title, "rotation", 0.035, 1.3).set_trans(Tween.TRANS_SINE)
 	tw.tween_property(title, "rotation", -0.035, 1.3).set_trans(Tween.TRANS_SINE)
+
+
+func _new_game() -> void:
+	Game.set_level(1)
+	_go("hack")
 
 
 # ------------------------------------------------------------------ 2 · hacking the application portal
@@ -840,7 +857,7 @@ func _refresh_swatches(i: int) -> void:
 
 # ------------------------------------------------------------------ 7 · into the level
 func _build_loading() -> void:
-	var lv: Dictionary = LV.level(Game.level)
+	var lv: Dictionary = LV.level()
 	var v := _vbox(10)
 	_center().add_child(v)
 	v.add_child(_centered(UI.label(String(lv["tag"]), 24, UI.PINK, 6)))
@@ -855,7 +872,6 @@ func _build_loading() -> void:
 		tw.tween_callback(func(): dots.text = "lädt" + ".".repeat(k))
 		tw.tween_interval(0.3)
 	tw.tween_callback(func():
-		Game.level = 1
 		Game._apply_level()
 		get_tree().change_scene_to_file("res://main.tscn"))
 
@@ -878,7 +894,7 @@ func _unhandled_input(event: InputEvent) -> void:
 	match stage:
 		"title":
 			if ok:
-				_go("hack")
+				_new_game()
 		"hack":
 			if ok:
 				_go("names")

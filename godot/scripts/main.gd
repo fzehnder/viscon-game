@@ -1,6 +1,13 @@
 extends Node2D
 ## ETH Zentrum – Tag & Nacht. Story mode for two players on one keyboard.
 ## The level comes from the Game autoload (levels.gd). Level 1 is the Ersti-Tag (day).
+## Later levels bring their own logic node (`logic`, see levels.gd) for tasks of type "level".
+## Hooks that this script calls on it, all optional:
+##   update_near(pid)             may set nears[pid] = {"use": "level", "label": ..., "rect": ..., ...}
+##   interact(pid, o)             the player pressed interact on such an entry
+##   goal_positions(id, n0, n1)   markers for a "level" task: [[position px, colour], ...]
+##   on_noise(at, radius)         footsteps and minigame mistakes
+##   finale(done)                 after the last task, e.g. a cutscene; must call done
 ## Camera: one shared view while the players are close, split screen when they drift apart
 ## or while one of them is in a minigame (the minigame then opens on that player's half).
 
@@ -29,6 +36,8 @@ const MERGE_AT := 0.45     # merge again when closer than this share
 const STEAL_BEHIND := 1.9  # rad: you must be at least this far from where the Ersti is looking
 
 var data: Dictionary
+var lv: Dictionary            # definition of the running level (levels.gd)
+var logic: Node = null        # per-level logic node, null in level 1
 var world: Node2D
 var actors: Node2D
 var players: Array = []
@@ -45,7 +54,7 @@ var busy_spot: Array = [null, null]   # station object each player is using
 var dept := "D-INFK"
 var mode := "day"
 var night := false
-var state := "intro"   # intro, play, caught, won, lost
+var state := "intro"   # intro, play, cutscene, caught, won, lost
 var zone := "Polyterrasse"
 var time_played := 0.0
 var day_time := 420.0
@@ -85,10 +94,10 @@ func _ready() -> void:
 	night = mode == "night"
 	ability = CH.DEPTS[dept]["ability"]
 	data = MapData.new().build(mode, dept)
-	var lv: Dictionary = LV.level(Game.level)
+	lv = LV.level()
 	if not night:
 		day_time = float(lv["time"])
-		gather_time = float(lv["gather"])
+		gather_time = float(lv.get("gather", 0.0))
 	_build_views()
 	world = WorldScript.new()
 	world.data = data
@@ -122,7 +131,12 @@ func _ready() -> void:
 		profs.append(pr)
 	if not night:
 		_spawn_students()
-		_spawn_crowd(lv)
+		if lv.has("crowd"):
+			_spawn_crowd(lv)
+	logic = LV.new_logic()
+	if logic != null:
+		logic.main = self
+		vps[0].add_child(logic)
 	hud = HudScript.new()
 	hud.main = self
 	add_child(hud)
@@ -136,7 +150,10 @@ func _ready() -> void:
 		var lines := String(lv["intro"]) + "\n"
 		for tk in LV.tasks():
 			lines += "\n•  %s  –  %s" % [tk["name"], tk["where"]]
-		lines += "\n\nIhr habt %d Minuten. Leise sein (schleichen), sonst merken die Erstis was." % int(day_time / 60.0)
+		var mins := "%d Minuten" % int(day_time / 60.0)
+		if int(day_time) % 60 != 0:
+			mins = "%d:%02d Minuten" % [int(day_time) / 60, int(day_time) % 60]
+		lines += "\n\nIhr habt %s. %s" % [mins, lv.get("hint", "Leise sein (schleichen), sonst merken die Erstis was.")]
 		hud.show_overlay(String(lv["name"]), lines, controls, "Los geht's!", false, "info", String(lv["tag"]))
 
 
@@ -350,6 +367,8 @@ func _process(delta: float) -> void:
 	if state in ["caught", "won", "lost"]:
 		if Input.is_action_just_pressed("restart"):
 			get_tree().reload_current_scene()
+		elif state == "won" and Input.is_action_just_pressed("start") and LV.next_after(Game.level) > 0:
+			_next_level()
 		elif Input.is_action_just_pressed("menu"):
 			get_tree().change_scene_to_file("res://menu.tscn")
 		hud.refresh(delta)
@@ -403,14 +422,22 @@ func start_game() -> void:
 	if night:
 		hud.toast("Polyterrasse, 00:30", "Der Haupteingang ist zu. Versucht es hinten an der Künstlergasse.", 6.0)
 	else:
-		hud.toast("Willkommen, Erstis!", "Die grünen Bags sind auf den Rucksäcken. Von hinten anschleichen, nicht rennen!", 6.0)
+		var st: Array = lv.get("start_toast", ["Willkommen, Erstis!", "Die grünen Bags sind auf den Rucksäcken. Von hinten anschleichen, nicht rennen!"])
+		hud.toast(st[0], st[1], 6.0)
 
 
 func on_overlay_button() -> void:
 	if state == "intro":
 		start_game()
+	elif state == "won" and LV.next_after(Game.level) > 0:
+		_next_level()
 	else:
 		get_tree().reload_current_scene()
+
+
+func _next_level() -> void:
+	Game.set_level(LV.next_after(Game.level))
+	get_tree().reload_current_scene()
 
 
 func on_overlay_menu() -> void:
@@ -428,6 +455,8 @@ func on_step(pl, radius: float) -> void:
 	fx.sound(pl.global_position, radius, col, 0.8 if pl.gait == "sprint" else 0.6)
 	if not night and pl.gait != "sneak":
 		_alert_erstis(pl.global_position, radius)
+	if logic != null and logic.has_method("on_noise"):
+		logic.on_noise(pl.global_position, radius)
 
 
 ## Erstis with a bag hear noise within `radius` px, turn around and hold their bag.
@@ -474,7 +503,7 @@ func _update_near(i: int) -> void:
 			nears[i] = o
 	if night:
 		return
-	if not done[i].has("ersti"):
+	if not done[i].has("ersti") and not LV.task("ersti").is_empty():
 		for st in students:
 			if not st.has_bag or st.frozen:
 				continue
@@ -483,12 +512,14 @@ func _update_near(i: int) -> void:
 				best = ds
 				nears[i] = {"use": "steal", "student": st, "label": "Ersti-Bag klauen",
 					"rect": Rect2(st.global_position / TS - Vector2(0.5, 1.7), Vector2(1.0, 1.9))}
-	if not done[i].has("highfive") and best > 0.6:
+	if not done[i].has("highfive") and not LV.task("highfive").is_empty() and best > 0.6:
 		var other = players[1 - i]
 		var op: Vector2 = other.global_position / TS
 		if p.distance_to(op) < 1.8 and not busy(1 - i) and not other.hidden_mode:
 			var mid := (p + op) / 2.0
 			nears[i] = {"use": "highfive", "label": "High Five!", "rect": Rect2(mid - Vector2(1.3, 1.7), Vector2(2.6, 2.1))}
+	if logic != null and logic.has_method("update_near"):
+		logic.update_near(i)
 
 
 func _interact(i: int) -> void:
@@ -543,6 +574,8 @@ func _interact(i: int) -> void:
 			_steal(i, o["student"])
 		"highfive":
 			_highfive(i)
+		"level":
+			logic.interact(i, o)
 
 
 func _lab_door(i: int) -> void:
@@ -677,7 +710,11 @@ func _coop_done(id: String) -> void:
 func _check_win() -> void:
 	if _left(0) == 0 and _left(1) == 0:
 		get_tree().create_timer(1.4).timeout.connect(func():
-			if state == "play":
+			if state != "play":
+				return
+			if logic != null and logic.has_method("finale"):
+				logic.finale(_win_day)   # e.g. a cutscene; it calls _win_day when it is over
+			else:
 				_win_day())
 
 
@@ -690,9 +727,13 @@ func _win_day() -> void:
 	grade = clampf(snappedf(grade, 0.25), 1.0, 6.0)
 	var verdict := "Hervorragend!" if grade >= 5.5 else ("Gut gemacht." if grade >= 4.5 else ("Bestanden." if grade >= 4.0 else "Knapp daneben."))
 	var t := int(time_played)
-	hud.show_overlay("Ersti-Tag geschafft!",
-		"%s & %s haben den ersten Tag überlebt.\n\nNote %s · %s\nZeit: %d:%02d · Fehler in Minigames: %d\n\nIn der Schweiz ist 6 die Bestnote, ab 4 ist bestanden." % [Game.name_of(0), Game.name_of(1), String.num(grade, 2), verdict, t / 60, t % 60, mistakes_total],
-		"R nochmals spielen · M zum Startbildschirm", "Nochmals spielen", true, "win", "LEVEL %d" % Game.level)
+	var story: String = String(lv.get("win_text", "%s & %s haben den ersten Tag überlebt.")) % [Game.name_of(0), Game.name_of(1)]
+	var nxt := LV.next_after(Game.level)
+	var more := nxt > 0
+	hud.show_overlay(String(lv.get("win_title", "Ersti-Tag geschafft!")),
+		"%s\n\nNote %s · %s\nZeit: %d:%02d · Fehler: %d\n\nIn der Schweiz ist 6 die Bestnote, ab 4 ist bestanden." % [story, String.num(grade, 2), verdict, t / 60, t % 60, mistakes_total],
+		("Enter weiter · " if more else "") + "R nochmals spielen · M zum Startbildschirm",
+		"Weiter zu Level %d" % nxt if more else "Nochmals spielen", true, "win", "LEVEL %d" % Game.level)
 
 
 func _lose_day() -> void:
@@ -701,8 +742,8 @@ func _lose_day() -> void:
 	for pl in players:
 		pl.enabled = false
 	var total := LV.tasks().size()
-	hud.show_overlay("Zeit abgelaufen",
-		"Der erste Tag ist vorbei, und es ist noch nicht alles erledigt.\n\n%s: %d von %d\n%s: %d von %d" % [Game.name_of(0), done[0].size(), total, Game.name_of(1), done[1].size(), total],
+	hud.show_overlay(String(lv.get("lose_title", "Zeit abgelaufen")),
+		"%s\n\n%s: %d von %d\n%s: %d von %d" % [lv.get("lose_text", "Der erste Tag ist vorbei, und es ist noch nicht alles erledigt."), Game.name_of(0), done[0].size(), total, Game.name_of(1), done[1].size(), total],
 		"R nochmals versuchen · M zum Startbildschirm", "Nochmals versuchen", true, "lose", "LEVEL %d" % Game.level)
 
 
@@ -803,6 +844,8 @@ func _on_mini_mistake(pid: int) -> void:
 		hud.toast("Zu laut!", "Das hat jemand gehört …", 1.8)
 	else:
 		_alert_erstis(at, 3.0 * TS)
+	if logic != null and logic.has_method("on_noise"):
+		logic.on_noise(at, 3.0 * TS)
 
 
 # ------------------------------------------------------------------ abilities (night, P1)
@@ -888,6 +931,9 @@ func goal_positions() -> Array:
 						out.append([st.global_position + Vector2(0, -30), c])
 			"coop":
 				pass
+			"level":
+				if logic != null and logic.has_method("goal_positions"):
+					out.append_array(logic.goal_positions(id, n0, n1))
 			_:
 				for p in _obj_center(func(o): return o.get("use", "") == "station" and o.get("task", "") == id):
 					out.append([p, c])

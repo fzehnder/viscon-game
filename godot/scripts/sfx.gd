@@ -1,6 +1,7 @@
 extends Node
 ## Autoload "Sfx": tiny synthesizer, so the game has satisfying sounds without any audio files.
-## Sfx.play("click" | "pop" | "success" | "fanfare" | "fail" | "type" | "shutter" | "grant" | "steal" | "tick" | "whoosh")
+## Sfx.play("click" | "pop" | "success" | "fanfare" | "fail" | "type" | "shutter" | "grant" | "steal" | "tick" | "whoosh"
+##   | "buzz" | "mail" | "doom")
 
 const RATE := 22050
 var players: Array = []
@@ -62,6 +63,14 @@ func _make(sound: String) -> AudioStreamWAV:
 		"steal":
 			notes = [[0.0, 0.0, 0.12, 0.3, "noise", 0.0], [400.0, 0.05, 0.12, 0.45, "sine", 1600.0],
 				[1318.5, 0.16, 0.18, 0.4, "tri", 1318.5]]
+		"buzz":   # phone vibrating on a table
+			notes = [[92.0, 0.0, 0.2, 0.55, "square", 88.0], [0.0, 0.0, 0.2, 0.12, "noise", 0.0],
+				[92.0, 0.32, 0.2, 0.55, "square", 88.0], [0.0, 0.32, 0.2, 0.12, "noise", 0.0]]
+		"mail":
+			notes = [[1318.5, 0.0, 0.1, 0.4, "sine", 1318.5], [1760.0, 0.09, 0.3, 0.4, "sine", 1760.0]]
+		"doom":   # the bad-news chord
+			notes = [[146.8, 0.0, 0.9, 0.45, "square", 138.6], [174.6, 0.0, 0.9, 0.35, "tri", 164.8],
+				[73.4, 0.0, 1.1, 0.5, "tri", 69.3], [0.0, 0.0, 0.25, 0.3, "noise", 0.0]]
 		_:
 			return null
 	var total := 0.0

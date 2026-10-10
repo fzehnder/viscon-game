@@ -165,6 +165,13 @@ static func draw_character(ci: CanvasItem, look: Dictionary, facing: int, phase:
 		if "flashlight" in acc:
 			_rect(ci, 7.0, -17 - b + al, 2.0, 5.0, Color("2b2f35"))
 			ci.draw_circle(Vector2(8.0, -11.8 - b + al), 1.4, Color(1, 0.95, 0.7))
+		if "tray" in acc:
+			# Mensa tray, carried with both hands
+			if front:
+				_tray(ci, Vector2(0, -18.5 - b), 18.0)
+			else:
+				_rect(ci, -10.5, -19.5 - b, 3.0, 2.2, Color("c98a4b"))
+				_rect(ci, 7.5, -19.5 - b, 3.0, 2.2, Color("c98a4b"))
 		# head
 		_rect(ci, -2.0, -30 - b, 4.0, 3.0, skin.darkened(0.08))
 		ci.draw_circle(Vector2(0, hy), 7.5, skin)
@@ -242,6 +249,8 @@ static func draw_character(ci: CanvasItem, look: Dictionary, facing: int, phase:
 		if "flashlight" in acc:
 			_rect(ci, d * 0.8 + (0.0 if k > 0 else -5.0), -16.5 - b, 5.0, 2.0, Color("2b2f35"))
 			ci.draw_circle(Vector2(d * 0.8 + k * 5.5, -15.5 - b), 1.4, Color(1, 0.95, 0.7))
+		if "tray" in acc:
+			_tray(ci, Vector2(k * 8.5, -18.5 - b), 11.0)
 		# head
 		_rect(ci, -2.0, -30 - b, 4.0, 3.0, skin.darkened(0.08))
 		ci.draw_circle(Vector2(k * 0.6, hy), 7.3, skin)
@@ -261,6 +270,15 @@ static func draw_character(ci: CanvasItem, look: Dictionary, facing: int, phase:
 			ci.draw_circle(Vector2(-k * 0.8, hy), 3.0, Color("22262b"))
 			ci.draw_circle(Vector2(-k * 0.8, hy), 1.6, accent)
 	ci.draw_set_transform(Vector2.ZERO, 0.0, Vector2.ONE)
+
+
+## Mensa tray with a plate and a glass, centred on `c` (also used for trays standing on tables).
+static func _tray(ci: CanvasItem, c: Vector2, w: float) -> void:
+	_rect(ci, c.x - w / 2.0, c.y - 2.2, w, 4.4, Color("c98a4b"))
+	_rect(ci, c.x - w / 2.0, c.y + 1.2, w, 1.0, Color("9a6431"))
+	_ell(ci, c + Vector2(-w * 0.14, -0.6), w * 0.24, 1.7, Color("f3efe2"))
+	_ell(ci, c + Vector2(-w * 0.14, -0.9), w * 0.15, 1.0, Color("a5612a"))
+	_rect(ci, c.x + w * 0.2, c.y - 4.0, 2.4, 3.6, Color("9cc3e6"))
 
 
 static func _draw_hair_fb(ci: CanvasItem, hstyle: String, hair: Color, accent: Color, hy: float, front: bool) -> void:

@@ -115,6 +115,7 @@ func build(p_mode: String = "night", p_dept: String = "MAVT") -> Dictionary:
 	_dept_objects()
 	_trees_labels_zones()
 	_people()
+	LV.build_map(self)   # the running level may add or replace furniture
 	return {"W": W, "H": H, "map": map, "objs": objs, "doors": doors, "labels": labels,
 		"lamps": lamps, "zones": zones, "profs": profs, "mode": mode, "dept": dept, "student_zones": student_zones}
 
@@ -228,7 +229,7 @@ func _dept_objects() -> void:
 					o["use"] = "fusebox"
 					o["label"] = "Sicherungskasten verdrahten"
 	else:
-		# Level 1 (day, co-op): every task with fixed places gets one station per spot (levels.gd)
+		# day levels: every task with fixed places gets one station per spot (levels.gd)
 		for tk in LV.tasks():
 			if not tk.has("spots"):
 				continue
