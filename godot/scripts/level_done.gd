@@ -40,7 +40,6 @@ var roll_t := 0.0
 var beat := "intro"               # intro, rows, roll, stamp
 var stamp_t := -1.0               # seconds since the stamp came down (-1: not yet)
 var ending := false
-var view_modes: Array = []        # how the views of the game were drawn before (they pause while this plays)
 var root: Control
 var canvas: Control
 
@@ -61,13 +60,21 @@ func _ready() -> void:
 	canvas.set_anchors_and_offsets_preset(Control.PRESET_FULL_RECT)
 	root.modulate.a = 0.0
 	create_tween().tween_property(root, "modulate:a", 1.0, 0.3)
-	# the scene fills the screen: the game behind it does not have to be drawn
-	var m = get_parent()
-	if m != null and "vps" in m:
-		for vp in m.vps:
-			view_modes.append(vp.render_target_update_mode)
-			vp.render_target_update_mode = SubViewport.UPDATE_DISABLED
+	_views(false)
 	UI.sfx("whoosh", -8.0)
+
+
+## The scene fills the screen, so the game behind it is not drawn while it plays. Kept up every
+## frame: a level's own ending that covered the views before lets go of them a moment after this
+## scene has started, and would switch them on again.
+func _views(on: bool) -> void:
+	var m = get_parent()
+	if m == null or not ("vps" in m):
+		return
+	var mode := SubViewport.UPDATE_ALWAYS if on else SubViewport.UPDATE_DISABLED
+	for vp in m.vps:
+		if vp.render_target_update_mode != mode:
+			vp.render_target_update_mode = mode
 
 
 func play(p_info: Dictionary, done: Callable = Callable()) -> void:
@@ -91,6 +98,7 @@ func _process(delta: float) -> void:
 	if ending:
 		return
 	t += delta
+	_views(false)
 	canvas.queue_redraw()
 	match beat:
 		"intro":
@@ -165,10 +173,7 @@ func _finish() -> void:
 	if ending:
 		return
 	ending = true
-	var m = get_parent()
-	if m != null and "vps" in m:
-		for i in mini(view_modes.size(), m.vps.size()):
-			m.vps[i].render_target_update_mode = view_modes[i]
+	_views(true)
 	var tw := create_tween()
 	tw.tween_property(root, "modulate:a", 0.0, 0.25)
 	tw.tween_callback(func():
