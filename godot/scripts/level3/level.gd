@@ -108,6 +108,13 @@ const DEF := {
 	"time": 480.0,
 	"start": Vector2(27.0, 51.0),   # on the Polyterrasse, between the west entrance and the Mensa
 	"timer_title": "GARDEROBE SCHLIESST IN",
+	"sky": "abend",                 # loading screen: dusk
+	"tips": [
+		"In Abendgarderobe übersehen euch die Aufpasser im Hauptgebäude, in der Küchenschürze die Köche.",
+		"Umziehen geht nur draussen und nur, wo niemand zuschaut.",
+		"Das Armband braucht zwei: Eine Person liest die Vorlage vor, die andere baut sie in der Küche nach.",
+		"Zum Tanzen vor der Kamera: zurücktreten und die Hände heben. Mit Tasten geht es auch.",
+	],
 	"intro": "Polyball: 9000 Gäste im Hauptgebäude. In der Garderobe hängt der Mantel eines Professors, sein Badge steckt in der Innentasche. Im Hoodie kommt ihr nicht weit. Beide müssen alles erledigen:",
 	"hint": "Verkleidungen gelten nur an ihrem Ort: Abendgarderobe im Hauptgebäude, Küchenschürze in der Mensa. Falsch angezogen füllt sich der Balken schneller.",
 	"start_toast": ["Zuerst in die Mensa", "Dort ist heute die Küche. Gleich neben der Tür hängen Schürzen, hinten rechts die Fracks der Kellner."],
