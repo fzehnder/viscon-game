@@ -15,13 +15,14 @@ const LegiCard = preload("res://scripts/legi_card.gd")
 const INK := Color("ffffff")      # on the dark game boards inside the panel
 const MUTED := Color("b9bde6")
 const SIGNAL := Color("5b8fe0")   # light ETH blue: markers and highlights
-const TEXT := Color("1c2033")     # text on the cream panel (= UI.INK)
-const TEXT2 := Color("646b7d")    # secondary text on the panel (= UI.INK2)
-const BTN_BG := Color("eef1f8")    # answer buttons: normal, current, right, wrong
-const BTN_LINE := Color("c9d0e0")
-const CUR_BG := Color("e1eafa")
-const RIGHT_BG := Color("d8f3e4")
-const WRONG_BG := Color("fbe0de")
+const PANEL_BG := Color(0.05, 0.11, 0.25, 0.9)   # dark blue glass like the HUD, a bit denser (UI.GLASS)
+const TEXT := Color("f2f6ff")     # text on the panel (= UI.ON_GLASS)
+const TEXT2 := Color("a9b7d3")    # secondary text on the panel (= UI.ON_GLASS2)
+const BTN_BG := Color(1, 1, 1, 0.08)    # answer buttons: normal, current, right, wrong
+const BTN_LINE := Color(1, 1, 1, 0.25)
+const CUR_BG := Color(0.56, 0.7, 0.95, 0.22)
+const RIGHT_BG := Color(0.24, 0.86, 0.59, 0.25)
+const WRONG_BG := Color(1.0, 0.3, 0.37, 0.25)
 const OKC := Color("3ddc97")
 const BAD := Color("ff4d5e")
 const WIRE_COLORS := ["e74c3c", "3498db", "f1c40f", "2ecc71", "ecf0f1", "e67e22"]
@@ -37,7 +38,7 @@ var keys: Dictionary = {}
 var labels: Dictionary = {}
 var keys2: Dictionary = {}
 var labels2: Dictionary = {}
-var accent := Color("215caf")   # border colour: the player's colour (ETH blue for co-op)
+var accent := Color("8fb4f0")   # border colour: the player's colour (light ETH blue for co-op)
 var legi_card = null
 
 var root: Control
@@ -146,8 +147,8 @@ func _button(text: String, size: int = 16) -> Button:
 	b.focus_mode = Control.FOCUS_NONE
 	b.add_theme_font_size_override("font_size", size)
 	b.add_theme_stylebox_override("normal", _style(BTN_BG, BTN_LINE))
-	b.add_theme_stylebox_override("hover", _style(BTN_BG.darkened(0.04), UI.ETH_BLUE))
-	b.add_theme_stylebox_override("pressed", _style(BTN_BG.darkened(0.08), UI.ETH_BLUE))
+	b.add_theme_stylebox_override("hover", _style(Color(1, 1, 1, 0.14), UI.SKY))
+	b.add_theme_stylebox_override("pressed", _style(Color(1, 1, 1, 0.2), UI.SKY))
 	b.add_theme_color_override("font_color", TEXT)
 	b.add_theme_color_override("font_hover_color", TEXT)
 	return b
@@ -170,14 +171,14 @@ func open(k: String, p: Dictionary, d: String) -> void:
 		_place_half()
 	if screen_side < 0:   # only a full-screen minigame dims the game; on one half the other player keeps playing
 		var dim := ColorRect.new()
-		dim.color = Color(0.97, 0.96, 0.92, 0.6)
+		dim.color = Color(0.02, 0.05, 0.12, 0.45)
 		root.add_child(dim)
 		dim.set_anchors_and_offsets_preset(Control.PRESET_FULL_RECT)
 	var cc := CenterContainer.new()
 	root.add_child(cc)
 	cc.set_anchors_and_offsets_preset(Control.PRESET_FULL_RECT)
 	panel = PanelContainer.new()
-	panel.add_theme_stylebox_override("panel", UI.box(UI.PAPER, accent, 18, 2, 18))
+	panel.add_theme_stylebox_override("panel", UI.box(PANEL_BG, accent, 18, 2, 18))
 	cc.add_child(panel)
 	body = VBoxContainer.new()
 	body.add_theme_constant_override("separation", 10)
@@ -282,9 +283,9 @@ func _succeed(msg: String) -> void:
 		return
 	closing = 1.1 if legi_card else 0.9
 	info_l.text = msg
-	info_l.label_settings.font_color = UI.OK
-	panel.add_theme_stylebox_override("panel", UI.box(UI.PAPER, UI.OK, 18, 2, 18))
-	title_l.label_settings.font_color = UI.OK
+	info_l.label_settings.font_color = UI.GREEN
+	panel.add_theme_stylebox_override("panel", UI.box(PANEL_BG, UI.GREEN, 18, 2, 18))
+	title_l.label_settings.font_color = UI.GREEN
 	if legi_card:
 		legi_card.validate()
 	UI.sfx("grant", -6.0)
@@ -458,7 +459,7 @@ func _show_question() -> void:
 func _quiz_answer(i: int) -> void:
 	if q_lock > 0.0 or closing >= 0.0:
 		return
-	q_buttons[q_right].add_theme_stylebox_override("normal", _style(RIGHT_BG, UI.OK))
+	q_buttons[q_right].add_theme_stylebox_override("normal", _style(RIGHT_BG, UI.GREEN))
 	if i == q_right:
 		q_correct += 1
 		_ding()
@@ -679,7 +680,7 @@ func _setup_paint(wrong: int) -> void:
 		var br := BTN_LINE
 		if i == s_cur:
 			bg = CUR_BG
-			br = UI.ETH_BLUE
+			br = UI.SKY
 		if i == wrong:
 			bg = WRONG_BG
 			br = BAD
@@ -691,7 +692,7 @@ func _setup_pick(i: int) -> void:
 		return
 	s_cur = i
 	if s_opts[i][1]:
-		s_buttons[i].add_theme_stylebox_override("normal", _style(RIGHT_BG, UI.OK))
+		s_buttons[i].add_theme_stylebox_override("normal", _style(RIGHT_BG, UI.GREEN))
 		_ding()
 		s_lock = 0.6
 	else:
@@ -939,7 +940,7 @@ func _on_draw() -> void:
 			c.draw_rect(Rect2(BAR_X + zone.x, 80, zone.y - zone.x, 36), Color(0.3, 0.75, 0.4, 0.85))
 			c.draw_rect(Rect2(BAR_X, 80, BAR_W, 36), Color(0.4, 0.48, 0.56), false, 1.5)
 			var mx := BAR_X + pos
-			c.draw_rect(Rect2(mx - 3, 70, 6, 56), TEXT)
+			c.draw_rect(Rect2(mx - 3, 70, 6, 56), Color("0d1424"))
 			c.draw_rect(Rect2(mx - 1, 72, 2, 52), INK)
 			c.draw_colored_polygon(PackedVector2Array([Vector2(mx - 8, 62), Vector2(mx + 8, 62), Vector2(mx, 72)]), SIGNAL)
 			if flash > 0.0:
@@ -955,7 +956,7 @@ func _on_draw() -> void:
 			c.draw_rect(Rect2(BAR_X + zone.x, 80, zone.y - zone.x, 36), Color(0.3, 0.75, 0.4, 0.85))
 			c.draw_rect(Rect2(BAR_X, 80, BAR_W, 36), Color(0.4, 0.48, 0.56), false, 1.5)
 			var hx := BAR_X + pos
-			c.draw_rect(Rect2(hx - 3, 70, 6, 56), TEXT)
+			c.draw_rect(Rect2(hx - 3, 70, 6, 56), Color("0d1424"))
 			c.draw_rect(Rect2(hx - 1, 72, 2, 52), INK)
 			c.draw_colored_polygon(PackedVector2Array([Vector2(hx - 8, 62), Vector2(hx + 8, 62), Vector2(hx, 72)]), SIGNAL)
 			if flash > 0.0:
@@ -994,7 +995,7 @@ func _on_draw() -> void:
 				var a2 := _node_pos(0, sel_left)
 				var m := c.get_local_mouse_position()
 				c.draw_line(a2, m if side == 1 and m.x > 140 else _node_pos(1, cur), Color(WIRE_COLORS[sel_left], 0.6), 4.0)
-				c.draw_arc(a2, 17, 0, TAU, 28, UI.ETH_BLUE, 2.5)
+				c.draw_arc(a2, 17, 0, TAU, 28, UI.SKY, 2.5)
 			if wrong_t > 0.0:
 				c.draw_line(_node_pos(0, wrong_pair.x), _node_pos(1, wrong_pair.y), Color(1, 0.3, 0.25, wrong_t * 2.0), 4.0)
 			var cp := _node_pos(side, cur)

@@ -67,6 +67,7 @@ void fragment() {
 	}
 }
 """
+const ROUTE_SWITCH := 3.0   # tiles: a new way to the task must be this much shorter to replace the shown one
 const STEAL_BEHIND := 1.9  # rad: you must be at least this far from where the Ersti is looking
 
 var data: Dictionary
@@ -112,6 +113,9 @@ var picked: Array = [-1, -1]
 var routes: Array = [[], []]       # the way to the picked task per player: points in px, about 8 px apart
 var route_t: Array = [0.0, 0.0]
 var route_age: Array = [9.0, 9.0]  # seconds since a player's way changed to a different one (it fades in then)
+# where the arrow around each player points: the furthest point of the way that can be walked to
+# in a straight line, i.e. the next door, corner or alley (fx.gd draws the arrow; the way itself is not drawn)
+var route_aim: Array = [null, null]
 # abilities (night, P1)
 var ability: Dictionary
 var cooldown := 0.0
@@ -1194,7 +1198,7 @@ func open_coop_minigame(kind: String, params: Dictionary, on_success: Callable) 
 	mg.labels = KEYS.labels_for(0)
 	mg.keys2 = KEYS.keys_for(1)
 	mg.labels2 = KEYS.labels_for(1)
-	mg.accent = UI.ETH_BLUE
+	mg.accent = UI.SKY
 	for j in 2:
 		minis[j] = mg
 		nears[j] = null
@@ -1398,17 +1402,20 @@ func _update_routes(delta: float) -> void:
 			k = -1
 		if k < 0 or busy(pid):
 			routes[pid] = []
+			route_aim[pid] = null
 			continue
 		var from: Vector2 = players[pid].global_position
 		route_t[pid] -= delta
 		route_age[pid] += delta
 		if route_t[pid] > 0.0:
 			routes[pid] = _trim_route(routes[pid], from)   # between two searches the line gets shorter at the feet
+			route_aim[pid] = _route_aim(routes[pid], from)
 			continue
 		route_t[pid] = 0.2
 		var best: Array = []
 		var best_len := INF
-		for target in task_targets(tasks[k]["id"], pid):
+		var targets: Array = task_targets(tasks[k]["id"], pid)
+		for target in targets:
 			var p: Array = world.find_path(from, target)
 			if p.size() > 1:
 				p.pop_front()   # the first tile is where the player stands anyway
@@ -1421,9 +1428,54 @@ func _update_routes(delta: float) -> void:
 				best_len = total
 				best = p
 		var fresh: Array = world.smooth_path(best) if best_len > 1.5 * TS else []   # standing in front of it: no line needed
+		# stay on the way shown so far unless the new one is clearly shorter, so that two ways (or two
+		# places) of about the same length do not take turns every few steps
+		var cur: Array = _trim_route(routes[pid], from)
+		if not fresh.is_empty() and _route_still_good(cur, from, targets):
+			var cur_len := _route_len(cur)
+			if _route_len(fresh) > cur_len - maxf(ROUTE_SWITCH * TS, cur_len * 0.15):
+				fresh = cur
 		if _other_way(routes[pid], fresh):
 			route_age[pid] = 0.0
 		routes[pid] = fresh
+		route_aim[pid] = _route_aim(fresh, from)
+
+
+## The next door or corner on the way: walking along it from the feet, the last point that can
+## still be reached in a straight line. At least about 40 px ahead, so that next to a wall or a
+## bench it does not point at the player's own feet. null if there is no way (at the goal).
+func _route_aim(r: Array, from: Vector2):
+	if r.size() < 2:
+		return null
+	var aim: Vector2 = r[mini(5, r.size() - 1)]
+	var i := 6
+	while i < mini(r.size(), 160):   # up to about 40 tiles ahead, every second point
+		if not world.walk_clear(from, r[i], 6.0):
+			break
+		aim = r[i]
+		i += 2
+	if i >= r.size():
+		aim = r[r.size() - 1]   # the goal itself is in sight
+	return aim
+
+
+func _route_len(r: Array) -> float:
+	var total := 0.0
+	for j in range(1, r.size()):
+		total += (r[j - 1] as Vector2).distance_to(r[j])
+	return total
+
+
+## The way shown so far can still be followed: the player is on it, and it still ends at one of
+## the places where the task can be done (those can move, e.g. the other player for a high five).
+func _route_still_good(r: Array, from: Vector2, targets: Array) -> bool:
+	if r.size() < 3 or (r[1] as Vector2).distance_to(from) > 1.5 * TS:
+		return false
+	var end: Vector2 = r[r.size() - 1]
+	for tg in targets:
+		if end.distance_to(tg) < 2.5 * TS:
+			return true
+	return false
 
 
 ## The way without the part the player has already walked: it starts at the feet again.
