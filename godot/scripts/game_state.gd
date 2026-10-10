@@ -66,7 +66,8 @@ func add_opp(id: String, pname: String, look: Dictionary, by: Array, why: String
 	var fresh := not opps.has(id)
 	opps[id] = {"name": pname, "look": look.duplicate(true), "level": level if fresh else int(opps[id]["level"]),
 		"by": by.duplicate(), "why": why}
-	(opps[id]["look"]["acc"] as Array).erase("loot")
+	for carried in ["loot", "erstibag"]:   # remembered as they look without the bag they carried home
+		(opps[id]["look"]["acc"] as Array).erase(carried)
 	save_game()
 	return fresh
 
