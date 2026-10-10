@@ -54,6 +54,7 @@ const DEF := {
 # ---- tuning
 const Q_COUNT := 4            # questions per player, drawn from the series of the desk
 const Q_ALLOWED := 1          # wrong answers that are still a pass
+const REACH := 0.85           # tiles: this close to a bench place or a desk, from any side, it can be used
 const PARTNER_DIST := 2.6     # tiles: pipetting needs the second player this close, to hold the glass
 const RUN_SCOLD := 5.0        # seconds between two scoldings for running in the lab
 const PROF_SPEED := 44.0      # px per second on his rounds
@@ -342,8 +343,14 @@ func _update_walker(delta: float) -> void:
 
 
 # ================================================================== challenge 1: pipetting
+## Where somebody stands who walks up to place k from the aisle (the side the door is on).
 func _station_stand(k: int) -> Vector2:
-	return Vector2(STATION_X[k], STATION_Y - 0.15)
+	return Vector2(STATION_X[k], STATION_Y + (BENCHES[k] as Rect2).size.y + 0.3)
+
+
+## Distance from `p` to the nearest point of `r`, in tiles: 0 inside, grows on every side.
+func _dist_to(p: Vector2, r: Rect2) -> float:
+	return p.distance_to(Vector2(clampf(p.x, r.position.x, r.end.x), clampf(p.y, r.position.y, r.end.y)))
 
 
 func _station_rect(k: int) -> Rect2:
@@ -361,8 +368,10 @@ func _use_station(pid: int, k: int) -> void:
 		main.hud.toast("Das geht nur zu zweit", "Du nimmst die Pipette, aber %s muss neben dir stehen und das Glas halten." % Game.name_of(other), 4.0)
 		return
 	for pl in main.players:
-		pl.dir = PI / 2.0
-		pl.facing = ART.FRONT
+		# both turn to the bench, whichever side of it they are on
+		var north: bool = pl.global_position.y < (STATION_Y + 0.6) * TS
+		pl.dir = PI / 2.0 if north else -PI / 2.0
+		pl.facing = ART.FRONT if north else ART.BACK
 	st_busy[k] = pid
 	start_pipette(pid, k)
 
@@ -616,14 +625,13 @@ func update_near(pid: int) -> void:
 	var p: Vector2 = main.players[pid].global_position / TS
 	if not main.done[pid].has("pipette"):
 		for k in STATION_X.size():
-			if st_done[k] < 0 and p.distance_to(_station_stand(k)) < 1.0:
+			if st_done[k] < 0 and _dist_to(p, _station_rect(k)) < REACH:
 				main.nears[pid] = {"use": "level", "act": "pipette", "k": k, "label": "Pipettieren (zu zweit)", "rect": _station_rect(k)}
 				return
 	if not main.done[pid].has("testat"):
 		for k in DESKS.size():
 			var r: Rect2 = DESKS[k]
-			var c := Vector2(clampf(p.x, r.position.x, r.end.x), clampf(p.y, r.position.y, r.end.y))
-			if not desk_done[k] and p.distance_to(c) < 0.85:
+			if not desk_done[k] and _dist_to(p, r) < REACH:
 				main.nears[pid] = {"use": "level", "act": "desk", "k": k, "rect": r,
 					"label": "Testat Serie %s schreiben" % SET_NAMES[k] if phase == 2 else "Testat-Pult ansehen"}
 				return
@@ -676,6 +684,22 @@ func goal_positions(id: String, n0: bool, n1: bool) -> Array:
 
 func _in_lab(p: Vector2) -> bool:
 	return ROOM.has_point(p) or PAVILION.has_point(p)
+
+
+## Where the dashed way of a picked task leads (Tab / comma): spots on the floor in front of the
+## places, on the aisle side. While the pipetting is open, the Testat leads there as well.
+func task_targets(id: String, pid: int) -> Array:
+	var out: Array = []
+	if not main.done[pid].has("pipette"):
+		for k in STATION_X.size():
+			if st_done[k] < 0:
+				out.append(_station_stand(k) * TS)
+	elif id == "testat" and phase == 2:
+		for k in DESKS.size():
+			if not desk_done[k] and desk_who[k] < 0:
+				var r: Rect2 = DESKS[k]
+				out.append(Vector2(r.get_center().x, r.end.y + 0.45) * TS)
+	return out
 
 
 ## Footsteps and minigame mistakes. Sprinting in the lab gets you told off.
