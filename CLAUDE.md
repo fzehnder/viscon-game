@@ -222,6 +222,7 @@ Offen:
 | `levels.gd` | findet die Levels, enthält Level 1 (Positionen in Tiles, 1 Tile = 32 px) |
 | `level<N>/` | je ein weiteres Level: `level.gd`, eigene Figuren, `README.md` |
 | `cutscene.gd` | Cutscene-Abspieler |
+| `skin_menu.gd` | Figuren gestalten im Intro (Stufe `custom` in `menu.gd`): zwei Karten, beide wählen gleichzeitig mit ihren Tasten (P1 W/S Zeile, A/D ändern, Q Zufall, E bereit; P2 Pfeile, `-` Zufall, Enter bereit), Maus geht auch. Was wählbar ist, steht in `characters.gd` (`PLAYER_TOPS`, `EXTRAS`, `SHOE_COLORS`, die Farblisten). Auf der Startseite gibt es dazu «Figuren ändern» |
 | `loading_screen.gd`, `loading.tscn` | Ladebildschirm vor jedem Level: Die Polybahn fährt vom Central zur Polyterrasse und ist der Ladebalken, dazu Level-Nummer, Name, Zeitvorgabe, ein gezeichnetes Motiv pro Level (`_motif`, nach Level-Nummer) und ein Tipp. Aus dem Menü (Stufe `loading`), zwischen zwei Levels (`main._next_level`) und beim Start aus dem Leistungsüberblick. Ein Level kann in seiner `DEF` `"tips": [...]` (eigene Tipps) und `"sky": "abend"` (Dämmerung) angeben |
 | `level_done.gd` | Szene am Ende jedes gewonnenen Levels, vor dem Sieg-Dialog (`main._win_day`): Blatt «Leistungsnachweis», Note zählt hoch, Stempel. Eine eigene Schlussszene eines Levels (`finale`) kommt davor |
 | `main.gd` | Spielablauf, Split Screen, Interaktion, Aufgaben, Sieg/Niederlage, Level-Hooks |
@@ -233,7 +234,7 @@ Offen:
 | `transcript.gd` | Level-Auswahl als Leistungsüberblick (myStudies-Look): Tabelle von Hand gezeichnet, Systemschrift Arial |
 | `hud.gd`, `ui.gd`, `fx.gd`, `sfx.gd` | Anzeigen (Aufgabenkarten, Zeit, Minimap, Stempel «ERLEDIGT» bei einer erledigten Aufgabe: `hud.celebrate`), Popup-Stil, Effekte (auch der Weg zur Aufgabe), Sounds |
 | `tracking.gd`, `track_math.gd` | Autoload `Track`: Webcam (Gesicht, Hand, Körper) und Pusten ins Mikrofon für Minigames; Auswertungen dazu. Anleitung und Rezepte in `tracker/README.md`, Testszene `track_debug.tscn` |
-| `characters.gd`, `character_art.gd` | Looks, Quiz-/Moodle-Inhalte, Figuren-Zeichnung |
+| `characters.gd`, `character_art.gd` | Looks, Quiz-/Moodle-Inhalte, Figuren-Zeichnung. Jede Figur wird zweimal gezeichnet: zuerst alle Teile dunkel und etwas grösser (`_ink`), dann farbig; was übersteht, ist der Umriss. Im Renderer deshalb nie direkt `ci.draw_*` aufrufen, sondern die Helfer (`_rect`, `_circ`, `_ell`, `_cap`, `_line`, `_arc`, `_poly`). Kopfmitte (y = -35), Augenkasten und Mundlage nicht verschieben: `level4/prof_rage.gd` und andere zeichnen darüber |
 
 Konventionen: Code-Kommentare auf Englisch, Texte im Spiel auf Deutsch (Schweizer Schreibweise, kein ß). Zeilenenden LF (`godot/.gitattributes`). Godot legt neben jedes Skript eine `.uid`-Datei, die gehört mit ins Repo.
 
@@ -274,7 +275,7 @@ Damit ein Level zum Rest passt:
 - Blasen über Köpfen: dunkler Kreis, Radius 10, bei y -58. Gelbes «!» = passt auf (wie die Erstis), Grün = Chance. Sichtkegel wie bei den Professoren: `Color(1.0, 0.93, 0.6, 0.2)`, bei Alarm Richtung Rot.
 - Hinweise als `main.hud.toast(Titel, Text, Dauer)`, Erklär-Toasts nur einmal zeigen. Erledigtes feiert `main._task_done` selbst. Fehler: `main.mistakes_total += 1`, roter Geräuschkreis `main.fx.sound(...)`, `UI.sfx("fail")`.
 - Ziele als Rauten über `goal_positions` in der Farbe derer, die sie noch brauchen (`main._need_color`).
-- Neue Sounds als Notenliste in `sfx.gd`, neue Accessoires in `character_art.gd`.
+- Neue Sounds als Notenliste in `sfx.gd`, neue Accessoires in `character_art.gd` (dort nur über die Zeichen-Helfer, siehe Dateitabelle).
 
 Leveldesign:
 - Das Zeitfenster, um das sich ein Level dreht, sichtbar machen (ablaufender Ring, Markierung am Boden), sonst wirkt Erwischtwerden willkürlich.

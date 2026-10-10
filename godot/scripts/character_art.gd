@@ -32,30 +32,120 @@ static func col(look: Dictionary, key: String, fallback: String = "888888") -> C
 	return Color(String(v))
 
 
+# ------------------------------------------------------------------ drawing helpers
+# A figure is drawn twice: first every part in OUTLINE and a little bigger (_ink), then the
+# colours on top. What sticks out is a dark line around the whole figure. Parts that are see
+# through (shadows, glows) are left out of the first pass.
+const OUTLINE := Color("1b1c30")
+const GROW := 0.9                  # how far the line reaches out of the figure, in figure units
+static var _ink := false
+
+
 static func _ell(ci: CanvasItem, c: Vector2, rx: float, ry: float, color: Color) -> void:
+	if _ink and color.a < 0.9:
+		return
+	var g := GROW if _ink else 0.0
 	var pts := PackedVector2Array()
 	for i in 20:
 		var a := TAU * i / 20.0
-		pts.append(c + Vector2(cos(a) * rx, sin(a) * ry))
-	ci.draw_colored_polygon(pts, color)
+		pts.append(c + Vector2(cos(a) * (rx + g), sin(a) * (ry + g)))
+	ci.draw_colored_polygon(pts, OUTLINE if _ink else color)
 
 
 static func _cap(ci: CanvasItem, c: Vector2, r: float, a0: float, a1: float, color: Color) -> void:
 	# filled circle segment between two angles (degrees, 270 = straight up)
+	if _ink and color.a < 0.9:
+		return
 	var pts := PackedVector2Array()
 	var n := 18
 	for i in n + 1:
 		var a := deg_to_rad(lerpf(a0, a1, float(i) / n))
-		pts.append(c + Vector2(cos(a), sin(a)) * r)
-	ci.draw_colored_polygon(pts, color)
+		pts.append(c + Vector2(cos(a), sin(a)) * (r + (GROW if _ink else 0.0)))
+	ci.draw_colored_polygon(pts, OUTLINE if _ink else color)
 
 
 static func _rect(ci: CanvasItem, x: float, y: float, w: float, h: float, color: Color) -> void:
+	if _ink:
+		if color.a >= 0.9:
+			ci.draw_rect(Rect2(x - GROW, y - GROW, w + GROW * 2.0, h + GROW * 2.0), OUTLINE)
+		return
 	ci.draw_rect(Rect2(x, y, w, h), color)
+
+
+static func _circ(ci: CanvasItem, c: Vector2, r: float, color: Color) -> void:
+	if _ink:
+		if color.a >= 0.9:
+			ci.draw_circle(c, r + GROW, OUTLINE)
+		return
+	ci.draw_circle(c, r, color)
+
+
+static func _line(ci: CanvasItem, a: Vector2, b: Vector2, color: Color, width: float = 1.0) -> void:
+	if _ink:
+		if color.a >= 0.9:
+			ci.draw_line(a, b, OUTLINE, width + GROW * 2.0)
+		return
+	ci.draw_line(a, b, color, width)
+
+
+static func _arc(ci: CanvasItem, c: Vector2, r: float, a0: float, a1: float, n: int, color: Color, width: float = 1.0) -> void:
+	if _ink:
+		if color.a >= 0.9:
+			ci.draw_arc(c, r, a0, a1, n, OUTLINE, width + GROW * 2.0)
+		return
+	ci.draw_arc(c, r, a0, a1, n, color, width)
+
+
+static func _poly(ci: CanvasItem, pts: PackedVector2Array, color: Color) -> void:
+	if _ink:
+		if color.a >= 0.9:
+			ci.draw_colored_polygon(pts, OUTLINE)
+			ci.draw_polyline(pts + PackedVector2Array([pts[0]]), OUTLINE, GROW * 2.0)
+		return
+	ci.draw_colored_polygon(pts, color)
+
+
+## A frame without filling (glasses). Always inside the figure, so it needs no line around it.
+static func _frame(ci: CanvasItem, r: Rect2, color: Color, _filled: bool, width: float) -> void:
+	if not _ink:
+		ci.draw_rect(r, color, false, width)
+
+
+## A still picture (Legi, portrait: phase 0, not moving) keeps its eyes open; everybody else
+## blinks now and then, each at their own moment.
+static func _blinking(look: Dictionary, phase: float, moving: bool) -> bool:
+	if phase == 0.0 and not moving:
+		return false
+	var off := float(hash(look.get("hair", "")) % 997) * 0.011 + float(hash(look.get("top", "")) % 991) * 0.007
+	return fposmod(Time.get_ticks_msec() / 1000.0 + off, 3.9) < 0.13
+
+
+## One eye in the box (x .. x + 1.7, hy - 0.8 .. hy + 1.6) that everything else counts on
+## (level 4 draws its own eyes over it): dark, with a glint, or a line while blinking.
+static func _eye(ci: CanvasItem, x: float, hy: float, shut: bool) -> void:
+	if _ink:
+		return
+	if shut:
+		ci.draw_rect(Rect2(x - 0.1, hy + 0.5, 1.9, 0.6), Color("1f1a17"))
+		return
+	var c := Vector2(x + 0.85, hy + 0.4)
+	ci.draw_circle(c, 1.05, Color("1f1a17"))                        # round, and still inside the box
+	ci.draw_circle(c + Vector2(-0.35, -0.4), 0.4, Color(1, 1, 1, 0.92))
 
 
 static func draw_character(ci: CanvasItem, look: Dictionary, facing: int, phase: float, moving: bool, origin: Vector2 = Vector2.ZERO, sc: float = 1.0) -> void:
 	ci.draw_set_transform(origin, 0.0, Vector2(sc, sc))
+	_ell(ci, Vector2(0, 0), 10.0, 3.6, Color(0, 0, 0, 0.32))   # shadow on the ground
+	var shut := _blinking(look, phase, moving)
+	_ink = true
+	_body(ci, look, facing, phase, moving, shut)
+	_ink = false
+	_body(ci, look, facing, phase, moving, shut)
+	ci.draw_set_transform(Vector2.ZERO, 0.0, Vector2.ONE)
+
+
+## Everything of the figure, in the pass that is set (_ink). Origin between the feet.
+static func _body(ci: CanvasItem, look: Dictionary, facing: int, phase: float, moving: bool, shut: bool) -> void:
 	var skin := col(look, "skin", "f1c9a5")
 	var hair := col(look, "hair", "3b2a1e")
 	var top := col(look, "top", "2f4f8f")
@@ -72,9 +162,6 @@ static func draw_character(ci: CanvasItem, look: Dictionary, facing: int, phase:
 	var hy := -35.0 - b                                    # head centre y
 	var dark := Color(0, 0, 0, 0.18)
 
-	# shadow
-	_ell(ci, Vector2(0, 0), 10.0, 3.6, Color(0, 0, 0, 0.32))
-
 	if facing == FRONT or facing == BACK:
 		var front := facing == FRONT
 		# long hair / ponytail behind the body when seen from the front
@@ -88,6 +175,10 @@ static func draw_character(ci: CanvasItem, look: Dictionary, facing: int, phase:
 		_rect(ci, 1.0, -14 - b, 4.2, 12.5 + b - lr, pants)
 		_rect(ci, -5.7, -3 - ll, 5.0, 3.0, shoes)
 		_rect(ci, 0.7, -3 - lr, 5.0, 3.0, shoes)
+		if not _ink:
+			_rect(ci, -5.7, -0.9 - ll, 5.0, 0.9, shoes.darkened(0.4))          # soles
+			_rect(ci, 0.7, -0.9 - lr, 5.0, 0.9, shoes.darkened(0.4))
+			_rect(ci, -1.0, -14 - b, 1.0, 11.0, pants.darkened(0.16))          # between the legs
 		# coat skirt
 		if style == "labcoat":
 			_rect(ci, -7.6, -15 - b, 15.2, 8.5, top)
@@ -98,9 +189,11 @@ static func draw_character(ci: CanvasItem, look: Dictionary, facing: int, phase:
 			_ell(ci, Vector2(0, -28.5 - b), 7.5, 3.0, top.darkened(0.2))
 		# torso
 		_rect(ci, -7.0, -28 - b, 14.0, 15.0, top)
-		ci.draw_circle(Vector2(-5.5, -25.5 - b), 3.0, top)
-		ci.draw_circle(Vector2(5.5, -25.5 - b), 3.0, top)
+		_circ(ci, Vector2(-5.5, -25.5 - b), 3.0, top)
+		_circ(ci, Vector2(5.5, -25.5 - b), 3.0, top)
 		_rect(ci, -7.0, -16 - b, 14.0, 3.0, top.darkened(0.12))
+		if not _ink:
+			_rect(ci, 3.8, -27.5 - b, 3.2, 11.5, top.darkened(0.07))           # the side away from the light
 		if front:
 			match style:
 				"overall":
@@ -111,20 +204,20 @@ static func draw_character(ci: CanvasItem, look: Dictionary, facing: int, phase:
 					_rect(ci, -2.0, -22 - b, 4.0, 3.0, top.darkened(0.15))
 				"hoodie":
 					_rect(ci, -4.5, -20 - b, 9.0, 4.0, top.darkened(0.15))
-					ci.draw_line(Vector2(-1.5, -28 - b), Vector2(-1.5, -23 - b), accent, 0.9)
-					ci.draw_line(Vector2(1.5, -28 - b), Vector2(1.5, -23 - b), accent, 0.9)
+					_line(ci, Vector2(-1.5, -28 - b), Vector2(-1.5, -23 - b), accent, 0.9)
+					_line(ci, Vector2(1.5, -28 - b), Vector2(1.5, -23 - b), accent, 0.9)
 				"labcoat":
-					ci.draw_colored_polygon(PackedVector2Array([Vector2(-3, -28 - b), Vector2(3, -28 - b), Vector2(0, -22 - b)]), accent)
+					_poly(ci, PackedVector2Array([Vector2(-3, -28 - b), Vector2(3, -28 - b), Vector2(0, -22 - b)]), accent)
 					_rect(ci, -0.5, -22 - b, 1.0, 9.0, top.darkened(0.2))
 					_rect(ci, 3.0, -21 - b, 3.0, 2.0, top.darkened(0.12))
 				"jacket":
 					_rect(ci, -2.0, -28 - b, 4.0, 13.0, accent)
-					ci.draw_colored_polygon(PackedVector2Array([Vector2(-2, -28 - b), Vector2(-4.5, -28 - b), Vector2(-1, -21 - b)]), top.darkened(0.2))
-					ci.draw_colored_polygon(PackedVector2Array([Vector2(2, -28 - b), Vector2(4.5, -28 - b), Vector2(1, -21 - b)]), top.darkened(0.2))
+					_poly(ci, PackedVector2Array([Vector2(-2, -28 - b), Vector2(-4.5, -28 - b), Vector2(-1, -21 - b)]), top.darkened(0.2))
+					_poly(ci, PackedVector2Array([Vector2(2, -28 - b), Vector2(4.5, -28 - b), Vector2(1, -21 - b)]), top.darkened(0.2))
 				"sweater":
 					_rect(ci, -3.0, -28 - b, 6.0, 1.5, accent)
 				_:
-					ci.draw_circle(Vector2(0, -27.5 - b), 2.2, skin.darkened(0.05))
+					_circ(ci, Vector2(0, -27.5 - b), 2.2, skin.darkened(0.05))
 					_rect(ci, -3.5, -24 - b, 7.0, 4.0, accent)
 		else:
 			if style == "hoodie":
@@ -134,8 +227,8 @@ static func draw_character(ci: CanvasItem, look: Dictionary, facing: int, phase:
 			_rect(ci, -6.5, -15 - b, 3.0, 3.5, Color("8a6340"))
 			_rect(ci, 3.5, -15 - b, 3.0, 3.5, Color("8a6340"))
 		if "lanyard" in acc and front:
-			ci.draw_line(Vector2(-2.5, -28 - b), Vector2(0, -21 - b), accent, 0.8)
-			ci.draw_line(Vector2(2.5, -28 - b), Vector2(0, -21 - b), accent, 0.8)
+			_line(ci, Vector2(-2.5, -28 - b), Vector2(0, -21 - b), accent, 0.8)
+			_line(ci, Vector2(2.5, -28 - b), Vector2(0, -21 - b), accent, 0.8)
 			_rect(ci, -1.8, -21 - b, 3.6, 4.5, Color("f3efe2"))
 		if "backpack" in acc:
 			if front:
@@ -148,14 +241,14 @@ static func draw_character(ci: CanvasItem, look: Dictionary, facing: int, phase:
 			# green drawstring bag from the Ersti-Tag, worn on the back
 			var cord := Color("f3efe2")
 			if front:
-				ci.draw_line(Vector2(-4.5, -28 - b), Vector2(-6.8, -17 - b), cord, 1.1)
-				ci.draw_line(Vector2(4.5, -28 - b), Vector2(6.8, -17 - b), cord, 1.1)
+				_line(ci, Vector2(-4.5, -28 - b), Vector2(-6.8, -17 - b), cord, 1.1)
+				_line(ci, Vector2(4.5, -28 - b), Vector2(6.8, -17 - b), cord, 1.1)
 			else:
 				var bag := Color("2f9e5b")
 				_rect(ci, -7.0, -30 - b, 14.0, 13.5, bag)
 				_ell(ci, Vector2(0, -16.5 - b), 7.0, 2.4, bag)
 				_rect(ci, -7.0, -30 - b, 14.0, 1.6, bag.darkened(0.25))
-				ci.draw_line(Vector2(-7.0, -29.2 - b), Vector2(7.0, -29.2 - b), cord, 1.1)
+				_line(ci, Vector2(-7.0, -29.2 - b), Vector2(7.0, -29.2 - b), cord, 1.1)
 				_rect(ci, -2.6, -25.5 - b, 5.2, 4.2, cord)
 				_rect(ci, -1.6, -24.6 - b, 3.2, 1.0, bag)
 		# arms
@@ -166,14 +259,17 @@ static func draw_character(ci: CanvasItem, look: Dictionary, facing: int, phase:
 		if style == "tshirt":
 			_rect(ci, -9.8, -27 - b - al, 3.6, 4.0, top)
 			_rect(ci, 6.2, -27 - b + al, 3.6, 4.0, top)
-		ci.draw_circle(Vector2(-8.0, -15.5 - b - al), 2.1, skin)
-		ci.draw_circle(Vector2(8.0, -15.5 - b + al), 2.1, skin)
+		_circ(ci, Vector2(-8.0, -15.5 - b - al), 2.1, skin)
+		_circ(ci, Vector2(8.0, -15.5 - b + al), 2.1, skin)
+		if not _ink:
+			_rect(ci, -6.5, -26 - b - al, 0.6, 9.0, sleeve.darkened(0.2))      # where the arms lie on the body
+			_rect(ci, 5.9, -26 - b + al, 0.6, 9.0, sleeve.darkened(0.2))
 		if "laptop" in acc and front:
 			_rect(ci, 6.5, -24 - b + al, 6.5, 9.0, Color("8a939b"))
 			_rect(ci, 7.2, -23.3 - b + al, 5.1, 7.6, Color("b9c3c9"))
 		if "flashlight" in acc:
 			_rect(ci, 7.0, -17 - b + al, 2.0, 5.0, Color("2b2f35"))
-			ci.draw_circle(Vector2(8.0, -11.8 - b + al), 1.4, Color(1, 0.95, 0.7))
+			_circ(ci, Vector2(8.0, -11.8 - b + al), 1.4, Color(1, 0.95, 0.7))
 		if "loot" in acc:
 			# a stolen backpack, carried by its handle
 			var lc := col(look, "loot_col", "b5523a")
@@ -189,32 +285,36 @@ static func draw_character(ci: CanvasItem, look: Dictionary, facing: int, phase:
 				_rect(ci, 7.5, -19.5 - b, 3.0, 2.2, Color("c98a4b"))
 		# head
 		_rect(ci, -2.0, -30 - b, 4.0, 3.0, skin.darkened(0.08))
-		ci.draw_circle(Vector2(0, hy), 7.5, skin)
+		_circ(ci, Vector2(0, hy), 7.5, skin)
 		if front:
-			ci.draw_circle(Vector2(-7.4, hy + 0.5), 1.5, skin.darkened(0.06))
-			ci.draw_circle(Vector2(7.4, hy + 0.5), 1.5, skin.darkened(0.06))
+			_circ(ci, Vector2(-7.4, hy + 0.5), 1.5, skin.darkened(0.06))
+			_circ(ci, Vector2(7.4, hy + 0.5), 1.5, skin.darkened(0.06))
+			if not _ink:
+				_cap(ci, Vector2(0, hy), 7.5, 28, 152, skin.darkened(0.06))                       # shade under the chin
+				_circ(ci, Vector2(-4.9, hy + 2.7), 1.5, skin.lerp(Color("e2705c"), 0.26))    # cheeks
+				_circ(ci, Vector2(4.9, hy + 2.7), 1.5, skin.lerp(Color("e2705c"), 0.26))
 			if "beard" in acc:
 				_cap(ci, Vector2(0, hy), 7.6, 10, 170, hair)
 				_rect(ci, -2.2, hy + 3.0, 4.4, 1.2, skin.darkened(0.25))
-			_rect(ci, -3.3, hy - 0.8, 1.7, 2.4, Color("1f1a17"))
-			_rect(ci, 1.6, hy - 0.8, 1.7, 2.4, Color("1f1a17"))
+			_eye(ci, -3.3, hy, shut)
+			_eye(ci, 1.6, hy, shut)
 			if not "beard" in acc:
 				_rect(ci, -1.2, hy + 3.4, 2.4, 0.9, skin.darkened(0.3))
 			if "glasses" in acc:
 				var gc := Color("22262b")
-				ci.draw_rect(Rect2(-4.6, hy - 1.9, 4.0, 3.6), gc, false, 0.8)
-				ci.draw_rect(Rect2(0.6, hy - 1.9, 4.0, 3.6), gc, false, 0.8)
-				ci.draw_line(Vector2(-0.6, hy - 0.5), Vector2(0.6, hy - 0.5), gc, 0.8)
+				_frame(ci, Rect2(-4.6, hy - 1.9, 4.0, 3.6), gc, false, 0.8)
+				_frame(ci, Rect2(0.6, hy - 1.9, 4.0, 3.6), gc, false, 0.8)
+				_line(ci, Vector2(-0.6, hy - 0.5), Vector2(0.6, hy - 0.5), gc, 0.8)
 		# hair
 		_draw_hair_fb(ci, hstyle, hair, accent, hy, front)
 		# head accessories
 		if "goggles" in acc:
 			_rect(ci, -7.8, hy - 5.5, 15.6, 2.2, Color("2b2f35"))
 			if front:
-				ci.draw_circle(Vector2(-3.0, hy - 4.5), 2.5, Color("7fc8e8"))
-				ci.draw_circle(Vector2(3.0, hy - 4.5), 2.5, Color("7fc8e8"))
+				_circ(ci, Vector2(-3.0, hy - 4.5), 2.5, Color("7fc8e8"))
+				_circ(ci, Vector2(3.0, hy - 4.5), 2.5, Color("7fc8e8"))
 		if "headphones" in acc:
-			ci.draw_arc(Vector2(0, hy - 1), 8.6, deg_to_rad(195), deg_to_rad(345), 14, Color("22262b"), 1.8)
+			_arc(ci, Vector2(0, hy - 1), 8.6, deg_to_rad(195), deg_to_rad(345), 14, Color("22262b"), 1.8)
 			_rect(ci, -9.6, hy - 2.5, 3.0, 5.0, Color("22262b"))
 			_rect(ci, 6.6, hy - 2.5, 3.0, 5.0, Color("22262b"))
 			_rect(ci, -9.0, hy - 1.5, 1.6, 3.0, accent)
@@ -232,6 +332,8 @@ static func draw_character(ci: CanvasItem, look: Dictionary, facing: int, phase:
 			_rect(ci, -5.5, -15 - b, 11.0, 8.5, top)
 		_rect(ci, -2.0 + d, -14 - b, 4.2, 12.5 + b, pants)
 		_rect(ci, -2.0 + d + (0.5 if k > 0 else -2.5), -3, 4.8, 3.0, shoes)
+		if not _ink:
+			_rect(ci, -2.0 + d + (0.5 if k > 0 else -2.5), -0.9, 4.8, 0.9, shoes.darkened(0.4))
 		if style == "labcoat":
 			_rect(ci, -5.5, -15 - b, 11.0, 8.5, top)
 		# backpack
@@ -258,12 +360,12 @@ static func draw_character(ci: CanvasItem, look: Dictionary, facing: int, phase:
 		_rect(ci, -1.8 + d * 0.8, -27 - b, 3.6, 11.0, sleeve)
 		if style == "tshirt":
 			_rect(ci, -1.8 + d * 0.8, -27 - b, 3.6, 4.0, top)
-		ci.draw_circle(Vector2(d * 0.8, -15.5 - b), 2.1, skin)
+		_circ(ci, Vector2(d * 0.8, -15.5 - b), 2.1, skin)
 		if "laptop" in acc:
 			_rect(ci, -1.5 + d * 0.8 + k * 1.0, -24 - b, 3.0, 9.5, Color("8a939b"))
 		if "flashlight" in acc:
 			_rect(ci, d * 0.8 + (0.0 if k > 0 else -5.0), -16.5 - b, 5.0, 2.0, Color("2b2f35"))
-			ci.draw_circle(Vector2(d * 0.8 + k * 5.5, -15.5 - b), 1.4, Color(1, 0.95, 0.7))
+			_circ(ci, Vector2(d * 0.8 + k * 5.5, -15.5 - b), 1.4, Color(1, 0.95, 0.7))
 		if "loot" in acc:
 			var lc2 := col(look, "loot_col", "b5523a")
 			_rect(ci, d * 0.8 - 3.8, -15.0 - b, 7.5, 9.5, lc2)
@@ -273,23 +375,24 @@ static func draw_character(ci: CanvasItem, look: Dictionary, facing: int, phase:
 			_tray(ci, Vector2(k * 8.5, -18.5 - b), 11.0)
 		# head
 		_rect(ci, -2.0, -30 - b, 4.0, 3.0, skin.darkened(0.08))
-		ci.draw_circle(Vector2(k * 0.6, hy), 7.3, skin)
-		ci.draw_circle(Vector2(k * 6.8, hy + 1.0), 1.3, skin)
+		_circ(ci, Vector2(k * 0.6, hy), 7.3, skin)
+		_circ(ci, Vector2(k * 6.8, hy + 1.0), 1.3, skin)
 		if "beard" in acc:
 			_cap(ci, Vector2(k * 0.6, hy), 7.4, 20 if k > 0 else 70, 110 if k > 0 else 160, hair)
-		_rect(ci, k * 3.6 - 0.8, hy - 0.8, 1.7, 2.4, Color("1f1a17"))
+		_eye(ci, k * 3.6 - 0.8, hy, shut)
+		if not _ink:
+			_circ(ci, Vector2(k * 2.2, hy + 2.8), 1.4, skin.lerp(Color("e2705c"), 0.26))
 		if "glasses" in acc:
-			ci.draw_rect(Rect2(k * 3.6 - 2.2, hy - 1.9, 4.4, 3.6), Color("22262b"), false, 0.8)
-			ci.draw_line(Vector2(k * 1.4, hy - 0.5), Vector2(-k * 1.5, hy - 1.0), Color("22262b"), 0.8)
+			_frame(ci, Rect2(k * 3.6 - 2.2, hy - 1.9, 4.4, 3.6), Color("22262b"), false, 0.8)
+			_line(ci, Vector2(k * 1.4, hy - 0.5), Vector2(-k * 1.5, hy - 1.0), Color("22262b"), 0.8)
 		_draw_hair_side(ci, hstyle, hair, accent, hy, k)
 		if "goggles" in acc:
 			_rect(ci, -7.0, hy - 5.5, 14.0, 2.2, Color("2b2f35"))
-			ci.draw_circle(Vector2(k * 4.5, hy - 4.5), 2.4, Color("7fc8e8"))
+			_circ(ci, Vector2(k * 4.5, hy - 4.5), 2.4, Color("7fc8e8"))
 		if "headphones" in acc:
-			ci.draw_arc(Vector2(0, hy - 1), 8.4, deg_to_rad(200), deg_to_rad(340), 14, Color("22262b"), 1.8)
-			ci.draw_circle(Vector2(-k * 0.8, hy), 3.0, Color("22262b"))
-			ci.draw_circle(Vector2(-k * 0.8, hy), 1.6, accent)
-	ci.draw_set_transform(Vector2.ZERO, 0.0, Vector2.ONE)
+			_arc(ci, Vector2(0, hy - 1), 8.4, deg_to_rad(200), deg_to_rad(340), 14, Color("22262b"), 1.8)
+			_circ(ci, Vector2(-k * 0.8, hy), 3.0, Color("22262b"))
+			_circ(ci, Vector2(-k * 0.8, hy), 1.6, accent)
 
 
 ## Mensa tray with a plate and a glass, centred on `c` (also used for trays standing on tables).
@@ -308,20 +411,20 @@ static func _draw_hair_fb(ci: CanvasItem, hstyle: String, hair: Color, accent: C
 			"glatze":
 				_cap(ci, c, 7.6, 20, 160, hair)
 			"cap":
-				ci.draw_circle(c, 7.8, hair)
+				_circ(ci, c, 7.8, hair)
 				_cap(ci, c, 8.2, 180, 360, accent)
 			_:
-				ci.draw_circle(c, 7.9, hair)
+				_circ(ci, c, 7.9, hair)
 		match hstyle:
 			"zopf":
 				_ell(ci, Vector2(0, hy + 7.5), 2.6, 4.5, hair)
 				_rect(ci, -1.5, hy + 3.0, 3.0, 2.0, Color("c0392b"))
 			"dutt":
-				ci.draw_circle(Vector2(0, hy - 8.5), 3.6, hair)
+				_circ(ci, Vector2(0, hy - 8.5), 3.6, hair)
 			"locken":
 				for i in 7:
 					var a := deg_to_rad(180 + i * 30)
-					ci.draw_circle(c + Vector2(cos(a), sin(a)) * 7.2, 2.8, hair)
+					_circ(ci, c + Vector2(cos(a), sin(a)) * 7.2, 2.8, hair)
 		return
 	match hstyle:
 		"kurz":
@@ -337,12 +440,12 @@ static func _draw_hair_fb(ci: CanvasItem, hstyle: String, hair: Color, accent: C
 			_ell(ci, Vector2(-8.2, hy + 3.0), 1.8, 3.6, hair)
 		"dutt":
 			_cap(ci, c, 7.9, 185, 355, hair)
-			ci.draw_circle(Vector2(0, hy - 8.5), 3.6, hair)
+			_circ(ci, Vector2(0, hy - 8.5), 3.6, hair)
 		"locken":
 			_cap(ci, c, 7.6, 185, 355, hair)
 			for i in 7:
 				var a := deg_to_rad(185 + i * 28)
-				ci.draw_circle(c + Vector2(cos(a), sin(a)) * 7.0, 2.8, hair)
+				_circ(ci, c + Vector2(cos(a), sin(a)) * 7.0, 2.8, hair)
 		"cap":
 			_cap(ci, c, 8.3, 180, 360, accent)
 			_ell(ci, Vector2(0, hy - 2.2), 7.5, 2.0, accent.darkened(0.25))
@@ -351,7 +454,9 @@ static func _draw_hair_fb(ci: CanvasItem, hstyle: String, hair: Color, accent: C
 		"glatze":
 			_rect(ci, -7.6, hy - 1.0, 1.6, 3.0, hair)
 			_rect(ci, 6.0, hy - 1.0, 1.6, 3.0, hair)
-			ci.draw_circle(Vector2(-2.5, hy - 4.5), 1.5, Color(1, 1, 1, 0.25))
+			_circ(ci, Vector2(-2.5, hy - 4.5), 1.5, Color(1, 1, 1, 0.25))
+	if not _ink and hstyle != "glatze" and hstyle != "cap":
+		_ell(ci, Vector2(-3.0, hy - 5.7), 2.6, 0.9, hair.lightened(0.18))     # a streak of light
 
 
 static func _draw_hair_side(ci: CanvasItem, hstyle: String, hair: Color, accent: Color, hy: float, k: float) -> void:
@@ -378,8 +483,8 @@ static func _draw_hair_side(ci: CanvasItem, hstyle: String, hair: Color, accent:
 			_ell(ci, Vector2(-k * 9.0, hy + 2.0), 2.4, 4.6, hair)
 			_rect(ci, -k * 7.8 - 1.0, hy - 1.0, 2.0, 2.0, Color("c0392b"))
 		"dutt":
-			ci.draw_circle(Vector2(-k * 2.0, hy - 8.5), 3.6, hair)
+			_circ(ci, Vector2(-k * 2.0, hy - 8.5), 3.6, hair)
 		"locken":
 			for i in 6:
 				var a := deg_to_rad(200 + i * 30) if k > 0 else deg_to_rad(-20 - i * 30 + 360)
-				ci.draw_circle(c + Vector2(cos(a), sin(a)) * 7.0, 2.8, hair)
+				_circ(ci, c + Vector2(cos(a), sin(a)) * 7.0, 2.8, hair)
