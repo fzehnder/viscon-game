@@ -3,6 +3,8 @@ extends Node2D
 
 const M = preload("res://scripts/map_data.gd")
 const TS := 32.0
+const TALL_KINDS := ["shelf", "cabinet", "lockers", "locker", "rack", "pillar"]   # furniture you cannot look over
+const SIGHT_MASK := 1 | 64
 
 var data: Dictionary
 var main
@@ -78,6 +80,10 @@ func _build_collision() -> void:
 	furn.collision_layer = 2
 	furn.collision_mask = 0
 	add_child(furn)
+	var tall := StaticBody2D.new()   # also blocks the view of Opps (layer 64), see sight_clear
+	tall.collision_layer = 2 | 64
+	tall.collision_mask = 0
+	add_child(tall)
 	for o in data["objs"]:
 		if not o["solid"]:
 			continue
@@ -90,7 +96,8 @@ func _build_collision() -> void:
 			_add_rect(b, Rect2(r.position * TS, r.size * TS))
 			door_bodies[o["door"]] = b
 		else:
-			_add_rect(furn, Rect2(r.position * TS, r.size * TS))
+			var high: bool = o.get("tall", o["kind"] in TALL_KINDS)
+			_add_rect(tall if high else furn, Rect2(r.position * TS, r.size * TS))
 
 
 func _build_astar() -> void:
@@ -171,6 +178,22 @@ func line_clear(a: Vector2, b: Vector2) -> bool:
 	var space := get_world_2d().direct_space_state
 	var q := PhysicsRayQueryParameters2D.create(a, b, 1)
 	return space.intersect_ray(q).is_empty()
+
+
+## Like line_clear and ray_end, but shelves and other tall furniture block the view as well.
+func sight_clear(a: Vector2, b: Vector2) -> bool:
+	var space := get_world_2d().direct_space_state
+	var q := PhysicsRayQueryParameters2D.create(a, b, SIGHT_MASK)
+	return space.intersect_ray(q).is_empty()
+
+
+func sight_end(a: Vector2, b: Vector2) -> Vector2:
+	var space := get_world_2d().direct_space_state
+	var q := PhysicsRayQueryParameters2D.create(a, b, SIGHT_MASK)
+	var hit := space.intersect_ray(q)
+	if hit.is_empty():
+		return b
+	return hit["position"]
 
 
 # ---------------------------------------------------------------- drawing
@@ -299,20 +322,20 @@ func _draw() -> void:
 	var white := Color(1, 1, 1, 0.35)
 	var xm := 0.0
 	while xm < 91.0:
-		if xm < 55.6 or xm > 62.5:
+		if xm < 50.0 or xm > 56.5:
 			draw_rect(Rect2(xm * s, 16 * s - 1.5, s * 0.8, 3), white)
 		xm += 1.6
 	xm = 34.5
 	while xm < 91.0:
-		draw_rect(Rect2(xm * s, 69.5 * s - 1.5, s * 0.8, 3), white)
+		draw_rect(Rect2(xm * s, 75.5 * s - 1.5, s * 0.8, 3), white)
 		xm += 1.6
 	var zebra := N("f1c232", 0.15)
-	var xz := 57.2
-	while xz < 61.8:
+	var xz := 51.2   # crossing in front of the north entrance
+	while xz < 55.8:
 		draw_rect(Rect2(xz * s, 14.1 * s, s * 0.32, s * 3.8), zebra)
 		xz += 0.6
-	var yz := 31.4
-	while yz < 35.6:
+	var yz := 43.9   # crossing in front of the forecourt gate
+	while yz < 48.1:
 		draw_rect(Rect2(92.1 * s, yz * s, s * 5.8, s * 0.32), zebra)
 		yz += 0.6
 	for cx in [93.6, 96.4]:

@@ -8,14 +8,19 @@ extends Node2D
 ##   goal_positions(id, n0, n1)   markers for a "level" task: [[position px, colour], ...]
 ##   on_noise(at, radius)         footsteps and minigame mistakes
 ##   finale(done)                 after the last task, e.g. a cutscene; must call done
+##   task_targets(id, pid)        where a "level" task can be done right now (px), for the dashed way
 ## Camera: one shared view while the players are close, split screen when they drift apart
 ## or while one of them is in a minigame (the minigame then opens on that player's half).
+## There are always two half-screen views. While the players are together, the two cameras sit
+## side by side and the halves form one picture; to split, each camera glides over to its own
+## player and the divider grows in (split_k goes from 0 to 1), so nothing ever jumps.
 
 const MapData = preload("res://scripts/map_data.gd")
 const WorldScript = preload("res://scripts/world.gd")
 const PlayerScript = preload("res://scripts/player.gd")
 const ProfScript = preload("res://scripts/professor.gd")
 const StudentScript = preload("res://scripts/student.gd")
+const OppScript = preload("res://scripts/opp.gd")
 const HudScript = preload("res://scripts/hud.gd")
 const FxScript = preload("res://scripts/fx.gd")
 const MiniScript = preload("res://scripts/minigame.gd")
@@ -27,12 +32,17 @@ const UI = preload("res://scripts/ui.gd")
 const TS := 32.0
 const START := Vector2(12.5, 43.5)
 const STATION := Rect2(0, 41, 10.2, 5)
-const HG_ZONES := ["Hauptgebäude (HG)", "Haupthalle", "ETH-Bibliothek", "Lounge", "Seminarraum", "Labor · Robotik"]
+const HG_ZONES := ["Hauptgebäude (HG)", "Haupthalle", "Rotunde", "ETH-Bibliothek", "Lounge", "Seminarraum", "Labor · Robotik",
+	"E Nord", "E Süd", "Hörsaal E1", "Hörsaal E3", "Hörsaal E5", "Hörsaal E7"]
 const CAM_OFFSET := Vector2(0, -18)
 const ZOOM_MIN := 1.5
 const ZOOM_MAX := 3.6
-const SPLIT_AT := 0.7      # split when the players are further apart than this share of the screen
+const SPLIT_AT := 0.7      # split when the players are further apart than this share of the screen width
 const MERGE_AT := 0.45     # merge again when closer than this share
+const SPLIT_AT_Y := 0.42   # the same for the height: earlier, so that nobody ends up behind the
+const MERGE_AT_Y := 0.28   # timer (top centre) or the mini map (bottom centre)
+const SPLIT_TIME := 0.7    # seconds for the two views to drift apart or back together
+const CAM_FOLLOW := 9.0    # how quickly the cameras follow (higher = tighter)
 const STEAL_BEHIND := 1.9  # rad: you must be at least this far from where the Ersti is looking
 
 var data: Dictionary
@@ -44,6 +54,7 @@ var players: Array = []
 var player: CharacterBody2D   # = players[0], kept for code that only knows one player
 var profs: Array = []
 var students: Array = []
+var opps: Array = []          # NPCs that can be or become Opps (opp.gd)
 var hud: CanvasLayer
 var fx: Node2D
 var minis: Array = [null, null]       # open minigame per player (same object twice for co-op games)
@@ -70,6 +81,11 @@ var lab_open := false
 var has_item := false
 # day progress: per player, task id -> true
 var done: Array = [{}, {}]
+# the task each player has picked (index into LV.tasks(), -1 = none) and the dashed way to where
+# it can be done: points in px, drawn by fx.gd and on the mini map
+var picked: Array = [-1, -1]
+var routes: Array = [[], []]
+var route_t: Array = [0.0, 0.0]
 # abilities (night, P1)
 var ability: Dictionary
 var cooldown := 0.0
@@ -81,14 +97,19 @@ var vcs: Array = []    # SubViewportContainer per view
 var vps: Array = []    # SubViewport per view (both share one World2D)
 var cams: Array = []
 var divider: ColorRect
-var split := false
-var zoom := 2.5
+var split := false       # where it is heading: true = two separate views
+var split_k := 0.0       # where it is right now: 0 = one picture, 1 = fully split
+var cam_mid := Vector2.ZERO   # smoothed camera targets: middle between the players, P1, P2
+var cam_a := Vector2.ZERO
+var cam_b := Vector2.ZERO
+var zoom := 2.5          # change this (also in tweens), both cameras follow
 
 
 func _ready() -> void:
 	randomize()
 	_setup_input()
 	KEYS.setup()
+	Game.begin_level()
 	dept = Game.dept
 	mode = Game.mode
 	night = mode == "night"
@@ -133,6 +154,7 @@ func _ready() -> void:
 		_spawn_students()
 		if lv.has("crowd"):
 			_spawn_crowd(lv)
+	_spawn_npcs()
 	logic = LV.new_logic()
 	if logic != null:
 		logic.main = self
@@ -140,8 +162,8 @@ func _ready() -> void:
 	hud = HudScript.new()
 	hud.main = self
 	add_child(hud)
-	_update_cameras(true)
-	var controls := "%s: WASD · E · Shift sprinten · Ctrl schleichen\n%s: Pfeile · Enter · . sprinten · - schleichen" % [Game.name_of(0), Game.name_of(1)]
+	_update_cameras(0.0, true)
+	var controls := "%s: WASD · E · Shift sprinten · Ctrl schleichen · Tab Weg zur Aufgabe\n%s: Pfeile · Enter · . sprinten · - schleichen · , Weg zur Aufgabe" % [Game.name_of(0), Game.name_of(1)]
 	if night:
 		var d: Dictionary = CH.DEPTS[dept]
 		hud.show_overlay("Nacht", "Es ist 00:30. %s\n\nBleibt nicht zu lange im Lichtkegel der Professoren." % d["night_text"],
@@ -203,6 +225,33 @@ func _spawn_students() -> void:
 			students.append(st)
 
 
+## People from the level definition ("npcs") and Opps from earlier levels ("opp_spots"), see opp.gd.
+func _spawn_npcs() -> void:
+	var placed: Array = []
+	for d in lv.get("npcs", []):
+		_add_opp(d)
+		placed.append(String(d.get("id", "")))
+	# whoever became an Opp in an earlier level comes back at the spots this level offers
+	var spots: Array = lv.get("opp_spots", [])
+	var k := 0
+	for id in Game.opps_before(Game.level):
+		if k >= spots.size():
+			break
+		if placed.has(id):
+			continue
+		var sp: Dictionary = spots[k]
+		k += 1
+		_add_opp({"id": id, "pos": sp["pos"], "face": sp.get("face", PI / 2.0), "if_opp": sp.get("mode", "lauert")})
+
+
+func _add_opp(d: Dictionary):
+	var op = OppScript.new()
+	op.setup(d, self)
+	actors.add_child(op)
+	opps.append(op)
+	return op
+
+
 ## The Ersti welcome crowd around the players. Some of them carry an Ersti bag.
 func _spawn_crowd(lv: Dictionary) -> void:
 	var rng := RandomNumberGenerator.new()
@@ -261,11 +310,10 @@ func _build_views() -> void:
 		vcs.append(c)
 		vps.append(v)
 	vps[1].world_2d = vps[0].world_2d
+	vps[1].render_target_update_mode = SubViewport.UPDATE_ALWAYS
 	for i in 2:
 		var cam := Camera2D.new()
 		cam.zoom = Vector2(zoom, zoom)
-		cam.position_smoothing_enabled = true
-		cam.position_smoothing_speed = 7.0
 		cam.limit_left = 0
 		cam.limit_top = 0
 		cam.limit_right = int(float(data["W"]) * TS)
@@ -282,23 +330,17 @@ func _build_views() -> void:
 
 func _layout_views() -> void:
 	var vs: Vector2 = get_viewport().get_visible_rect().size
-	if split:
-		var hw := floorf(vs.x / 2.0)
-		vcs[0].position = Vector2.ZERO
-		vcs[0].size = Vector2(hw - 3.0, vs.y)
-		vcs[1].visible = true
-		vcs[1].position = Vector2(hw + 3.0, 0.0)
-		vcs[1].size = Vector2(vs.x - hw - 3.0, vs.y)
-		divider.visible = true
-		divider.position = Vector2(hw - 3.0, 0.0)
-		divider.size = Vector2(6.0, vs.y)
-		vps[1].render_target_update_mode = SubViewport.UPDATE_ALWAYS
-	else:
-		vcs[0].position = Vector2.ZERO
-		vcs[0].size = vs
-		vcs[1].visible = false
-		divider.visible = false
-		vps[1].render_target_update_mode = SubViewport.UPDATE_DISABLED
+	var hw := floorf(vs.x / 2.0)
+	vcs[0].position = Vector2.ZERO
+	vcs[0].size = Vector2(hw, vs.y)
+	vcs[1].position = Vector2(hw, 0.0)
+	vcs[1].size = Vector2(vs.x - hw, vs.y)
+	# the divider grows out of the middle while the views separate
+	var e := smoothstep(0.0, 1.0, split_k)
+	divider.visible = e > 0.01
+	divider.size = Vector2(6.0 * e, vs.y)
+	divider.position = Vector2(hw - 3.0 * e, 0.0)
+	divider.modulate.a = e
 
 
 func _solo_minigame_open() -> bool:
@@ -307,7 +349,15 @@ func _solo_minigame_open() -> bool:
 	return minis[0] != minis[1]
 
 
-func _update_cameras(snap: bool = false) -> void:
+## Keeps a camera centre so far from the map border that the view shows no outside.
+func _clamp_view(p: Vector2, view: Vector2) -> Vector2:
+	var m := Vector2(float(data["W"]), float(data["H"])) * TS
+	var x := m.x / 2.0 if view.x >= m.x else clampf(p.x, view.x / 2.0, m.x - view.x / 2.0)
+	var y := m.y / 2.0 if view.y >= m.y else clampf(p.y, view.y / 2.0, m.y - view.y / 2.0)
+	return Vector2(x, y)
+
+
+func _update_cameras(delta: float = 0.0, snap: bool = false) -> void:
 	if players.size() < 2:
 		return
 	var a: Vector2 = players[0].global_position + CAM_OFFSET
@@ -317,16 +367,29 @@ func _update_cameras(snap: bool = false) -> void:
 	if _solo_minigame_open():
 		split = true
 	elif split:
-		if d.x < vs.x * MERGE_AT / zoom and d.y < vs.y * MERGE_AT / zoom:
+		if d.x < vs.x * MERGE_AT / zoom and d.y < vs.y * MERGE_AT_Y / zoom:
 			split = false
-	elif d.x > vs.x * SPLIT_AT / zoom or d.y > vs.y * SPLIT_AT / zoom:
+	elif d.x > vs.x * SPLIT_AT / zoom or d.y > vs.y * SPLIT_AT_Y / zoom:
 		split = true
+	var goal := 1.0 if split else 0.0
+	split_k = goal if snap else move_toward(split_k, goal, delta / SPLIT_TIME)
 	_layout_views()
-	cams[0].global_position = a if split else (a + b) / 2.0
-	cams[1].global_position = b
-	if snap:
-		for c in cams:
-			c.reset_smoothing()
+	# world size of the whole picture and of the two halves
+	var full := vs / zoom
+	var wl: float = vcs[0].size.x / zoom
+	var wr: float = vcs[1].size.x / zoom
+	var f := 1.0 if snap else 1.0 - exp(-CAM_FOLLOW * delta)
+	cam_mid += (_clamp_view((a + b) / 2.0, full) - cam_mid) * f
+	cam_a += (_clamp_view(a, Vector2(wl, full.y)) - cam_a) * f
+	cam_b += (_clamp_view(b, Vector2(wr, full.y)) - cam_b) * f
+	# together: the halves show the left and the right part of one picture around cam_mid
+	var left := Vector2(cam_mid.x - full.x / 2.0 + wl / 2.0, cam_mid.y)
+	var right := Vector2(cam_mid.x + full.x / 2.0 - wr / 2.0, cam_mid.y)
+	var e := smoothstep(0.0, 1.0, split_k)
+	cams[0].global_position = left.lerp(cam_a, e)
+	cams[1].global_position = right.lerp(cam_b, e)
+	for c in cams:
+		c.zoom = Vector2(zoom, zoom)
 
 
 func _unhandled_input(event: InputEvent) -> void:
@@ -343,8 +406,6 @@ func _unhandled_input(event: InputEvent) -> void:
 			dz = -0.2
 	if dz != 0.0:
 		zoom = clampf(zoom + dz, ZOOM_MIN, ZOOM_MAX)
-		for c in cams:
-			c.zoom = Vector2(zoom, zoom)
 
 
 ## World position -> screen position in P1's view (used by the HUD ping arrows).
@@ -363,7 +424,7 @@ func busy(i: int) -> bool:
 
 
 func _process(delta: float) -> void:
-	_update_cameras()
+	_update_cameras(delta)
 	if state in ["caught", "won", "lost"]:
 		if Input.is_action_just_pressed("restart"):
 			get_tree().reload_current_scene()
@@ -398,11 +459,15 @@ func _process(delta: float) -> void:
 					nears[i] = null
 					continue
 				_update_near(i)
+				if Input.is_action_just_pressed(KEYS.action(i, "select")):
+					pick_next(i)
 				if Input.is_action_just_pressed(KEYS.action(i, "interact")):
 					_interact(i)
 					if state != "play":
 						break
 			near = nears[0]
+			if state == "play":
+				_update_routes(delta)
 			if state == "play" and night and Input.is_action_just_pressed("ability"):
 				_use_ability()
 			if state == "play" and night and has_item:
@@ -455,6 +520,9 @@ func on_step(pl, radius: float) -> void:
 	fx.sound(pl.global_position, radius, col, 0.8 if pl.gait == "sprint" else 0.6)
 	if not night and pl.gait != "sneak":
 		_alert_erstis(pl.global_position, radius)
+	if pl.gait != "sneak":
+		for op in opps:
+			op.hear(pl.global_position, radius)
 	if logic != null and logic.has_method("on_noise"):
 		logic.on_noise(pl.global_position, radius)
 
@@ -501,6 +569,14 @@ func _update_near(i: int) -> void:
 		if dd < best:
 			best = dd
 			nears[i] = o
+	for op in opps:
+		if op.bag_state != "there":
+			continue
+		var db: float = p.distance_to(op.bag_pos / TS)
+		if db < best and db < 1.1:
+			best = db
+			nears[i] = {"use": "bag", "opp": op, "label": "%s klauen" % op.bag_name,
+				"rect": Rect2(op.bag_pos / TS - Vector2(0.35, 0.6), Vector2(0.7, 0.75))}
 	if night:
 		return
 	if not done[i].has("ersti") and not LV.task("ersti").is_empty():
@@ -576,6 +652,8 @@ func _interact(i: int) -> void:
 			_highfive(i)
 		"level":
 			logic.interact(i, o)
+		"bag":
+			_steal_bag(i, o["opp"])
 
 
 func _lab_door(i: int) -> void:
@@ -681,6 +759,71 @@ func _highfive(i: int) -> void:
 	open_coop_minigame(String(tk["game"]), tk["params"], on_ok)
 
 
+# ------------------------------------------------------------------ opps
+func _bag_task() -> String:
+	for tk in LV.tasks():
+		if String(tk.get("type", "")) == "bag":
+			return tk["id"]
+	return ""
+
+
+func _steal_bag(i: int, op) -> void:
+	var pl = players[i]
+	for other in opps:
+		if other.bag_state == "stolen" and other.bag_thief == i:
+			hud.toast("Hände voll", "Du hast schon eine Beute dabei.", 2.5)
+			return
+	ART.set_acc(pl.look, op.bag_acc, true)
+	pl.look["loot_col"] = op.bag_col.to_html(false)
+	pl.queue_redraw()
+	UI.sfx("steal")
+	UI.confetti(fx, pl.global_position + Vector2(0, -30), 40, true, 70.0, 0.3)
+	var id := _bag_task()
+	if id != "":
+		_task_done(i, id)
+	op.bag_taken(i)   # the owner reacts at once if they saw it, otherwise a little later
+
+
+## Somebody turned into an Opp just now (called by opp.gd, or by a level for its own people).
+func on_new_opp(op, seen: bool) -> void:
+	if state != "play":
+		return
+	UI.sfx("doom", -9.0)
+	fx.sound(op.global_position, 3.0 * TS, Color(1.0, 0.4, 0.4, 0.7), 0.8)
+	if seen:
+		hud.toast("Neuer Opp: %s" % op.pname, "%s hat dich gesehen und ist jetzt hinter dir her. Lauf!" % op.pname, 4.0)
+	else:
+		hud.toast("Neuer Opp: %s" % op.pname, "%s hat es bemerkt und sucht dich. Bleib ausser Sicht." % op.pname, 4.0)
+
+
+## An Opp touched a player. With their bag on you: you lose it. Otherwise the level is over.
+func opp_catch(op, pl) -> void:
+	if state != "play":
+		return
+	var pid := players.find(pl)
+	if logic != null and logic.has_method("on_opp_catch") and logic.on_opp_catch(op, pid):
+		return
+	if op.bag_state == "stolen" and op.bag_thief == pid:
+		mistakes_total += 1
+		ART.set_acc(pl.look, op.bag_acc, false)
+		pl.queue_redraw()
+		done[pid].erase(_bag_task())
+		op.take_back()
+		if minis[pid] != null:
+			_abort_mini(pid)
+		pl.enabled = false
+		var tw := create_tween()
+		tw.tween_interval(1.2)
+		tw.tween_callback(func():
+			if state == "play" and not busy(pid):
+				pl.enabled = true)
+		fx.sound(pl.global_position, 3.0 * TS, Color(1.0, 0.4, 0.4, 0.7), 0.8)
+		UI.sfx("fail")
+		hud.toast("Erwischt!", "%s hat die Beute zurück und passt jetzt besser auf. Hol sie dir nochmals, wenn niemand hinschaut." % op.pname, 4.5)
+		return
+	caught(op)
+
+
 func _left(pid: int) -> int:
 	return LV.tasks().size() - done[pid].size()
 
@@ -779,7 +922,6 @@ func open_minigame(kind: String, params: Dictionary, on_success: Callable, pid: 
 	minis[pid] = mg
 	nears[pid] = null
 	players[pid].enabled = false
-	_update_cameras()
 	add_child(mg)
 	mg.open(kind, params, dept)
 	mg.mistake.connect(func():
@@ -844,6 +986,8 @@ func _on_mini_mistake(pid: int) -> void:
 		hud.toast("Zu laut!", "Das hat jemand gehört …", 1.8)
 	else:
 		_alert_erstis(at, 3.0 * TS)
+	for op in opps:
+		op.hear(at, 4.0 * TS)
 	if logic != null and logic.has_method("on_noise"):
 		logic.on_noise(at, 3.0 * TS)
 
@@ -908,7 +1052,7 @@ func _need_color(n0: bool, n1: bool) -> Color:
 func goal_positions() -> Array:
 	if night:
 		if not entered_hg:
-			return [Vector2(57.5, 63.5) * TS]
+			return [Vector2(53.5, 69.5) * TS]   # the south entrance, open at night
 		if not has_prep:
 			return _obj_center(func(o): return o.get("use", "") in ["prep", "moodle_prep"])
 		if not lab_open:
@@ -931,6 +1075,10 @@ func goal_positions() -> Array:
 						out.append([st.global_position + Vector2(0, -30), c])
 			"coop":
 				pass
+			"bag":
+				for op in opps:
+					if op.bag_state == "there":
+						out.append([op.bag_pos, c])
 			"level":
 				if logic != null and logic.has_method("goal_positions"):
 					out.append_array(logic.goal_positions(id, n0, n1))
@@ -938,6 +1086,88 @@ func goal_positions() -> Array:
 				for p in _obj_center(func(o): return o.get("use", "") == "station" and o.get("task", "") == id):
 					out.append([p, c])
 	return out
+
+
+# ------------------------------------------------------------------ picked task and the way to it
+## Next task this player still has to do; after the last one nothing is picked.
+func pick_next(pid: int) -> void:
+	if night:
+		return
+	var tasks: Array = LV.tasks()
+	var k: int = picked[pid] + 1
+	while k < tasks.size() and done[pid].has(tasks[k]["id"]):
+		k += 1
+	pick(pid, k if k < tasks.size() else -1)
+
+
+## Picks task number k for a player (again: drops it). Also called by a click on the task card.
+func pick(pid: int, k: int) -> void:
+	if night or state != "play":
+		return
+	picked[pid] = -1 if (k == picked[pid] or k < 0 or done[pid].has(LV.tasks()[k]["id"])) else k
+	routes[pid] = []
+	route_t[pid] = 0.0
+	UI.sfx("click")
+
+
+## Where task `id` can be done by player `pid` right now, in px.
+func task_targets(id: String, pid: int) -> Array:
+	var out: Array = []
+	match String(LV.task(id).get("type", "")):
+		"bag":
+			for op in opps:
+				if op.bag_state == "there":
+					out.append(op.bag_pos)
+		"steal":
+			for st in students:
+				if st.has_bag:
+					out.append(st.global_position)
+		"coop":
+			out.append(players[1 - pid].global_position)   # together: go to the other one
+		"level":
+			if logic != null and logic.has_method("task_targets"):
+				out = logic.task_targets(id, pid)
+			elif logic != null and logic.has_method("goal_positions"):
+				for g in logic.goal_positions(id, pid == 0, pid == 1):
+					out.append(g[0])
+		_:
+			out = _obj_center(func(o): return o.get("use", "") == "station" and o.get("task", "") == id)
+	return out
+
+
+## Keeps the dashed way of each player up to date: the shortest way to the nearest place.
+func _update_routes(delta: float) -> void:
+	var tasks: Array = LV.tasks()
+	for pid in players.size():
+		var k: int = picked[pid]
+		if k >= 0 and (k >= tasks.size() or done[pid].has(tasks[k]["id"])):
+			picked[pid] = -1   # done, nothing left to show
+			k = -1
+		if k < 0 or busy(pid):
+			routes[pid] = []
+			continue
+		var from: Vector2 = players[pid].global_position
+		route_t[pid] -= delta
+		if route_t[pid] > 0.0:
+			if not routes[pid].is_empty():
+				routes[pid][0] = from   # the line starts at the feet, also between two searches
+			continue
+		route_t[pid] = 0.35
+		var best: Array = []
+		var best_len := INF
+		for target in task_targets(tasks[k]["id"], pid):
+			var p: Array = world.find_path(from, target)
+			if p.size() > 1:
+				p.pop_front()   # the first tile is where the player stands anyway
+			p.push_front(from)
+			p.append(target)
+			var total := 0.0
+			for j in range(1, p.size()):
+				total += (p[j - 1] as Vector2).distance_to(p[j])
+			if total < best_len:
+				best_len = total
+				best = p
+		routes[pid] = best if best_len > 1.5 * TS else []   # standing in front of it: no line needed
 
 
 func time_left() -> float:

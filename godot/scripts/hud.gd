@@ -1,19 +1,24 @@
 extends CanvasLayer
-## Screen overlay in the playful style: task card with per-player chips, timer, interaction prompts,
-## bouncy toasts, big "done!" celebrations with confetti, and the start / win / lose screens.
+## Screen overlay in the playful style: one task card per player on that player's side of the
+## screen (P1 left, P2 right), level and timer top centre, mini map bottom centre,
+## interaction prompts, bouncy toasts, big "done!" celebrations with confetti, and the
+## start / win / lose screens.
+## The middle column (timer above, mini map below) stays clear of the players because main.gd
+## splits the screen early when they move apart vertically (SPLIT_AT_Y).
 
 const CH = preload("res://scripts/characters.gd")
 const KEYS = preload("res://scripts/controls.gd")
 const UI = preload("res://scripts/ui.gd")
+const M = preload("res://scripts/map_data.gd")
+const BAR_W := 132.0
 
 var main
 var root: Control
-# task card
-var tag_l: Label
-var zone_l: Label
+# one task card per player: [panel, zone label, counter label, box for the rows]
+var cards: Array = []
+var task_rows: Array = [[], []]   # per player: [row panel, tick, label, style box, picked]
 var title_l: Label
-var task_box: VBoxContainer
-var task_rows: Array = []      # day: [row, [chip0, chip1], [state0, state1]]; night: [label]
+var minimap: Control
 # timer / meter
 var meter_title: Label
 var meter_l: Label
@@ -72,6 +77,93 @@ class Burst:
 		draw_colored_polygon(UI2.star_points(Vector2(210, 45), 12, 5, t * 3.0), UI2.GREEN)
 
 
+## Check box in front of a task: empty frame, filled with a tick once the task is done.
+class Tick:
+	extends Control
+	var col := Color.WHITE
+	var on := false
+
+	func _draw() -> void:
+		var r := Rect2(Vector2.ZERO, size)
+		draw_rect(r, col if on else Color(0, 0, 0, 0.3))
+		draw_rect(r, col, false, 2.0)
+		if on:
+			draw_polyline(PackedVector2Array([Vector2(3.5, 8.5), Vector2(7.0, 12.0), Vector2(12.5, 4.5)]), Color.WHITE, 2.2)
+
+
+## Mini map: the whole campus, both players, what is still to do (in the colour of whoever still
+## has to do it, yellow = both) and Opps that are chasing somebody right now.
+class MiniMap:
+	extends Control
+	const M2 = preload("res://scripts/map_data.gd")
+	const UI2 = preload("res://scripts/ui.gd")
+	const KEYS2 = preload("res://scripts/controls.gd")
+	const TS := 32.0
+	const PX := 1.75   # screen pixels per tile
+	var main
+	var tex: ImageTexture
+	var map_px := Vector2.ONE
+	var t := 0.0
+
+	func _ready() -> void:
+		mouse_filter = Control.MOUSE_FILTER_IGNORE
+		texture_filter = CanvasItem.TEXTURE_FILTER_NEAREST
+		var w: int = main.data["W"]
+		var h: int = main.data["H"]
+		map_px = Vector2(w, h) * TS
+		custom_minimum_size = Vector2(w, h) * PX
+		var cols := {M2.GRASS: "86b25e", M2.ROAD: "5b5f66", M2.WALK: "bfbaaf", M2.PAVE: "d6ccb8", M2.STONE: "dcd8cf",
+			M2.WOOD: "b98a57", M2.WALL: "3d4148", M2.MARBLE: "e1dccf", M2.TILE: "e3e9e9", M2.ROOF: "8f9297",
+			M2.RAIL: "8b8479", M2.CARPET: "b98a57", M2.LAB: "cfd8dc"}
+		var img := Image.create(w, h, false, Image.FORMAT_RGB8)
+		for y in h:
+			for x in w:
+				var c := Color(String(cols.get(main.data["map"][y * w + x], "86b25e")))
+				if main.night:
+					c = c.darkened(0.5).lerp(Color("1c2b4d"), 0.3)
+				img.set_pixel(x, y, c)
+		tex = ImageTexture.create_from_image(img)
+
+	func _process(delta: float) -> void:
+		t += delta
+		queue_redraw()
+
+	func _at(world_px: Vector2) -> Vector2:
+		return world_px / map_px * size
+
+	func _draw() -> void:
+		draw_texture_rect(tex, Rect2(Vector2.ZERO, size), false)
+		var dark := Color(0.08, 0.09, 0.17)
+		if main.state == "play":
+			# what is still to do
+			for goal in main.goal_positions():
+				var gp: Vector2 = goal[0] if goal is Array else goal
+				var gc: Color = goal[1] if goal is Array else UI2.YELLOW
+				var p := _at(gp)
+				var dia := PackedVector2Array([p + Vector2(0, -4), p + Vector2(3.5, 0), p + Vector2(0, 4), p + Vector2(-3.5, 0)])
+				draw_colored_polygon(dia, gc)
+				draw_polyline(dia + PackedVector2Array([dia[0]]), dark, 1.0)
+			# Opps on the hunt
+			for op in main.opps:
+				if op.angry and op.state == op.JAGD:
+					var po := _at(op.global_position)
+					draw_circle(po, 4.5 + sin(t * 12.0), UI2.RED)
+					draw_arc(po, 6.5, 0.0, TAU, 16, UI2.RED, 1.0)
+			# the dashed way to a picked task
+			for i in main.players.size():
+				var route: Array = main.routes[i]
+				for j in range(1, route.size()):
+					draw_dashed_line(_at(route[j - 1]), _at(route[j]), Color(KEYS2.TAG_COLORS[i]), 1.6, 3.0)
+		# the two players, always on top
+		for i in main.players.size():
+			var pl = main.players[i]
+			var pp := _at(pl.global_position)
+			var col := Color(KEYS2.TAG_COLORS[i])
+			draw_arc(pp, 6.0 + 2.0 * (sin(t * 4.0 + i * PI) * 0.5 + 0.5), 0.0, TAU, 16, Color(col, 0.55), 1.2)
+			draw_circle(pp, 4.3, dark)
+			draw_circle(pp, 3.2, col)
+
+
 func _bar(w: float, fill_col: Color) -> Array:
 	var bar := Control.new()
 	bar.custom_minimum_size = Vector2(w, 12)
@@ -122,48 +214,95 @@ func _ready() -> void:
 	arrows.set_anchors_and_offsets_preset(Control.PRESET_FULL_RECT)
 	arrows.draw.connect(_draw_arrows)
 
-	# ---- top-left: task card
-	var tl := UI.panel(UI.NAVY, UI.YELLOW, 18, 12)
-	root.add_child(tl)
-	tl.position = Vector2(16, 14)
-	var v := VBoxContainer.new()
-	v.add_theme_constant_override("separation", 4)
-	tl.add_child(v)
-	var head := HBoxContainer.new()
-	head.add_theme_constant_override("separation", 8)
-	v.add_child(head)
-	var pill := _pill("LEVEL %d" % Game.level, UI.PINK)
-	head.add_child(pill[0])
-	tag_l = pill[1]
-	zone_l = UI.label("", 13, UI.MUTED)
-	head.add_child(zone_l)
-	title_l = UI.label("Nacht" if main.night else String(main.lv["name"]), 28, UI.YELLOW, 6)
-	v.add_child(title_l)
-	task_box = VBoxContainer.new()
-	task_box.add_theme_constant_override("separation", 4)
-	v.add_child(task_box)
+	# ---- top corners: the tasks of each player on that player's side (P1 left, P2 right)
+	for i in 2:
+		var pc := Color(KEYS.TAG_COLORS[i])
+		var card := UI.panel(UI.NAVY, pc, 18, 12)
+		card.custom_minimum_size = Vector2(236, 0)
+		root.add_child(card)
+		card.offset_top = 14
+		if i == 0:
+			card.offset_left = 16
+		else:
+			card.anchor_left = 1.0
+			card.anchor_right = 1.0
+			card.offset_left = -252
+			card.offset_right = -16
+			card.grow_horizontal = Control.GROW_DIRECTION_BEGIN
+		var v := VBoxContainer.new()
+		v.add_theme_constant_override("separation", 5)
+		card.add_child(v)
+		var head := HBoxContainer.new()
+		head.add_theme_constant_override("separation", 8)
+		v.add_child(head)
+		head.add_child(_pill(Game.name_of(i), pc, 14)[0])
+		var zl := UI.label("", 12, UI.MUTED)
+		zl.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+		zl.clip_text = true
+		head.add_child(zl)
+		var cl := UI.label("", 13, UI.MUTED)
+		head.add_child(cl)
+		var box := VBoxContainer.new()
+		box.add_theme_constant_override("separation", 1)
+		v.add_child(box)
+		var hint_l := UI.label("%s: Weg zur Aufgabe zeigen" % KEYS.SELECT_NAMES[i], 11, UI.MUTED)
+		hint_l.visible = not main.night
+		v.add_child(hint_l)
+		cards.append([card, zl, cl, box])
 
-	# ---- top-right: timer or visibility meter
-	timer_card = UI.panel(UI.NAVY, UI.BLUE, 18, 12)
+	# ---- top centre: level and timer (or the visibility meter at night). Yellow = for both.
+	timer_card = UI.panel(UI.NAVY, UI.YELLOW, 16, 8)
 	root.add_child(timer_card)
-	timer_card.anchor_left = 1.0
-	timer_card.anchor_right = 1.0
-	timer_card.offset_left = -236
-	timer_card.offset_right = -16
+	timer_card.anchor_left = 0.5
+	timer_card.anchor_right = 0.5
+	timer_card.offset_left = -125
+	timer_card.offset_right = 125
 	timer_card.offset_top = 14
-	timer_card.grow_horizontal = Control.GROW_DIRECTION_BEGIN
+	timer_card.grow_horizontal = Control.GROW_DIRECTION_BOTH
 	var v2 := VBoxContainer.new()
-	v2.add_theme_constant_override("separation", 4)
+	v2.add_theme_constant_override("separation", 0)
 	timer_card.add_child(v2)
-	meter_title = UI.label("SICHTBARKEIT" if main.night else String(main.lv.get("timer_title", "ZEIT BIS FEIERABEND")), 12, UI.MUTED)
-	v2.add_child(meter_title)
-	meter_l = UI.label("", 34, UI.GREEN, 7)
-	v2.add_child(meter_l)
-	var mb := _bar(190, UI.GREEN)
-	v2.add_child(mb[0])
+	var head2 := HBoxContainer.new()
+	head2.alignment = BoxContainer.ALIGNMENT_CENTER
+	head2.add_theme_constant_override("separation", 8)
+	v2.add_child(head2)
+	head2.add_child(_pill("LEVEL %d" % Game.level, UI.PINK, 11)[0])
+	title_l = UI.label("Nacht" if main.night else String(main.lv["name"]), 16, UI.YELLOW, 4)
+	head2.add_child(title_l)
+	var row2 := HBoxContainer.new()
+	row2.alignment = BoxContainer.ALIGNMENT_CENTER
+	row2.add_theme_constant_override("separation", 10)
+	v2.add_child(row2)
+	meter_l = UI.label("", 20 if main.night else 28, UI.GREEN, 6)
+	row2.add_child(meter_l)
+	var side := VBoxContainer.new()
+	side.alignment = BoxContainer.ALIGNMENT_CENTER
+	side.add_theme_constant_override("separation", 2)
+	row2.add_child(side)
+	var mb := _bar(BAR_W, UI.GREEN)
+	side.add_child(mb[0])
 	meter_fill = mb[1]
-	status_l = UI.label("", 13, UI.MUTED)
-	v2.add_child(status_l)
+	meter_title = UI.label("SICHTBARKEIT" if main.night else String(main.lv.get("timer_title", "ZEIT BIS FEIERABEND")), 10, UI.MUTED)
+	side.add_child(meter_title)
+	status_l = UI.label("", 10, UI.MUTED)
+	side.add_child(status_l)
+
+	# ---- bottom centre: mini map of the campus with both players and what is still to do
+	var mp := UI.panel(UI.NAVY, UI.YELLOW, 12, 4)
+	root.add_child(mp)
+	mp.anchor_left = 0.5
+	mp.anchor_right = 0.5
+	mp.anchor_top = 1.0
+	mp.anchor_bottom = 1.0
+	mp.offset_left = -106
+	mp.offset_right = 106
+	mp.offset_top = -171
+	mp.offset_bottom = -14
+	mp.grow_horizontal = Control.GROW_DIRECTION_BOTH
+	mp.grow_vertical = Control.GROW_DIRECTION_BEGIN
+	minimap = MiniMap.new()
+	minimap.main = main
+	mp.add_child(minimap)
 
 	# ---- bottom-left: ability (night only)
 	ab_panel = UI.panel(UI.NAVY, UI.PURPLE, 16, 10)
@@ -188,7 +327,7 @@ func _ready() -> void:
 		var pc := Color(KEYS.TAG_COLORS[i])
 		var pp := UI.panel(UI.NAVY, pc, 16, 8)
 		root.add_child(pp)
-		pp.anchor_left = 0.25 + 0.5 * i
+		pp.anchor_left = 0.25 + 0.5 * i   # under the middle of each player's half
 		pp.anchor_right = 0.25 + 0.5 * i
 		pp.anchor_top = 1.0
 		pp.anchor_bottom = 1.0
@@ -215,8 +354,8 @@ func _ready() -> void:
 	toast_p.anchor_bottom = 1.0
 	toast_p.offset_left = -270
 	toast_p.offset_right = 270
-	toast_p.offset_bottom = -92
-	toast_p.offset_top = -190
+	toast_p.offset_bottom = -112   # shows in front of the mini map for a few seconds
+	toast_p.offset_top = -210
 	toast_p.grow_vertical = Control.GROW_DIRECTION_BEGIN
 	var tv := VBoxContainer.new()
 	toast_p.add_child(tv)
@@ -378,91 +517,89 @@ func celebrate(title: String, sub: String, col: Color, side: int = -1) -> void:
 	UI.sfx("success")
 
 
-# ------------------------------------------------------------------ task card
-func _short(n: String) -> String:
-	return n if n.length() <= 7 else n.substr(0, 6) + "."
-
-
-func _chip(i: int) -> Array:
-	var p := PanelContainer.new()
-	var sb := StyleBoxFlat.new()
-	sb.bg_color = Color(0, 0, 0, 0.3)
-	sb.border_color = Color(KEYS.TAG_COLORS[i])
-	sb.set_border_width_all(2)
-	sb.set_corner_radius_all(9)
-	sb.content_margin_left = 7
-	sb.content_margin_right = 7
-	sb.content_margin_top = 1
-	sb.content_margin_bottom = 2
-	p.add_theme_stylebox_override("panel", sb)
-	p.mouse_filter = Control.MOUSE_FILTER_IGNORE
-	p.custom_minimum_size = Vector2(66, 0)
-	var l := UI.label(_short(Game.name_of(i)), 12, UI.MUTED)
-	l.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
-	p.add_child(l)
-	return [p, l, sb]
-
-
-func _build_tasks(objs: Array) -> void:
-	for r in task_rows:
+# ------------------------------------------------------------------ task cards
+func _build_tasks(pid: int, objs: Array) -> void:
+	for r in task_rows[pid]:
 		(r[0] as Control).queue_free()
-	task_rows.clear()
+	task_rows[pid] = []
+	var box: VBoxContainer = cards[pid][3]
 	for o in objs:
-		if o.size() == 3 and o[2] is Array:
-			var row := HBoxContainer.new()
-			row.add_theme_constant_override("separation", 6)
-			task_box.add_child(row)
-			var name_l := UI.label(String(o[0]), 16, UI.WHITE)
-			name_l.custom_minimum_size = Vector2(176, 0)
-			row.add_child(name_l)
-			var chips: Array = [_chip(0), _chip(1)]
-			for c in chips:
-				row.add_child(c[0])
-			task_rows.append([row, chips, [false, false], name_l])
-		else:
-			var l := UI.label("", 15, UI.WHITE)
-			task_box.add_child(l)
-			task_rows.append([l])
+		# a row can be picked (key or click): then it is framed and the way is shown in the world
+		var k: int = task_rows[pid].size()
+		var rowp := PanelContainer.new()
+		var sb := StyleBoxFlat.new()
+		sb.bg_color = Color(0, 0, 0, 0)
+		sb.border_color = Color(0, 0, 0, 0)
+		sb.set_border_width_all(2)
+		sb.set_corner_radius_all(8)
+		sb.content_margin_left = 5
+		sb.content_margin_right = 5
+		sb.content_margin_top = 1
+		sb.content_margin_bottom = 1
+		rowp.add_theme_stylebox_override("panel", sb)
+		rowp.mouse_filter = Control.MOUSE_FILTER_STOP
+		rowp.gui_input.connect(func(ev: InputEvent):
+			if ev is InputEventMouseButton and ev.pressed and ev.button_index == MOUSE_BUTTON_LEFT:
+				main.pick(pid, k))
+		box.add_child(rowp)
+		var row := HBoxContainer.new()
+		row.add_theme_constant_override("separation", 8)
+		row.mouse_filter = Control.MOUSE_FILTER_IGNORE
+		rowp.add_child(row)
+		var tick := Tick.new()
+		tick.col = Color(KEYS.TAG_COLORS[pid])
+		tick.custom_minimum_size = Vector2(16, 16)
+		tick.size_flags_vertical = Control.SIZE_SHRINK_CENTER
+		tick.mouse_filter = Control.MOUSE_FILTER_IGNORE
+		row.add_child(tick)
+		var l := UI.label(String(o[0]), 16, UI.WHITE)
+		row.add_child(l)
+		task_rows[pid].append([rowp, tick, l, sb, false])
 
 
+## Day: every task has a state per player. Night: one shared list, shown on both sides.
 func _update_tasks() -> void:
 	var objs: Array = main.objectives()
-	if task_rows.size() != objs.size():
-		_build_tasks(objs)
-	for k in objs.size():
-		var o: Array = objs[k]
-		var r: Array = task_rows[k]
-		if r.size() == 1:
-			var l: Label = r[0]
-			l.text = ("[x] " if o[1] else "[ ] ") + String(o[0])
-			l.label_settings.font_color = UI.MUTED if o[1] else (UI.WHITE if o[2] else Color(1, 1, 1, 0.35))
-			continue
-		var states: Array = o[2]
-		var all_done: bool = states[0] and states[1]
-		(r[3] as Label).label_settings.font_color = UI.GREEN if all_done else UI.WHITE
-		for i in 2:
-			var c: Array = r[1][i]
-			var on: bool = states[i]
-			if on == r[2][i]:
-				continue
-			r[2][i] = on
-			var sb: StyleBoxFlat = c[2]
-			sb.bg_color = Color(KEYS.TAG_COLORS[i]) if on else Color(0, 0, 0, 0.3)
-			(c[1] as Label).label_settings.font_color = UI.WHITE if on else UI.MUTED
+	for pid in 2:
+		if task_rows[pid].size() != objs.size():
+			_build_tasks(pid, objs)
+		var n_done := 0
+		for k in objs.size():
+			var o: Array = objs[k]
+			var r: Array = task_rows[pid][k]
+			var per_player: bool = o[2] is Array
+			var on: bool = o[2][pid] if per_player else o[1]
+			var active: bool = true if per_player else o[2]
 			if on:
-				var chip: Control = c[0]
-				chip.pivot_offset = chip.size / 2.0
-				chip.scale = Vector2(1.6, 1.6)
-				chip.create_tween().tween_property(chip, "scale", Vector2.ONE, 0.35).set_trans(Tween.TRANS_BACK).set_ease(Tween.EASE_OUT)
+				n_done += 1
+			(r[2] as Label).label_settings.font_color = UI.GREEN if on else (UI.WHITE if active else Color(1, 1, 1, 0.35))
+			var sel: bool = main.picked[pid] == k
+			if sel != r[4]:
+				r[4] = sel
+				var pc := Color(KEYS.TAG_COLORS[pid])
+				(r[3] as StyleBoxFlat).bg_color = Color(pc, 0.3) if sel else Color(0, 0, 0, 0)
+				(r[3] as StyleBoxFlat).border_color = pc if sel else Color(0, 0, 0, 0)
+				if sel:
+					UI.pop_in(r[0], 0.0, 0.85)
+			var tick: Tick = r[1]
+			if on == tick.on:
+				continue
+			tick.on = on
+			tick.queue_redraw()
+			if on:
+				tick.pivot_offset = tick.size / 2.0
+				tick.scale = Vector2(2.2, 2.2)
+				tick.create_tween().tween_property(tick, "scale", Vector2.ONE, 0.4).set_trans(Tween.TRANS_BACK).set_ease(Tween.EASE_OUT)
+		(cards[pid][2] as Label).text = "%d/%d" % [n_done, objs.size()]
+		(cards[pid][1] as Label).text = main.world.zone_at(main.players[pid].global_position)
 
 
 # ------------------------------------------------------------------ per frame
 func refresh(delta: float) -> void:
-	zone_l.text = main.zone
 	_update_tasks()
 	if main.night:
 		var m: float = main.max_meter()
-		meter_fill.size = Vector2(190.0 * m, 12)
+		meter_fill.size = Vector2(BAR_W * m, 12)
 		var c := UI.GREEN
 		var txt := "UNENTDECKT"
 		if m >= 0.6:
@@ -485,7 +622,7 @@ func refresh(delta: float) -> void:
 		var c2 := UI.GREEN if frac > 0.4 else (UI.YELLOW if frac > 0.15 else UI.RED)
 		meter_l.label_settings.font_color = c2
 		meter_fill.color = c2
-		meter_fill.size = Vector2(190.0 * frac, 12)
+		meter_fill.size = Vector2(BAR_W * frac, 12)
 		status_l.text = "Fehler bisher: %d" % main.mistakes_total
 		var sec := int(left)
 		if main.state == "play" and sec != last_sec:

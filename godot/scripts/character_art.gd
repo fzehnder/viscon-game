@@ -16,6 +16,15 @@ static func facing_from_angle(a: float) -> int:
 	return LEFT if absf(d) >= PI * 0.75 else RIGHT
 
 
+## Puts an accessory on a look or takes it off.
+static func set_acc(look: Dictionary, what: String, on: bool) -> void:
+	var acc: Array = look.get("acc", [])
+	acc.erase(what)
+	if on:
+		acc.append(what)
+	look["acc"] = acc
+
+
 static func col(look: Dictionary, key: String, fallback: String = "888888") -> Color:
 	var v = look.get(key, fallback)
 	if v is Color:
@@ -165,6 +174,12 @@ static func draw_character(ci: CanvasItem, look: Dictionary, facing: int, phase:
 		if "flashlight" in acc:
 			_rect(ci, 7.0, -17 - b + al, 2.0, 5.0, Color("2b2f35"))
 			ci.draw_circle(Vector2(8.0, -11.8 - b + al), 1.4, Color(1, 0.95, 0.7))
+		if "loot" in acc:
+			# a stolen backpack, carried by its handle
+			var lc := col(look, "loot_col", "b5523a")
+			_rect(ci, -12.5, -15.5 - b - al, 7.5, 9.5, lc)
+			_rect(ci, -12.5, -15.5 - b - al, 7.5, 2.8, lc.darkened(0.25))
+			_rect(ci, -10.9, -10.6 - b - al, 4.3, 3.2, lc.lightened(0.25))
 		if "tray" in acc:
 			# Mensa tray, carried with both hands
 			if front:
@@ -249,6 +264,11 @@ static func draw_character(ci: CanvasItem, look: Dictionary, facing: int, phase:
 		if "flashlight" in acc:
 			_rect(ci, d * 0.8 + (0.0 if k > 0 else -5.0), -16.5 - b, 5.0, 2.0, Color("2b2f35"))
 			ci.draw_circle(Vector2(d * 0.8 + k * 5.5, -15.5 - b), 1.4, Color(1, 0.95, 0.7))
+		if "loot" in acc:
+			var lc2 := col(look, "loot_col", "b5523a")
+			_rect(ci, d * 0.8 - 3.8, -15.0 - b, 7.5, 9.5, lc2)
+			_rect(ci, d * 0.8 - 3.8, -15.0 - b, 7.5, 2.8, lc2.darkened(0.25))
+			_rect(ci, d * 0.8 - 2.2, -10.1 - b, 4.3, 3.2, lc2.lightened(0.25))
 		if "tray" in acc:
 			_tray(ci, Vector2(k * 8.5, -18.5 - b), 11.0)
 		# head

@@ -10,7 +10,7 @@ const SKIN_TONES := ["f5d6bd", "f1c9a5", "e0ac85", "c68863", "9c6644", "6f4a33"]
 const TOP_COLORS := ["2f4f8f", "e07a2f", "3e7d4f", "3b3f46", "a33b5c", "d9a441", "e9ece8", "5d3f7a"]
 const PANTS_COLORS := ["2d3a52", "3b3f46", "6b5440", "1f1f24", "4f6b8a", "7a6450"]
 # top styles: tshirt, hoodie, overall, labcoat, jacket, sweater
-# accessories: goggles, headphones, glasses, backpack, toolbelt, laptop, flashlight, beard, lanyard, erstibag, tray
+# accessories: goggles, headphones, glasses, backpack, toolbelt, laptop, flashlight, beard, lanyard, erstibag, tray, loot
 
 
 # ------------------------------------------------------------------ departments
