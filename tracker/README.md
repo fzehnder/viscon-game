@@ -47,6 +47,7 @@ func _ready() -> void:
 - `Track.use(self, [...])` gilt, solange der Node im Baum ist. Wird das Minigame geschlossen, geht die Kamera von selbst wieder aus.
 - `Track.face(pid)`, `Track.hand(pid)`, `Track.pose(pid)` liefern, was in der Bildhälfte dieser Person zu sehen ist: **P1 sitzt links, P2 rechts**. Ist dort nichts, kommt `{}`. Mit `-1` kommt, was der Bildmitte am nächsten ist (eine Person allein).
 - `Track.faces`, `Track.hands`, `Track.poses` sind alle Treffer, von links nach rechts.
+- Wer ist wer, wenn die Leute nicht brav auf ihrer Seite sitzen: `TM.mine(Track.faces, pid)` nimmt, was in der Bildhälfte der Person ist, und sonst das Einzige im Bild (wer allein spielt, sitzt selten auf «seiner» Seite). `TM.pair(Track.poses)` liefert für etwas, das beide gleichzeitig tun, `[Person 1, Person 2]`: bei zwei oder mehr Treffern den linksten und den rechtesten, egal wo genau sie sitzen.
 - `Track.preview` ist das Kamerabild als Textur (gespiegelt, 320 × 240), zum Beispiel für ein `TextureRect`.
 - `Track.alive` ist `true`, solange Ergebnisse ankommen. `Track.status` ist ein kurzer Text dazu («Kamera startet …», «läuft», «keine Kamera …»).
 - Alle Positionen sind 0 bis 1 im gespiegelten Bild: x = 0 links, y = 0 oben. Wer die Hand nach rechts bewegt, bewegt den Punkt nach rechts.
@@ -85,7 +86,7 @@ Track.blowing    # true / false
 
 ## Rezepte für die geplanten Minigames
 
-**L1 Passfoto** (Pose nachstellen). Zielpose in `track_debug` hinstellen, `P` drücken, den Inhalt von `pose_target.json` als Konstante ins Level kopieren. Im Sitzen sieht die Kamera nur Oberkörper und Arme, die Zielposen müssen dazu passen.
+**L1 Passfoto** (Pose nachstellen). Zielpose in `track_debug` hinstellen, `P` drücken, den Inhalt von `pose_target.json` als Konstante ins Level kopieren. Wer an der Tastatur sitzt, ist für die Kamera eines Laptops zu nah: Im Bild sind nur Kopf und Schultern. Für Posen muss man zurückrücken, bis die Arme im Bild sind, und zu zweit teilt man sich die Breite. Erfahrungen und Messwerte dazu stehen in `godot/scripts/level3/README.md` (Tanzfläche); dort wird auch erklärt, warum `pose_match` allein eine falsche Pose schlecht von einer richtigen trennt.
 
 ```gdscript
 Track.use(self, ["pose"])

@@ -21,6 +21,44 @@ const POSE_MIN_VIS := 0.5      # body points less visible than this are ignored
 const LIMBS := [[11, 13], [13, 15], [12, 14], [14, 16], [11, 12], [11, 23], [12, 24], [23, 25], [25, 27], [24, 26], [26, 28]]
 
 
+# ------------------------------------------------------------------ who is who
+## The entry of player `pid` in one of the lists of Track (faces, hands, poses): what is in that
+## player's half of the picture (P1 sits left, P2 right). If nothing is there and there is only
+## one entry in the whole picture, that one: somebody who plays alone rarely sits on their side.
+static func mine(list: Array, pid: int) -> Dictionary:
+	var best := {}
+	var best_d := INF
+	for e in list:
+		var x: float = e["x"]
+		if (pid == 0) != (x < 0.5):
+			continue
+		var d := absf(x - (0.25 if pid == 0 else 0.75))
+		if d < best_d:
+			best_d = d
+			best = e
+	if best.is_empty() and list.size() == 1:
+		return list[0]
+	return best
+
+
+## For something both players do at once: [entry of P1, entry of P2]. With two or more entries
+## that is the leftmost and the rightmost one, wherever exactly they sit. With one entry it goes
+## to the half it is in. Whoever is missing gets {}.
+static func pair(list: Array) -> Array:
+	if list.size() >= 2:
+		var l: Dictionary = list[0]
+		var r: Dictionary = list[0]
+		for e in list:
+			if e["x"] < l["x"]:
+				l = e
+			if e["x"] > r["x"]:
+				r = e
+		return [l, r]
+	if list.size() == 1:
+		return [list[0], {}] if list[0]["x"] < 0.5 else [{}, list[0]]
+	return [{}, {}]
+
+
 # ------------------------------------------------------------------ face
 ## Both eyes shut (blinking or keeping them closed).
 static func eyes_closed(face: Dictionary) -> bool:
