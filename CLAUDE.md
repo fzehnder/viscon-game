@@ -30,9 +30,12 @@ Jedes Level bekommt einen eigenen Branch. Kein Level-Branch hängt von einem and
 | `level4-labor` | Knuusper | `level-base` (hineingemergt) plus Ordner `godot/scripts/level4/` (Level 4 "Chemiepraktikum" mit dem Kamera-Pipettieren). Seit dem 10.10.2026 auf `main` |
 | `tracking` | Deniz Acar | Kamera- und Mikrofon-Tracking für Minigames (siehe unten). Seit dem 10.10.2026 in `level-base` und damit auf `main` |
 | `level3-polyball` | Deniz Acar | `level-base` plus Ordner `godot/scripts/level3/` (Level 3 "Polyball"). Seit dem 10.10.2026 auf `main` |
+| `level5-ski` | Tim | Wahlfach Skifahren in `godot/scripts/level20/` (freiwillig, nicht in der Story, Start über den Leistungsüberblick), dazu Wahlfächer in `levels.gd`/`transcript.gd`, Leistungsüberblick im Spiel (`L`), Ladebildschirm und Startseite mit dem ETH-Hauptgebäude (`eth_front.gd`, `tools/make_splash.gd`) |
 | `level1-coop`, `godot-eth-tag-nacht` | Finn | alte Stände vor dem Level-Gerüst, nicht mehr weiterführen |
 
 Auf `main` spielt das Spiel 1 → 2 → 3 → 4. Fehlt auf einem Branch eine Nummer, wird sie übersprungen.
+
+Wahlfächer (`"block": "W"` in `DEF`, `LV.is_elective`) gehören nicht zur Reihenfolge: Sie stehen im Leistungsüberblick unter «Wahlfächer», werden nur von dort gestartet, sind nie das nächste Level und setzen in `Game.begin_level` nichts zurück. Sie bekommen hohe Nummern (Skifahren ist 20), damit die Story-Levels von 2 an frei bleiben. Der Leistungsüberblick geht auch im Spiel auf (`L` oder Button unten rechts, pausiert das Spiel).
 
 Regeln:
 - Neues Level: `git fetch`, dann `git switch -c level3-name origin/level-base`. Nie von einem anderen Level-Branch abzweigen.
