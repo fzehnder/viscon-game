@@ -97,6 +97,18 @@ Umsetzung (an den vorhandenen Code angepasst: Skripte statt `Npc.tscn`, Sicht pe
 - Level 1: Der "Rucksack" aus der Vorgabe **ist die Ersti-Bag**, es gibt dafür keine eigene Aufgabe. Deniz (`rucksack_a`) und Livia (`rucksack_b`) sitzen am Lesetisch in der Bibliothek, ihre Ersti-Bags stehen neben dem Stuhl; die Aufgabe "Ersti-Bag klauen" (jetzt Typ `"bag"`) wird dort erledigt. Die Ersti-Menge auf der Polyterrasse trägt keine Bags mehr (`"bags": 0`); der alte Weg (Bag einem Ersti aus der Menge per Timing-Minigame vom Rücken klauen, Typ `"steal"`) steckt noch in `main.gd` und `student.gd`, ist aber abgeschaltet.
 - Level 2 (auf `level2-mensa`): siehe dessen README.
 
+## Kamera- und Mikrofon-Tracking (gebaut, noch ohne Minigames)
+
+Vorgabe des Teams: Minigames mit Kamera-Erkennung (Pose nachstellen, in die Luft greifen, Pinch, nicht blinzeln, stillhalten, nicken oder Kopf schütteln) und Pusten ins Mikrofon. Die Minigames entstehen beim Bau der Levels, hier liegt nur das Fundament. Anleitung, Datenfelder und ein Rezept pro geplantem Minigame: `tracker/README.md`.
+
+- `tracker/tracker.py` (Repo-Wurzel): zweiter Prozess in Python mit MediaPipe 1.1.0, erkennt Gesichter, Hände und Körperhaltung und schickt sie per UDP ans Spiel (nur localhost, Ports 47800 und 47801). Das Spiel startet ihn selbst über `uv` und beendet ihn wieder. Erster Start braucht Internet (Pakete und Modelle), deshalb auf jedem Rechner einmal `uv run tracker/tracker.py --selftest`.
+- Autoload `Track` (`scripts/tracking.gd`): `Track.use(self, ["face"])` (auch `"hand"`, `"pose"`) gilt, solange der Node im Baum ist. `Track.face(pid)`, `Track.hand(pid)`, `Track.pose(pid)` liefern, was in der Bildhälfte der Person ist (P1 sitzt links, P2 rechts), sonst `{}`. `Track.preview` ist das Kamerabild. `Track.use_mic(self)`, danach `Track.blow` (0 bis 1) und `Track.blowing`. Vor dem ersten `use` läuft nichts und kostet nichts.
+- `scripts/track_math.gd`: fertige Auswertungen (`eyes_closed`, `looking_away`, `moved_cm`, `pinch01`, `is_fist`, `pose_match`, Klassen `NodShake` und `Jitter`). Schwellen als Konstanten oben in der Datei.
+- **Jedes Kamera-Minigame braucht eine Tasten-Variante:** Ohne Kamera oder Tracker bleibt `Track.alive` auf `false`.
+- Testszene: `godot --path godot res://track_debug.tscn`. Ohne Kamera testen: den Tracker vorher von Hand mit `--fake bild.jpg` starten, das Spiel benutzt dann diesen.
+- `Track` rechnet seine Wartezeiten in Echtzeit, nicht in Spielzeit. In Bot-Läufen mit `--fixed-fps` startet der Tracker deshalb meist gar nicht; Kamera-Minigames dort über die Tasten-Variante prüfen.
+- Offen: Die Schwellen sind Startwerte und noch nicht im Spieltest eingestellt. Pusten ist nur mit Raumgeräusch geprüft. Vorzeichen von `pitch` und die Angabe linke/rechte Hand sind nicht von einem Menschen bestätigt.
+
 ## Spielkonzept (Plan)
 
 Allgemein:
