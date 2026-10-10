@@ -76,6 +76,8 @@ Es gibt keine neue Karte, nur Ball-Ausstattung im bestehenden Hauptgebäude (`bu
 | `vorlage.gd` | die Armband-Vorlage auf der Bildschirmhälfte der Person, die sie ansieht |
 | `kamera_spiel.gd` | die beiden Minigames vor der Kamera: Tanzfläche und Badge |
 | `posen.gd` | Zielposen für die Tanzfläche (Platzhalter, siehe oben) |
+| `fund.gd` | der Moment, in dem der Badge draussen ist: Badge gross auf der Bildschirmhälfte der Person, dazu zwei getippte Sätze. Auch die gemeinsame Zeichnung des Badge (`Fund.draw_card`) |
+| `abgang.gd` | die Schlussszene: die beiden tanzen mit dem Badge durch den Ballsaal zum Ausgang, dann der Titel |
 
 Allgemeines, das für dieses Level dazukam: `Game.items` mit `Game.add_item` und `Game.has_item` in `game_state.gd` (eigener Commit). Sonst ist keine gemeinsame Datei angefasst.
 
@@ -148,6 +150,12 @@ Die Vorgabe für das Tanzen war `TM.pose_match` über 80 %. Vor der echten Kamer
 - **Buffet:** Das Timing-Minigame bleibt, wie es ist. `_snap_with_mouth` ruft bei offenem Mund dieselbe Funktion auf wie die Taste und färbt den Hintergrund des Minigames hell.
 - **Gäste** sind die Studierenden des Tages: `build_map` ersetzt `student_zones`, `_dress_guests` zieht ihnen Anzug oder Kleid an.
 - **Hans Muster** steht als `npcs`-Eintrag mit der id `hans_muster` an der Bar. Macht ihn ein früheres Level unter genau dieser id zum Opp, lauert er hier von Anfang an.
+
+## Badge-Moment und Schluss
+
+- **Badge-Moment** (`_badge_moment`, `fund.gd`): Ist der Badge aus der Tasche, wird er gross gezeigt, und die beiden sagen ihren Text dazu («Ein echter Prof-Badge …», «Und der Besitzer sucht gerade seinen Garderobenzettel …»). Das dauert `Fund.TIME` (6.4 s) und hält niemanden auf: Das Spiel läuft für beide weiter, zu drücken gibt es nichts. Erst danach wird die Aufgabe abgehakt (Stempel). Sind weniger als gut 10 Sekunden übrig, wird sofort abgehakt, damit die Zeit nicht dazwischen abläuft. Solange gilt `badge_taken`: kein zweiter Griff in den Mantel, keine Markierung mehr.
+- **Schluss** (`finale`, `abgang.gd`): Sind alle Aufgaben erledigt, tanzen die beiden durch den Ballsaal zum Ausgang (Discokugel, Lichtkegel, hinten sucht der Professor an der Garderobe seine Taschen ab), dann kommt der Titel «POLYBALL · ein Badge wechselt den Besitzer». E / Enter / Leertaste oder ein Klick: weiter, Esc: überspringen. Die Karte dahinter wird solange nicht gezeichnet (`_cover`). Zeiten oben in `abgang.gd`: `DANCE_TIME`, `TITLE_TIME`, `BEAT`.
+- Bis zum 10.10.2026 stand der Dialog über den Badge im Schluss; auf Wunsch aus dem Spieltest kommt er jetzt beim Klauen.
 
 ## Stand
 
