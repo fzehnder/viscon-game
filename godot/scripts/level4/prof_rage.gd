@@ -30,6 +30,7 @@ const MARKS := [[20, "entspannt"], [40, "kalter Kaffee"], [60, "Folien vergessen
 var look: Dictionary = {}
 var pname := ""
 var sfx = null
+var top_mark := ""        # what stands at 100 degrees on the Siedler-Meter instead of "IHR TESTAT"
 var beats: Array = []
 var on_done: Callable = Callable()
 var idx := -1
@@ -500,7 +501,8 @@ func _draw_thermo() -> void:
 		var col := UI.MUTED
 		if reached:
 			col = HOT.lightened(0.25) if int(m[0]) >= 100 else UI.WHITE
-		_text(back, Vector2(c.x - 24.0, y2 + 5.0), "%s  %d°" % [m[1], m[0]], 17 if int(m[0]) >= 100 else 15, col, true)
+		var mark: String = top_mark if (top_mark != "" and int(m[0]) >= 100) else String(m[1])
+		_text(back, Vector2(c.x - 24.0, y2 + 5.0), "%s  %d°" % [mark, m[0]], 17 if int(m[0]) >= 100 else 15, col, true)
 	# read-out
 	var read := "%d °C" % int(deg)
 	if bursted:

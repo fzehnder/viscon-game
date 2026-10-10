@@ -11,7 +11,12 @@ extends Node2D
 ##   pipette (thumb and index finger pinched just the right amount), the other one holds the glass
 ##   (a flat hand held level and without shaking). Done when both are right at the same time
 ##   until the glass is full. Without a camera the same game is played with keys.
-## Challenge 2, the Testat: once both have pipetted, each player sits down at one of the two desks
+## Challenge 2, the fondue alarm (blow_game.gd): after the pipetting, the professor's fondue in
+##   fume hood 1 starts to boil over. Both run there and cool it by blowing into the microphone;
+##   without a microphone both hammer on their key. If it boils over, a jet of flame sets both
+##   players on fire: they have to get under the emergency shower and then try again. Whoever
+##   burns too long without showering makes the professor boil over.
+## Challenge 3, the Testat: once both have pipetted, each player sits down at one of the two desks
 ##   in front of the professor and answers easy chemistry questions, series A at the left desk and
 ##   series B at the right one. The questions are meant to be passed by anybody, and one wrong
 ##   answer is allowed. Whoever still fails makes the professor boil over (prof_rage.gd), and both
@@ -30,23 +35,25 @@ const Quiz = preload("chem_quiz.gd")
 const Rage = preload("prof_rage.gd")
 const LabSfx = preload("lab_sfx.gd")
 const PipetteGame = preload("pipette_game.gd")
+const BlowGame = preload("blow_game.gd")
 
 const DEF := {
 	"name": "Chemiepraktikum",
 	"tag": "LEVEL 4",
 	"mode": "day",
-	"time": 300.0,
+	"time": 360.0,
 	"start": Vector2(69.9, 63.2),   # just inside the lab door
 	"timer_title": "PRAKTIKUM ENDET IN",
 	"intro": "Praktikum Allgemeine Chemie bei Prof. Dr. Siedler. Er gilt als ruhig, solange niemand einen Fehler macht. Beide müssen alles erledigen:",
-	"hint": "Pipettiert wird zu zweit vor der Kamera: Eine Person drückt die Pipette, die andere hält das Glas ruhig. Im Testat ist ein Fehler erlaubt; fällt jemand durch, kocht der Professor über, und ihr fangt beide von vorne an.",
+	"hint": "Pipettiert wird zu zweit vor der Kamera, gekühlt wird mit Pusten ins Mikrofon. Wer zu wenig pustet, fängt Feuer und muss unter die Notdusche. Im Testat ist ein Fehler erlaubt; fällt jemand durch, kocht der Professor über, und ihr fangt beide von vorne an.",
 	"start_toast": ["Willkommen im Labor", "Geht zusammen an einen freien Platz mit gelber Matte. Wer dort drückt, nimmt die Pipette, die andere Person hält das Glas. Und: Im Labor wird nicht gerannt."],
 	"win_title": "Testat bestanden",
-	"win_text": "%s & %s haben pipettiert, ohne etwas zu sprengen, und das Testat bestanden. Prof. Dr. Siedler bleibt unter 100 °C.",
+	"win_text": "%s & %s haben pipettiert, ein Fondue gerettet und das Testat bestanden. Prof. Dr. Siedler bleibt unter 100 °C.",
 	"lose_title": "Praktikum vorbei",
 	"lose_text": "Die Laborzeit ist um, und das Testat ist nicht bestanden. Prof. Dr. Siedler notiert etwas. Mit Rotstift.",
 	"tasks": [
 		{"id": "pipette", "name": "Pipettieren", "where": "zu zweit an einem freien Laborplatz, vor der Kamera", "type": "level"},
+		{"id": "cool", "name": "Blubber-Alarm stoppen", "where": "Kapelle 1, sobald es blubbert: zu zweit kühl pusten (Mikrofon)", "type": "level"},
 		{"id": "testat", "name": "Testat bestehen", "where": "vorne beim Professor, Serie A und B", "type": "level"},
 	],
 }
@@ -56,6 +63,13 @@ const Q_COUNT := 4            # questions per player, drawn from the series of t
 const Q_ALLOWED := 1          # wrong answers that are still a pass
 const REACH := 0.85           # tiles: this close to a bench place or a desk, from any side, it can be used
 const PARTNER_DIST := 2.6     # tiles: pipetting needs the second player this close, to hold the glass
+const ALARM_START := 0.38     # how hot the fondue is when the alarm goes off (0..1, 1 = burnt)
+const ALARM_RISE := 0.014     # per second while nobody cools it: about 45 seconds until it boils over
+const FLARE_RESET := 0.5      # how hot the fondue is after it boiled over and the flame is out
+const BURN_MAX := 20.0        # seconds a player may burn before it is too late
+const SHOWER_TIME := 4.0      # seconds the emergency shower runs after one pull
+const SOAK := 0.8             # seconds under the water until the fire is out
+const WET := 7.0              # seconds a player drips afterwards
 const RUN_SCOLD := 5.0        # seconds between two scoldings for running in the lab
 const PROF_SPEED := 44.0      # px per second on his rounds
 const PROF_PAUSE := Vector2(1.4, 3.0)
@@ -85,6 +99,22 @@ const SET_B := [   # staying alive in the lab
 ]
 const SETS := [SET_A, SET_B]
 
+# ---- the order of the level
+const PH_PIPETTE := 1
+const PH_ALARM := 2
+const PH_TESTAT := 3
+
+# ---- what the professor shouts when somebody burnt down next to his burnt fondue
+const FONDUE_RANTS := [
+	"Brennende Studierende sind in der Laborordnung NICHT vorgesehen!",
+	"Die Notdusche hängt seit 1987 an dieser Wand. NEUNZEHNHUNDERTSIEBENUNDACHTZIG!",
+	"Gruyère und Vacherin, je zur Hälfte, und Sie machen daraus KOHLENSTOFF!",
+	"Das war kein Käse mehr, das war eine PYROLYSE!",
+	"Im Caquelon ist jetzt mehr Kohlenstoff als im ganzen Periodensystem!",
+	"PUSTEN habe ich gesagt! Nicht ZUSCHAUEN!",
+	"Wissen Sie, was ein Kilo Vacherin kostet?! Mehr als Ihr ganzes Praktikum!",
+]
+
 # ---- what the professor shouts while he boils over (two of these per fit, one on a repeat)
 const RANTS := [
 	"In DREISSIG Jahren Praktikum habe ich so etwas noch NIE gesehen!",
@@ -107,6 +137,7 @@ const STATION_X := [73.8, 81.2]
 const DESKS := [Rect2(75.15, 58.25, 1.7, 0.85), Rect2(78.15, 58.25, 1.7, 0.85)]   # series A, series B
 const PROF_FRONT := Vector2(77.5, 57.75)     # between the desks, in front of the blackboard
 const AISLE_Y := 62.8                        # the cross aisle south of the benches
+const ALARM_SPOT := Vector2(84.6, 62.8)      # where the professor stands during the fondue alarm
 const PATROL := [Vector2(77.5, 57.75), Vector2(77.5, 62.8), Vector2(72.5, 62.8), Vector2(77.5, 62.8), Vector2(84.6, 62.8),
 	Vector2(82.0, 62.8), Vector2(82.0, 66.9), Vector2(82.0, 62.8), Vector2(77.5, 62.8)]
 const WORK := [Vector2(72.0, 60.75), Vector2(83.0, 60.75), Vector2(81.0, 67.75), Vector2(83.2, 67.75), Vector2(72.2, 63.85)]
@@ -144,7 +175,18 @@ var desk_props: Array = []
 var st_done: Array = [-1, -1]         # station -> player who had the pipette there, -1 = not used
 var st_busy: Array = [-1, -1]         # station -> player who has the pipette there right now
 # challenge 2
-var phase := 1                        # 1 = pipetting, 2 = Testat
+var phase := PH_PIPETTE
+# challenge 2
+var alarm_heat := 0.0                 # the fondue: 0 = cold, 1 = burnt
+var beep_t := 0.0
+var cloud_col := UI.GREEN             # what comes out of fume hood 1 when the professor explodes
+# on fire after the fondue boiled over
+var burning: Array = [false, false]
+var burn_t: Array = [0.0, 0.0]        # seconds left until it is too late
+var soak: Array = [0.0, 0.0]          # seconds under the running shower
+var wet_t: Array = [0.0, 0.0]         # dripping afterwards
+var shower_t := 0.0                   # > 0: the emergency shower is running
+var fx_top: Node2D                    # flames and water, drawn over the characters
 var desk_who: Array = [-1, -1]        # desk -> player sitting there
 var desk_done: Array = [false, false]
 var desk_failed := -1
@@ -186,7 +228,7 @@ static func build_map(md) -> void:
 		var r: Rect2 = d
 		md.R("l4_desk", r.position.x, r.position.y, r.size.x, r.size.y)
 	var hood_info := [
-		["Kapelle 1", "Etwas Grünes blubbert vor sich hin. Am Glas klebt ein Zettel: «NICHT anfassen. Auch nicht kurz. S.»"],
+		["Kapelle 1", "Ein rotes Caquelon auf dem Bunsenbrenner, es riecht nach Käse. Am Glas klebt ein Zettel: «NICHT anfassen. Nicht probieren. S.»"],
 		["Kapelle 2", "Ein Becherglas auf der Heizplatte. Es riecht nach Orange und nach Ärger."],
 		["Kapelle 3", "Leer und blitzblank. Hier arbeitet der Professor persönlich."],
 	]
@@ -234,6 +276,11 @@ func _ready() -> void:
 		main.actors.add_child(dp)
 		desk_props.append(dp)
 	_spawn_people()
+	fx_top = Prop.new()
+	fx_top.z_as_relative = false
+	fx_top.z_index = 4   # over the characters, under the name tags of fx.gd
+	fx_top.paint = _paint_top
+	add_child(fx_top)
 
 
 func _lab_look() -> Dictionary:
@@ -278,11 +325,14 @@ func _process(delta: float) -> void:
 		rattle = rage.heat
 	elif not failing:
 		prof.heat = move_toward(prof.heat, 0.0, delta * 0.12)
+		if _alarm_on():
+			prof.heat = maxf(prof.heat, alarm_heat * 0.75)
 	if not greeted and main.state == "play":
 		greeted = true
 		if attempts > 0:
-			main.hud.toast("Versuch Nr. %d" % (attempts + 1), "%s ist wieder auf 37 °C abgekühlt. Vorläufig. Also nochmals: pipettieren, dann das Testat." % PROF_NAME, 6.0)
+			main.hud.toast("Versuch Nr. %d" % (attempts + 1), "%s ist wieder auf 37 °C abgekühlt. Vorläufig. Also nochmals von vorne." % PROF_NAME, 6.0)
 	queue_redraw()
+	fx_top.queue_redraw()
 
 
 func _physics_process(delta: float) -> void:
@@ -290,13 +340,17 @@ func _physics_process(delta: float) -> void:
 		return
 	_update_prof(delta)
 	_update_walker(delta)
+	if _alarm_on():
+		_update_alarm(delta)
+	_update_fire(delta)
 
 
-## Phase 1: he walks his rounds through the aisles. Phase 2: he stands in front and watches.
+## Pipetting: he walks his rounds through the aisles. Alarm: he stands at the fume hood.
+## Testat: he stands in front and watches.
 func _update_prof(delta: float) -> void:
-	if prof.mode == "walk":
+	if prof.mode == "walk" or phase == PH_ALARM:
 		return
-	if phase == 2:
+	if phase == PH_TESTAT:
 		glance_t -= delta
 		if glance_t <= 0.0:
 			glance_t = 1.5
@@ -393,6 +447,7 @@ func start_pipette(pid: int, k: int) -> void:
 		main.players[j].enabled = false
 	main.add_child(mg)
 	mg.open()
+	_freeze_views(mg)
 	mg.finished.connect(func(ok: bool):
 		if main.minis[0] != mg and main.minis[1] != mg:
 			return
@@ -410,6 +465,22 @@ func start_pipette(pid: int, k: int) -> void:
 			main.hud.toast("Abgebrochen", "Ihr könnt es jederzeit nochmals versuchen.", 2.5))
 
 
+## The map is one huge drawing and takes most of the time of every frame. While a game covers the
+## whole screen, the two views are not drawn again (they keep their last picture), so the camera
+## picture and the gauges run smoothly. They are switched back on when the game leaves the tree.
+func _freeze_views(mg: Node) -> void:
+	var modes: Array = []
+	for vp in main.vps:
+		modes.append(vp.render_target_update_mode)
+		vp.render_target_update_mode = SubViewport.UPDATE_DISABLED
+	mg.tree_exited.connect(func():
+		if not is_instance_valid(main):
+			return
+		for i in main.vps.size():
+			if is_instance_valid(main.vps[i]):
+				main.vps[i].render_target_update_mode = modes[i])
+
+
 func pipette_done(pid: int, k: int) -> void:
 	st_busy[k] = -1
 	st_done[k] = pid
@@ -418,7 +489,7 @@ func pipette_done(pid: int, k: int) -> void:
 	main._coop_done("pipette")
 	var tw := create_tween()   # let the celebration finish first
 	tw.tween_interval(2.0)
-	tw.tween_callback(_start_testat)
+	tw.tween_callback(_start_alarm)
 
 
 func pipette_failed(pid: int, k: int) -> void:
@@ -430,11 +501,192 @@ func pipette_aborted(_pid: int, k: int) -> void:
 	st_busy[k] = -1
 
 
-# ================================================================== challenge 2: the Testat
-func _start_testat() -> void:
-	if main.state != "play" or phase == 2:
+# ================================================================== challenge 2: the fondue alarm
+func _hood_rect() -> Rect2:
+	return Rect2(HOODS[0], HOOD_SIZE)
+
+
+## On the floor in front of fume hood 1.
+func _hood_stand() -> Vector2:
+	var h: Vector2 = HOODS[0]
+	return Vector2(h.x - 0.55, h.y + HOOD_SIZE.y / 2.0)
+
+
+func _alarm_on() -> bool:
+	return phase == PH_ALARM and not main.done[0].has("cool") and not failing
+
+
+## The professor watched the pipetting and forgot his fondue on the burner in fume hood 1.
+func _start_alarm() -> void:
+	if main.state != "play" or phase != PH_PIPETTE:
 		return
-	phase = 2
+	phase = PH_ALARM
+	alarm_heat = ALARM_START
+	beep_t = 0.0
+	prof.say("!", 4.0, UI.RED)
+	prof.speed = 110.0
+	var at: Vector2 = prof.global_position / TS
+	var p: Array = []
+	if absf(at.y - AISLE_Y) > 0.1:
+		p.append(Vector2(at.x, AISLE_Y) * TS)   # down the middle aisle, or out of the store room
+	p.append(ALARM_SPOT * TS)
+	prof.walk(p, func(): prof.facing = ART.RIGHT)
+	for s in students:
+		if not s.cool:
+			s.face(_hood_stand() * TS - s.global_position)
+			s.say("!", 2.0)
+	main.hud.toast("Blubber-Alarm!", "%s: «MEIN FONDUE! Kapelle 1! Schnell, zu zweit hin und kühl pusten, bevor es eine Stichflamme gibt!»" % PROF_NAME, 7.0)
+
+
+## While nobody cools it, the fondue keeps getting hotter. At 1 it boils over.
+func _update_alarm(delta: float) -> void:
+	if _on_fire():
+		return   # it waits until the fire is out
+	var mg = main.minis[0]
+	if mg != null and "temp" in mg:
+		alarm_heat = float(mg.temp) / 100.0   # the game at the fume hood has it now
+		return
+	alarm_heat = minf(1.0, alarm_heat + ALARM_RISE * delta)
+	beep_t -= delta
+	if beep_t <= 0.0:
+		beep_t = lerpf(1.4, 0.5, alarm_heat)
+		sfx.play("alarm", -13.0)
+	if alarm_heat >= 1.0:
+		_flare()
+
+
+func _use_hood(pid: int) -> void:
+	var other := 1 - pid
+	if _on_fire():
+		main.hud.toast("Ihr brennt!", "Erst unter die Notdusche, gleich oberhalb von Kapelle 1. Dann nochmals pusten.", 3.0)
+		return
+	if main.busy(other):
+		main.hud.toast("Moment!", "%s ist gerade beschäftigt." % Game.name_of(other), 2.5)
+		return
+	if main.players[other].global_position.distance_to(main.players[pid].global_position) > PARTNER_DIST * TS:
+		main.hud.toast("Das geht nur zu zweit", "%s muss auch zur Kapelle 1 kommen. Allein bekommt ihr das Fondue nicht kühl." % Game.name_of(other), 4.0)
+		return
+	for pl in main.players:
+		pl.dir = 0.0
+		pl.facing = ART.RIGHT
+	start_cooling(pid)
+
+
+## Challenge 2: the game at the fume hood (blow_game.gd), for both players at once.
+func start_cooling(pid: int) -> void:
+	var mg = BlowGame.new()
+	mg.temp = alarm_heat * 100.0
+	mg.sfx = sfx
+	for j in 2:
+		main.minis[j] = mg
+		main.nears[j] = null
+		main.players[j].enabled = false
+	main.add_child(mg)
+	mg.open()
+	_freeze_views(mg)
+	var leave := func() -> bool:
+		if main.minis[0] != mg and main.minis[1] != mg:
+			return false
+		alarm_heat = float(mg.temp) / 100.0
+		for j in 2:
+			if main.minis[j] == mg:
+				main.minis[j] = null
+		return main.state == "play"
+	mg.finished.connect(func(ok: bool):
+		if not leave.call():
+			return
+		for pl in main.players:
+			pl.enabled = true
+		if ok:
+			_cooled()
+		else:
+			main.hud.toast("Abgebrochen", "Das Fondue wird weiter heisser. Schnell zurück an die Kapelle 1!", 3.0))
+	mg.burnt.connect(func():
+		if leave.call():
+			for pl in main.players:
+				pl.enabled = true
+			_flare())
+
+
+func _cooled() -> void:
+	main._coop_done("cool")
+	prof.say("...", 2.0, UI.WHITE)
+	var tw := create_tween()   # let the celebration finish first
+	tw.tween_interval(2.2)
+	tw.tween_callback(_start_testat)
+
+
+# ------------------------------------------------------------------ on fire
+func _on_fire() -> bool:
+	return burning[0] or burning[1]
+
+
+## The fondue boils over and a jet of flame shoots out of the fume hood: both players burn.
+## They have to get under the emergency shower (next to fume hood 1) and can then try again.
+func _flare() -> void:
+	if main.state != "play" or failing:
+		return
+	alarm_heat = FLARE_RESET
+	main.mistakes_total += 1
+	boom_t = 1.0
+	cloud_col = Color("ff8c42")
+	for pid in 2:
+		burning[pid] = true
+		burn_t[pid] = BURN_MAX
+		soak[pid] = 0.0
+		wet_t[pid] = 0.0
+		main.players[pid].modulate = Color(1.0, 0.72, 0.6)
+	prof.say("!", 3.0, UI.RED)
+	prof.heat = maxf(prof.heat, 0.6)
+	for s in students:
+		if not s.cool:
+			s.say("!", 2.5, UI.RED)
+	sfx.play("boom", -8.0)
+	UI.sfx("fail")
+	main.fx.sound(_hood_stand() * TS, 5.0 * TS, Color(1.0, 0.5, 0.2, 0.8), 0.9)
+	main.hud.toast("Stichflamme! Ihr brennt!", "Zu wenig gepustet: Das Fondue ist übergekocht. Sofort unter die Notdusche, gleich oberhalb von Kapelle 1, und dort ziehen! Ihr habt %d Sekunden." % int(BURN_MAX), 7.0)
+
+
+func _pull_shower(_pid: int) -> void:
+	shower_t = SHOWER_TIME
+	sfx.play("hiss", -5.0)
+
+
+## Burning players run out of time; under the running shower the fire goes out.
+func _update_fire(delta: float) -> void:
+	shower_t = maxf(0.0, shower_t - delta)
+	var under := SHOWER.grow(0.3)
+	for pid in 2:
+		var pl = main.players[pid]
+		if wet_t[pid] > 0.0:
+			wet_t[pid] -= delta
+			if wet_t[pid] <= 0.0:
+				pl.modulate = Color.WHITE
+		if not burning[pid]:
+			continue
+		if shower_t > 0.0 and under.has_point(pl.global_position / TS):
+			soak[pid] += delta
+			if soak[pid] >= SOAK:
+				burning[pid] = false
+				wet_t[pid] = WET
+				pl.modulate = Color(0.72, 0.86, 1.0)
+				sfx.play("hiss", -8.0, 1.5)
+				if not _on_fire():
+					main.hud.toast("Gelöscht!", "Tropfnass, aber am Leben. Zurück zur Kapelle 1: Das Fondue blubbert schon wieder.", 5.0)
+				else:
+					main.hud.toast("Gelöscht!", "%s brennt noch: auch unter die Notdusche!" % Game.name_of(1 - pid), 4.0)
+			continue
+		burn_t[pid] -= delta
+		if burn_t[pid] <= 0.0:
+			_fail(pid, -1, 0, "fire")
+			return
+
+
+# ================================================================== challenge 3: the Testat
+func _start_testat() -> void:
+	if main.state != "play" or phase == PH_TESTAT:
+		return
+	phase = PH_TESTAT
 	prof.say("!", 3.0)
 	prof.speed = 80.0
 	var at: Vector2 = prof.global_position / TS
@@ -446,7 +698,7 @@ func _start_testat() -> void:
 	p.append(PROF_FRONT * TS)
 	prof.walk(p, func(): prof.facing = ART.FRONT)
 	UI.sfx("mail")
-	main.hud.toast("Testat!", "%s: «Pipetten weg! Serie A am linken Pult, Serie B am rechten. %d Fragen, EIN Fehler ist erlaubt. Einer.»" % [PROF_NAME, Q_COUNT], 7.0)
+	main.hud.toast("Testat!", "%s: «Das Fondue hat niemand gesehen. Verstanden? Und jetzt: Testat! Serie A am linken Pult, Serie B am rechten. %d Fragen, EIN Fehler ist erlaubt.»" % [PROF_NAME, Q_COUNT], 7.0)
 
 
 func _seat_px(k: int) -> Vector2:
@@ -460,7 +712,10 @@ func _stand_px(k: int) -> Vector2:
 
 
 func _use_desk(pid: int, k: int) -> void:
-	if phase < 2:
+	if phase == PH_ALARM:
+		main.hud.toast("Jetzt nicht!", "Erst das Fondue in Kapelle 1 retten, dann gibt es das Testat.", 3.0)
+		return
+	if phase < PH_TESTAT:
 		main.hud.toast("Noch nicht", "%s: «Zuerst wird pipettiert. Das Testat kommt früh genug.»" % PROF_NAME, 3.0)
 		return
 	if desk_who[k] >= 0:
@@ -563,28 +818,39 @@ func _wears_coat(pid: int) -> bool:
 
 
 ## The beats of the fit (see prof_rage.gd). Shorter when the players have seen it before.
+## `why`: "testat" (failed series k with `got` right answers), "fire" (burnt too long), "pipette".
 func _rage_beats(pid: int, k: int, got: int, why: String) -> Array:
 	var who: String = Game.name_of(pid)
+	var first := attempts <= 1
 	var out: Array = []
 	var verdict := "%s: %d von %d richtig" % [who, got, Q_COUNT]
-	if why == "pipette":
-		verdict = "%s: daneben pipettiert" % who
-		out.append({"text": "%s. Das waren keine 10.0 Milliliter." % who, "heat": 0.22, "size": 26, "speed": 22.0})
-	elif attempts <= 1:
-		out.append({"text": "%s. Serie %s. %d von %d richtig." % [who, SET_NAMES[k], got, Q_COUNT], "heat": 0.22, "size": 26, "speed": 22.0})
+	var opening := "%s. Serie %s. %d von %d richtig." % [who, SET_NAMES[maxi(k, 0)], got, Q_COUNT]
+	var pool: Array = RANTS.duplicate()
+	var last := "RAUS AUS MEINEM LABOR! ALLES NOCHMAL VON VORNE!"
+	var stamp := "DURCHGEFALLEN"
+	match why:
+		"fire":
+			verdict = "%s: Notdusche nicht gefunden" % who
+			opening = "%s. Sie brennen. Seit zwanzig Sekunden. Neben meinem Fondue." % who
+			pool = FONDUE_RANTS.duplicate()
+			last = "RAUS AUS MEINEM LABOR! UND ZWAR UNTER DIE DUSCHE!"
+			stamp = "VERKOHLT"
+		"pipette":
+			verdict = "%s: daneben pipettiert" % who
+			opening = "%s. Das waren keine 10.0 Milliliter." % who
+	if first:
+		out.append({"text": opening, "heat": 0.22, "size": 26, "speed": 22.0})
+		out.append({"text": "Ganz ruhig, Siedler. Einatmen ... ausatmen ... einatm-", "heat": 0.45, "calm": true, "size": 24, "speed": 20.0})
 	else:
 		out.append({"text": "%s. Schon. Wieder. Das ist Versuch Nummer %d." % [who, attempts], "heat": 0.4, "size": 26, "speed": 22.0})
-	if attempts <= 1:
-		out.append({"text": "Ganz ruhig, Siedler. Einatmen ... ausatmen ... einatm-", "heat": 0.45, "calm": true, "size": 24, "speed": 20.0})
-	var pool: Array = RANTS.duplicate()
 	pool.shuffle()
-	var n := 2 if attempts <= 1 else 1
+	var n := 2 if first else 1
 	for i in n:
 		out.append({"text": pool[i], "heat": 0.62 + 0.3 * float(i + 1) / n, "size": 28 + i * 3, "speed": 60.0})
-	if not _wears_coat(pid):
+	if why != "fire" and not _wears_coat(pid):
 		out.append({"text": "Und einen LABORMANTEL tragen Sie AUCH nicht!", "heat": 0.95, "size": 31, "speed": 70.0})
-	out.append({"text": "RAUS AUS MEINEM LABOR! ALLES NOCHMAL VON VORNE!", "burst": true, "size": 40, "speed": 90.0})
-	out.append({"stamp": "DURCHGEFALLEN", "sub": verdict})
+	out.append({"text": last, "burst": true, "size": 40, "speed": 90.0})
+	out.append({"stamp": stamp, "sub": verdict})
 	return out
 
 
@@ -595,7 +861,9 @@ func _play_rage(pid: int, k: int, got: int, why: String) -> void:
 	rage.look = prof.look
 	rage.pname = PROF_NAME
 	rage.sfx = sfx
+	rage.top_mark = "MEIN FONDUE" if why == "fire" else ""
 	main.add_child(rage)
+	cloud_col = Color("c8962e") if why == "fire" else UI.GREEN
 	rage.burst.connect(func():
 		boom_t = 1.0
 		for s in students:
@@ -610,11 +878,17 @@ func _after_rage(pid: int, k: int, got: int, why: String) -> void:
 	prof.heat = 1.0   # he keeps fuming behind the lose screen
 	main.hud.visible = true
 	main.state = "lost"
-	var what := "hat daneben pipettiert"
+	var title := "Durchgefallen!"
+	var what := "%s hat daneben pipettiert." % Game.name_of(pid)
+	var tip := "Die Fragen sind einfacher, als der Professor aussieht."
 	if why == "testat":
-		what = "hat im Testat Serie %s nur %d von %d Fragen richtig, erlaubt ist ein Fehler" % [SET_NAMES[k], got, Q_COUNT]
-	main.hud.show_overlay("Durchgefallen!",
-		"%s %s.\n\n%s hat 100 °C erreicht, das Siedler-Meter ist geplatzt, und das Praktikum beginnt für euch beide von vorne.\n\nDas war Versuch %d. Die Fragen sind einfacher, als der Professor aussieht." % [Game.name_of(pid), what, PROF_NAME, attempts],
+		what = "%s hat im Testat Serie %s nur %d von %d Fragen richtig, erlaubt ist ein Fehler." % [Game.name_of(pid), SET_NAMES[k], got, Q_COUNT]
+	elif why == "fire":
+		title = "Verkohlt!"
+		what = "%s hat nach der Stichflamme zu lange gebrannt und es nicht unter die Notdusche geschafft." % Game.name_of(pid)
+		tip = "Wenn ihr brennt: sofort unter die Notdusche oben rechts im Labor, gleich neben Kapelle 1, und dort ziehen."
+	main.hud.show_overlay(title,
+		"%s\n\n%s hat ebenfalls 100 °C erreicht, das Siedler-Meter ist geplatzt, und das Praktikum beginnt für euch beide von vorne.\n\nDas war Versuch %d. %s" % [what, PROF_NAME, attempts, tip],
 		"R nochmals versuchen · M zum Startbildschirm", "Nochmals versuchen", true, "lose", "LEVEL %d" % Game.level)
 
 
@@ -623,17 +897,26 @@ func update_near(pid: int) -> void:
 	if failing or p_desk[pid] >= 0:
 		return
 	var p: Vector2 = main.players[pid].global_position / TS
+	if burning[pid]:
+		# nothing else matters now, not even reading the notes on the furniture
+		main.nears[pid] = null
+		if _dist_to(p, SHOWER) < REACH:
+			main.nears[pid] = {"use": "level", "act": "shower", "label": "Notdusche ziehen!", "rect": SHOWER}
+		return
 	if not main.done[pid].has("pipette"):
 		for k in STATION_X.size():
 			if st_done[k] < 0 and _dist_to(p, _station_rect(k)) < REACH:
 				main.nears[pid] = {"use": "level", "act": "pipette", "k": k, "label": "Pipettieren (zu zweit)", "rect": _station_rect(k)}
 				return
+	if _alarm_on() and _dist_to(p, _hood_rect()) < REACH:
+		main.nears[pid] = {"use": "level", "act": "cool", "label": "Fondue kühl pusten (zu zweit)", "rect": _hood_rect()}
+		return
 	if not main.done[pid].has("testat"):
 		for k in DESKS.size():
 			var r: Rect2 = DESKS[k]
 			if not desk_done[k] and _dist_to(p, r) < REACH:
 				main.nears[pid] = {"use": "level", "act": "desk", "k": k, "rect": r,
-					"label": "Testat Serie %s schreiben" % SET_NAMES[k] if phase == 2 else "Testat-Pult ansehen"}
+					"label": "Testat Serie %s schreiben" % SET_NAMES[k] if phase == PH_TESTAT else "Testat-Pult ansehen"}
 				return
 	if not _wears_coat(pid) and coats_taken < 4 and p.distance_to(COATS.get_center() + Vector2(0.9, 0)) < 1.3:
 		main.nears[pid] = {"use": "level", "act": "coat", "label": "Labormantel anziehen", "rect": COATS}
@@ -643,6 +926,10 @@ func interact(pid: int, o: Dictionary) -> void:
 	match o["act"]:
 		"pipette":
 			_use_station(pid, o["k"])
+		"shower":
+			_pull_shower(pid)
+		"cool":
+			_use_hood(pid)
 		"desk":
 			_use_desk(pid, o["k"])
 		"coat":
@@ -674,8 +961,13 @@ func goal_positions(id: String, n0: bool, n1: bool) -> Array:
 			for k in STATION_X.size():
 				if st_done[k] < 0 and st_busy[k] < 0:
 					out.append([Vector2(STATION_X[k], STATION_Y + 0.75) * TS, main._need_color(n0, n1)])
+		"cool":
+			if _on_fire():
+				out.append([SHOWER.get_center() * TS, main._need_color(burning[0], burning[1])])
+			elif _alarm_on():
+				out.append([_hood_rect().get_center() * TS, UI.YELLOW])
 		"testat":
-			if phase == 2:
+			if phase == PH_TESTAT:
 				for k in DESKS.size():
 					if not desk_done[k] and desk_who[k] < 0:
 						out.append([(DESKS[k] as Rect2).get_center() * TS, main._need_color(n0, n1)])
@@ -687,14 +979,18 @@ func _in_lab(p: Vector2) -> bool:
 
 
 ## Where the dashed way of a picked task leads (Tab / comma): spots on the floor in front of the
-## places, on the aisle side. While the pipetting is open, the Testat leads there as well.
+## places. Whatever is picked, the way leads to what has to be done next.
 func task_targets(id: String, pid: int) -> Array:
 	var out: Array = []
-	if not main.done[pid].has("pipette"):
+	if burning[pid]:
+		out.append(SHOWER.get_center() * TS)
+	elif not main.done[pid].has("pipette"):
 		for k in STATION_X.size():
 			if st_done[k] < 0:
 				out.append(_station_stand(k) * TS)
-	elif id == "testat" and phase == 2:
+	elif _alarm_on():
+		out.append(_hood_stand() * TS)
+	elif id == "testat" and phase == PH_TESTAT:
 		for k in DESKS.size():
 			if not desk_done[k] and desk_who[k] < 0:
 				var r: Rect2 = DESKS[k]
@@ -733,7 +1029,7 @@ func finale(done: Callable) -> void:
 	create_tween().tween_property(main, "zoom", 3.3, 0.9).set_trans(Tween.TRANS_SINE)   # main.zoom moves both cameras
 	var steps := [
 		{"say": -1, "name": PROF_NAME, "text": "Beide bestanden. Ich bin ... beinahe ... zufrieden. Mein Puls ist wieder zweistellig."},
-		{"say": 0, "text": "Wir haben pipettiert, ohne etwas zu sprengen. Ich finde, das zählt."},
+		{"say": 0, "text": "Wir haben pipettiert, ein Fondue gerettet und nichts gesprengt. Ich finde, das zählt."},
 		{"say": 1, "text": "Und er hat nicht gemerkt, dass wir gar nicht eingeschrieben sind."},
 		{"title": "BESTANDEN", "sub": "Siedler-Meter: 37 °C  ·  vorläufig", "color": UI.GREEN, "sfx": "fanfare", "time": 3.2},
 	]
@@ -822,7 +1118,7 @@ func _draw_floor() -> void:
 	var a: Rect2 = DESKS[0]
 	var b: Rect2 = DESKS[1]
 	var z := _px(Rect2(a.position.x - 0.45, a.position.y - 0.9, b.end.x - a.position.x + 0.9, a.size.y + 1.45))
-	var alpha := 0.22 if phase < 2 else 0.6 + 0.3 * sin(t * 5.0)
+	var alpha := 0.22 if phase < PH_TESTAT else 0.6 + 0.3 * sin(t * 5.0)
 	var col := Color(UI.YELLOW, alpha)
 	var x := z.position.x
 	while x < z.end.x:
@@ -1007,16 +1303,18 @@ func _draw_hood(i: int) -> void:
 	var c := Vector2(r.position.x + 15.0, r.get_center().y + 8.0)
 	match i:
 		0:
-			_flask(c, 1.25, UI.GREEN)
-			for n in 4:
-				var u := fmod(t * 0.45 + n * 0.25, 1.0)
-				draw_circle(c + Vector2(sin(u * 5.0 + n) * 3.0, -16.0 - u * 20.0), 2.0 + u * 4.0, Color(UI.GREEN, 0.45 * (1.0 - u)))
+			_draw_fondue(c + Vector2(1.0, 2.0))
 		1:
 			draw_rect(Rect2(c.x - 9.0, c.y - 3.0, 18.0, 5.0), Color("2b2f35"))
 			draw_rect(Rect2(c.x - 7.0, c.y - 2.0, 14.0, 1.5), Color(1.0, 0.45, 0.2, 0.6 + 0.3 * sin(t * 3.0)))
 			_beaker(c + Vector2(0, -3.0), 12.0, 13.0, UI.ORANGE, 0.6)
 		2:
 			_tubes(c + Vector2(-7.0, 0), 3)
+	if i == 0 and _alarm_on():
+		# the alarm: the fume hood glows and flashes
+		var pulse := 0.5 + 0.5 * sin(t * (6.0 + alarm_heat * 10.0))
+		draw_rect(r, Color(1.0, 0.35, 0.1, 0.18 + 0.3 * alarm_heat * pulse))
+		draw_rect(r.grow(3.0 + pulse * 3.0), Color(UI.RED, 0.35 + 0.6 * pulse), false, 3.0)
 	# glass sash and the black and yellow edge
 	draw_rect(Rect2(r.position.x, r.position.y + 3.0, 3.5, r.size.y - 6.0), Color(0.72, 0.9, 1.0, 0.62))
 	var y := r.position.y
@@ -1025,6 +1323,27 @@ func _draw_hood(i: int) -> void:
 		draw_rect(Rect2(r.position.x - 5.0, y, 3.0, minf(7.0, r.end.y - y)), UI.YELLOW if j2 % 2 == 0 else Color("22262b"))
 		y += 7.0
 		j2 += 1
+
+
+## The professor's fondue in fume hood 1: a red caquelon on a burner. It bubbles and smokes
+## the more, the hotter it is (alarm_heat).
+func _draw_fondue(c: Vector2) -> void:
+	var hot := alarm_heat if (phase == PH_ALARM or failing) else 0.12
+	_burner(c + Vector2(0, 3.0))
+	var top := c.y - 21.0
+	draw_colored_polygon(PackedVector2Array([Vector2(c.x - 10.0, top), Vector2(c.x + 10.0, top), Vector2(c.x + 8.0, c.y - 9.0), Vector2(c.x - 8.0, c.y - 9.0)]), Color("c0392b"))
+	draw_rect(Rect2(c.x - 17.0, top + 2.0, 8.0, 2.5), Color("8e2a20"))   # handle
+	draw_rect(Rect2(c.x - 1.0, top + 4.0, 2.0, 6.0), Color.WHITE)        # the white cross
+	draw_rect(Rect2(c.x - 3.0, top + 6.0, 6.0, 2.0), Color.WHITE)
+	var cheese := Color("ffd23f").lerp(Color("6b3d14"), clampf((hot - 0.55) / 0.45, 0.0, 1.0) * 0.85)
+	draw_rect(Rect2(c.x - 9.0, top - 1.5, 18.0, 3.0), cheese)
+	for n in 2 + int(hot * 4.0):
+		var u := fmod(t * (0.6 + hot * 1.6) + n * 0.37, 1.0)
+		draw_circle(Vector2(c.x - 7.0 + fmod(n * 5.3, 14.0), top - 1.0 - sin(u * PI) * (1.0 + hot * 2.0)), 1.2 + hot * 1.8 * sin(u * PI), cheese.lightened(0.15))
+	var smoke := Color(1, 1, 1).lerp(Color(0.3, 0.27, 0.25), clampf((hot - 0.6) / 0.4, 0.0, 1.0))
+	for n in 3 + int(hot * 5.0):
+		var u2 := fmod(t * (0.4 + hot * 0.5) + n * 0.23, 1.0)
+		draw_circle(Vector2(c.x - 5.0 + fmod(n * 3.7, 10.0) + sin(u2 * 5.0 + n) * 3.0, top - 5.0 - u2 * (16.0 + hot * 18.0)), 2.0 + u2 * (3.0 + hot * 4.0), Color(smoke, (0.25 + 0.35 * hot) * (1.0 - u2)))
 
 
 ## Along the south walls: washing-up sink and glass cupboard in the lab, safety cabinet and waste
@@ -1134,7 +1453,49 @@ func _draw_shower() -> void:
 	draw_colored_polygon(PackedVector2Array([c2 + Vector2(5.5, -7.0), c2 + Vector2(12.5, -7.0), c2 + Vector2(9.0, -1.5)]), UI.RED)
 
 
-## The green cloud out of fume hood 1 when the professor's thermometer bursts.
+## What lies over the characters: flames on whoever burns, with the time that is left, the
+## water of the emergency shower, and the drops of whoever just came out of it.
+func _paint_top(ci: CanvasItem) -> void:
+	if not is_instance_valid(main) or main.players.size() < 2:
+		return
+	if shower_t > 0.0:
+		var r := _px(SHOWER)
+		for i in 16:
+			var u := fmod(t * 2.6 + i * 0.137, 1.0)
+			var x := r.position.x + 4.0 + fmod(i * 7.3, r.size.x - 8.0)
+			var y := r.position.y - 34.0 + u * (r.size.y + 30.0)
+			ci.draw_line(Vector2(x, y), Vector2(x - 1.0, y + 9.0), Color(0.55, 0.8, 1.0, 0.85), 2.0)
+		for i in 5:
+			var u2 := fmod(t * 1.8 + i * 0.2, 1.0)
+			ci.draw_arc(Vector2(r.position.x + 6.0 + fmod(i * 11.0, r.size.x - 12.0), r.end.y - 6.0 - fmod(i * 5.0, 18.0)), 2.0 + u2 * 6.0, 0.0, TAU, 12, Color(0.7, 0.9, 1.0, 0.8 * (1.0 - u2)), 1.2)
+	for pid in 2:
+		var at: Vector2 = main.players[pid].global_position
+		if burning[pid]:
+			var spots := [Vector2(-7, -8), Vector2(7, -11), Vector2(-4, -25), Vector2(5, -30), Vector2(-7, -40), Vector2(1, -47)]
+			for i in spots.size():
+				var f := 1.0 + 0.35 * sin(t * 19.0 + i * 1.9) + 0.2 * sin(t * 31.0 + i)
+				var b: Vector2 = at + spots[i] + Vector2(sin(t * 13.0 + i) * 1.2, 0)
+				ci.draw_colored_polygon(PackedVector2Array([b + Vector2(-5.0, 2.0), b + Vector2(0, -13.0 * f), b + Vector2(5.0, 2.0)]), Color(1.0, 0.45, 0.1, 0.92))
+				ci.draw_colored_polygon(PackedVector2Array([b + Vector2(-2.6, 2.0), b + Vector2(0, -7.0 * f), b + Vector2(2.6, 2.0)]), Color(1.0, 0.85, 0.3, 0.95))
+			for i in 3:
+				var u3 := fmod(t * 0.9 + i * 0.33, 1.0)
+				ci.draw_circle(at + Vector2(sin(u3 * 6.0 + i) * 5.0, -52.0 - u3 * 22.0), 3.0 + u3 * 5.0, Color(0.25, 0.23, 0.22, 0.5 * (1.0 - u3)))
+			# how long there is left, where the bubbles of the other characters are
+			var c := at + Vector2(0, -76.0)
+			var left: float = clampf(float(burn_t[pid]) / BURN_MAX, 0.0, 1.0)
+			ci.draw_circle(c, 11.0, Color(0.08, 0.09, 0.17, 0.92))
+			ci.draw_arc(c, 11.0, -PI / 2.0, -PI / 2.0 + TAU * left, 28, UI.ORANGE if left > 0.3 else UI.RED, 3.0)
+			var txt := str(int(ceil(float(burn_t[pid]))))
+			var font := ThemeDB.fallback_font
+			var w := font.get_string_size(txt, HORIZONTAL_ALIGNMENT_LEFT, -1, 12).x
+			ci.draw_string(font, c + Vector2(-w / 2.0, 4.5), txt, HORIZONTAL_ALIGNMENT_LEFT, -1, 12, UI.WHITE)
+		elif wet_t[pid] > 0.0:
+			for i in 4:
+				var u4 := fmod(t * 1.5 + i * 0.25, 1.0)
+				ci.draw_circle(at + Vector2(-8.0 + i * 5.5, -30.0 + u4 * 28.0), 1.6, Color(0.55, 0.8, 1.0, 0.9 * (1.0 - u4)))
+
+
+## The cloud out of fume hood 1 when the professor's thermometer bursts, or when the fondue boils over.
 func _draw_cloud() -> void:
 	if boom_t <= 0.0:
 		return
@@ -1143,7 +1504,7 @@ func _draw_cloud() -> void:
 	var grow := 1.0 - boom_t
 	for i in 7:
 		var a := i * 0.9 + t * 0.4
-		draw_circle(c + Vector2(-grow * 46.0, 0) + Vector2.from_angle(a) * (8.0 + grow * 26.0), 9.0 + grow * 22.0, Color(UI.GREEN, 0.5 * boom_t))
+		draw_circle(c + Vector2(-grow * 46.0, 0) + Vector2.from_angle(a) * (8.0 + grow * 26.0), 9.0 + grow * 22.0, Color(cloud_col, 0.5 * boom_t))
 
 
 ## A Testat desk, drawn from its front edge (it lives in main.actors and hides the sitter's legs).
