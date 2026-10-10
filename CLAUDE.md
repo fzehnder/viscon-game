@@ -31,10 +31,11 @@ Jedes Level bekommt einen eigenen Branch. Kein Level-Branch hängt von einem and
 | `tracking` | Deniz Acar | Kamera- und Mikrofon-Tracking für Minigames (siehe unten). Seit dem 10.10.2026 in `level-base` und damit auf `main` |
 | `level3-polyball` | Deniz Acar | `level-base` plus Ordner `godot/scripts/level3/` (Level 3 "Polyball"). Seit dem 10.10.2026 auf `main` |
 | `level5-ski` | Tim | Wahlfach Skifahren in `godot/scripts/level20/` (freiwillig, nicht in der Story, Start über den Leistungsüberblick), dazu Wahlfächer in `levels.gd`/`transcript.gd`, Leistungsüberblick im Spiel (`L`), Ladebildschirm und Startseite mit dem ETH-Hauptgebäude (`eth_front.gd`, `tools/make_splash.gd`) |
+| `level5-pruefung` | Tim | Level 5 «Basisprüfung», das Finale der Story, in `godot/scripts/level5/`: Computerprüfung in der ONA-Halle, Ich-Perspektive, nur mit Kamera: Kopf zum Streber drehen zum Abschreiben, Streber und Aufsicht schauen zufällig (rotes Licht, grünes Licht), erwischt = vorbei für beide |
 | `level19-freelancing` | Tim | Wahlfach Freelancing (D-MAVT) in `godot/scripts/level19/`: eine Bewerbung pro Spiel, Jobbörse (AMZ, ARIS, Swissloop Tunneling, MedTech-Startup), Bewerbungsgespräch als Video-Call, Antworten laut ins Mikrofon. Dazu Spracherkennung für alle: `scripts/speech.gd` und `tracker/speech.py` (Whisper offline, siehe `tracker/README.md`) |
 | `level1-coop`, `godot-eth-tag-nacht` | Finn | alte Stände vor dem Level-Gerüst, nicht mehr weiterführen |
 
-Auf `main` spielt das Spiel 1 → 2 → 3 → 4. Fehlt auf einem Branch eine Nummer, wird sie übersprungen.
+Auf `main` spielt das Spiel 1 → 2 → 3 → 4 → 5 (Basisprüfung, Ende der Story). Fehlt auf einem Branch eine Nummer, wird sie übersprungen.
 
 Wahlfächer (`"block": "W"` in `DEF`, `LV.is_elective`) gehören nicht zur Reihenfolge: Sie stehen im Leistungsüberblick unter «Wahlfächer», werden nur von dort gestartet, sind nie das nächste Level und setzen in `Game.begin_level` nichts zurück. Sie bekommen hohe Nummern (Skifahren ist 20), damit die Story-Levels von 2 an frei bleiben. Der Leistungsüberblick geht auch im Spiel auf (`L` oder Button unten rechts, pausiert das Spiel). Was in einem Wahlfach pro Spiel gilt (zum Beispiel die eine Bewerbung im Freelancing), steht in `Game.electives` (`Game.elective(key)`, `Game.set_elective(key, value)`, im Spielstand, nur `Game.new_game()` löscht es).
 
