@@ -246,7 +246,7 @@ func _draw() -> void:
 	# which level: number, name, time
 	var tag := String(lv.get("tag", "LEVEL %d" % n))
 	var tagw := ThemeDB.fallback_font.get_string_size(tag, HORIZONTAL_ALIGNMENT_LEFT, -1, 20).x
-	draw_rect(Rect2(66.0, 50.0, tagw + 28.0, 34.0), UI.PINK)
+	draw_rect(Rect2(66.0, 50.0, tagw + 28.0, 34.0), UI.ETH_BLUE)
 	_text(Vector2(80.0, 74.0), tag, 20, Color.WHITE)
 	var pop := 1.0 + 0.25 * maxf(0.0, 1.0 - t / 0.35)
 	_text(Vector2(64.0, 168.0), String(lv.get("name", "")), int(82.0 * pop), UI.YELLOW, HORIZONTAL_ALIGNMENT_LEFT, 16)
@@ -256,13 +256,13 @@ func _draw() -> void:
 	# the motif of the level in a round frame
 	var mc := Vector2(900.0, 152.0)
 	draw_circle(mc, 92.0, Color(UI.NAVY, 0.92))
-	draw_arc(mc, 92.0, 0.0, TAU, 64, UI.YELLOW, 5.0, true)
+	draw_arc(mc, 92.0, 0.0, TAU, 64, UI.PAPER, 5.0, true)
 	_motif(mc + Vector2(0, sin(t * 2.2) * 4.0))
 	# tip and how far it is
 	var tipw := ThemeDB.fallback_font.get_string_size("Tipp: " + tip, HORIZONTAL_ALIGNMENT_LEFT, -1, 18).x
-	draw_rect(Rect2(40.0, 664.0, tipw + 36.0, 38.0), Color(UI.NAVY, 0.9))
-	_text(Vector2(58.0, 690.0), "Tipp:", 18, UI.YELLOW)
-	_text(Vector2(58.0 + ThemeDB.fallback_font.get_string_size("Tipp: ", HORIZONTAL_ALIGNMENT_LEFT, -1, 18).x, 690.0), tip, 18, Color.WHITE)
+	draw_style_box(UI.box(UI.PAPER, UI.ETH_BLUE, 10, 2, 0, false), Rect2(40.0, 662.0, tipw + 36.0, 40.0))
+	_text(Vector2(58.0, 689.0), "Tipp:", 18, UI.ETH_BLUE)
+	_text(Vector2(58.0 + ThemeDB.fallback_font.get_string_size("Tipp: ", HORIZONTAL_ALIGNMENT_LEFT, -1, 18).x, 689.0), tip, 18, UI.INK)
 	_text(Vector2(W - 40.0, 690.0), "%d %%" % int(p * 100.0), 22, Color.WHITE, HORIZONTAL_ALIGNMENT_RIGHT, 6)
 	draw_set_transform(Vector2.ZERO, 0.0, Vector2.ONE)
 

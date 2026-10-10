@@ -242,12 +242,12 @@ func _text(pos: Vector2, s: String, fsize: int, col: Color, align := HORIZONTAL_
 
 
 ## A key cap with what it does next to it. Returns the width it took.
-func _key(pos: Vector2, cap: String, what: String, col: Color) -> float:
+func _key(pos: Vector2, cap: String, what: String, col: Color, what_col: Color = UI.INK2) -> float:
 	var font := ThemeDB.fallback_font
 	var cw := maxf(26.0, font.get_string_size(cap, HORIZONTAL_ALIGNMENT_LEFT, -1, 14).x + 14.0)
 	draw_style_box(UI.box(col, Color(0, 0, 0, 0), 7, 0, 0, false), Rect2(pos.x, pos.y - 17.0, cw, 24.0))
-	_text(Vector2(pos.x + cw / 2.0, pos.y), cap, 14, Color("15162b"), HORIZONTAL_ALIGNMENT_CENTER)
-	_text(Vector2(pos.x + cw + 7.0, pos.y), what, 14, UI.MUTED)
+	_text(Vector2(pos.x + cw / 2.0, pos.y), cap, 14, Color.WHITE, HORIZONTAL_ALIGNMENT_CENTER)
+	_text(Vector2(pos.x + cw + 7.0, pos.y), what, 14, what_col)
 	return cw + 7.0 + font.get_string_size(what, HORIZONTAL_ALIGNMENT_LEFT, -1, 14).x + 16.0
 
 
@@ -255,18 +255,19 @@ func _draw() -> void:
 	var k := minf(size.x / W, size.y / H)
 	var o := (size - Vector2(W, H) * k) / 2.0
 	draw_set_transform(o, 0.0, Vector2(k, k))
-	_text(Vector2(W / 2.0, 54.0), "Gestaltet eure Figuren", 40, UI.YELLOW, HORIZONTAL_ALIGNMENT_CENTER, 9)
+	_text(Vector2(W / 2.0, 54.0), "Gestaltet eure Figuren", 40, UI.ETH_BLUE, HORIZONTAL_ALIGNMENT_CENTER)
 	for i in 2:
 		var pc := Color(String(KEYS.TAG_COLORS[i]))
+		var pd := pc.darkened(0.18)              # the player's colour so that it reads on paper
 		var card := _card(i)
 		var at := card.position
-		var edge: Color = UI.GREEN if ready_p[i] else pc
-		draw_style_box(UI.box(UI.NAVY, edge, 22, 5, 0), card)
+		var edge: Color = UI.OK if ready_p[i] else pc
+		draw_style_box(UI.box(UI.PAPER, edge, 16, 3, 0), card)
 		# head line: name, and the keys of this player
-		_text(at + Vector2(24.0, 36.0), Game.name_of(i), 28, pc, HORIZONTAL_ALIGNMENT_LEFT, 6)
+		_text(at + Vector2(24.0, 36.0), Game.name_of(i), 28, pd)
 		var kx := at.x + CARD.x - 232.0
-		kx += _key(Vector2(kx, at.y + 33.0), "W S" if i == 0 else "↑ ↓", "Zeile", pc)
-		_key(Vector2(kx, at.y + 33.0), "A D" if i == 0 else "← →", "ändern", pc)
+		kx += _key(Vector2(kx, at.y + 33.0), "W S" if i == 0 else "↑ ↓", "Zeile", pd)
+		_key(Vector2(kx, at.y + 33.0), "A D" if i == 0 else "← →", "ändern", pd)
 		# the stage: dark, a cone of light from above, a spot in the player's colour
 		var st := Rect2(at + STAGE.position, STAGE.size)
 		draw_style_box(UI.box(Color("15162b"), Color(0, 0, 0, 0), 14, 0, 0, false), st)
@@ -291,45 +292,46 @@ func _draw() -> void:
 			var y := at.y + ROW_Y + r * ROW_H
 			var on: bool = cur[i] == r and not ready_p[i]
 			if on:
-				draw_style_box(UI.box(Color(pc, 0.24), pc, 9, 2, 0, false), Rect2(at.x + 14.0, y + 1.0, CARD.x - 28.0, ROW_H - 2.0))
-			_text(Vector2(at.x + 28.0, y + 21.0), String(rows[r]["name"]), 15, UI.WHITE if on else UI.MUTED)
+				draw_style_box(UI.box(Color(pc, 0.16), pc, 9, 2, 0, false), Rect2(at.x + 14.0, y + 1.0, CARD.x - 28.0, ROW_H - 2.0))
+			_text(Vector2(at.x + 28.0, y + 21.0), String(rows[r]["name"]), 15, UI.INK if on else UI.INK2)
 			var opts: Array = rows[r]["opts"]
 			var sel := _index(i, r)
 			var cx := at.x + VALUE_X
 			if rows[r].has("names"):
 				var label := String((rows[r]["names"] as Dictionary).get(_value(i, r), str(_value(i, r))))
-				_text(Vector2(cx, y + 21.0), label, 17, UI.WHITE, HORIZONTAL_ALIGNMENT_CENTER)
-				_text(Vector2(cx - 150.0, y + 22.0), "‹", 22, pc if on else UI.MUTED, HORIZONTAL_ALIGNMENT_CENTER)
-				_text(Vector2(cx + 150.0, y + 22.0), "›", 22, pc if on else UI.MUTED, HORIZONTAL_ALIGNMENT_CENTER)
+				_text(Vector2(cx, y + 21.0), label, 17, UI.INK, HORIZONTAL_ALIGNMENT_CENTER)
+				_text(Vector2(cx - 150.0, y + 22.0), "‹", 22, pd if on else UI.INK2, HORIZONTAL_ALIGNMENT_CENTER)
+				_text(Vector2(cx + 150.0, y + 22.0), "›", 22, pd if on else UI.INK2, HORIZONTAL_ALIGNMENT_CENTER)
 				# where in the list: small ticks under the name
 				for n in opts.size():
 					var tx := cx + (n - (opts.size() - 1) / 2.0) * 8.0
-					draw_rect(Rect2(tx - 2.5, y + ROW_H - 5.0, 5.0, 2.0), UI.WHITE if n == sel else Color(1, 1, 1, 0.2))
+					draw_rect(Rect2(tx - 2.5, y + ROW_H - 5.0, 5.0, 2.0), UI.INK if n == sel else UI.LINE)
 			else:
 				for n in opts.size():
 					var c := Vector2(cx + (n - (opts.size() - 1) / 2.0) * DOT_GAP, y + ROW_H / 2.0)
 					if n == sel:
-						draw_circle(c, 12.5, UI.WHITE)
-						draw_circle(c, 10.0, Color(String(opts[n])))
+						draw_circle(c, 13.0, UI.INK)
+						draw_circle(c, 11.0, UI.PAPER)
+						draw_circle(c, 9.0, Color(String(opts[n])))
 					else:
-						draw_circle(c, 8.5, Color("15162b"))
+						draw_circle(c, 8.0, UI.LINE)
 						draw_circle(c, 7.0, Color(String(opts[n])))
 		# below: something random, and ready
 		var rr := _random_rect()
 		rr.position += at
-		draw_style_box(UI.box(UI.NAVY2, Color(0, 0, 0, 0), 12, 0, 0, false), rr)
-		_key(rr.position + Vector2(14.0, 26.0), RANDOM_NAMES[i], "Zufall", UI.YELLOW)
+		draw_style_box(UI.box(UI.PAPER2, UI.LINE, 12, 2, 0, false), rr)
+		_key(rr.position + Vector2(14.0, 26.0), RANDOM_NAMES[i], "Zufall", UI.ETH_BLUE, UI.INK)
 		var gr := _ready_rect()
 		gr.position += at
 		if ready_p[i]:
-			draw_style_box(UI.box(UI.GREEN, Color(0, 0, 0, 0), 12, 0, 0, false), gr)
-			_text(gr.get_center() + Vector2(0, 7.0), "BEREIT ✓", 20, Color("15162b"), HORIZONTAL_ALIGNMENT_CENTER)
+			draw_style_box(UI.box(UI.OK, Color(0, 0, 0, 0), 12, 0, 0, false), gr)
+			_text(gr.get_center() + Vector2(0, 7.0), "BEREIT ✓", 20, Color.WHITE, HORIZONTAL_ALIGNMENT_CENTER)
 		else:
 			var beat := 0.5 + 0.5 * sin(t * 4.0)
-			draw_style_box(UI.box(Color(pc, 0.25 + 0.2 * beat), pc, 12, 2, 0, false), gr)
+			draw_style_box(UI.box(Color(pc, 0.12 + 0.14 * beat), pc, 12, 2, 0, false), gr)
 			var cap := "E" if i == 0 else "Enter"
 			var tw := ThemeDB.fallback_font.get_string_size("bereit?", HORIZONTAL_ALIGNMENT_LEFT, -1, 14).x
-			_key(Vector2(gr.get_center().x - (tw + 50.0) / 2.0, gr.position.y + 26.0), cap, "bereit?", UI.WHITE)
+			_key(Vector2(gr.get_center().x - (tw + 50.0) / 2.0, gr.position.y + 26.0), cap, "bereit?", pd, UI.INK)
 	var both: bool = ready_p[0] and ready_p[1]
-	_text(Vector2(W / 2.0, H - 16.0), "Los geht's!" if both else "Sind beide bereit, geht es weiter zur Legi.", 16, UI.GREEN if both else UI.MUTED, HORIZONTAL_ALIGNMENT_CENTER, 5)
+	_text(Vector2(W / 2.0, H - 16.0), "Los geht's!" if both else "Sind beide bereit, geht es weiter zur Legi.", 16, UI.OK if both else UI.INK2, HORIZONTAL_ALIGNMENT_CENTER)
 	draw_set_transform(Vector2.ZERO, 0.0, Vector2.ONE)
