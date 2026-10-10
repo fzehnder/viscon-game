@@ -186,10 +186,7 @@ func open(k: String, p: Dictionary, d: String) -> void:
 	if p.has("legi"):
 		var pid := int(p["legi"])
 		legi_card = LegiCard.new()
-		legi_card.photo = Game.photos[pid]
-		legi_card.pname = Game.name_of(pid)
-		legi_card.number = Game.legi_ids[pid]
-		legi_card.look = Game.player_looks[pid]
+		legi_card.set_player(pid)
 		legi_card.accent = accent
 		legi_card.custom_minimum_size = Vector2(360, 225)
 		legi_card.size_flags_horizontal = Control.SIZE_SHRINK_CENTER
