@@ -29,6 +29,7 @@ const ART = preload("res://scripts/character_art.gd")
 const KEYS = preload("res://scripts/controls.gd")
 const LV = preload("res://scripts/levels.gd")
 const UI = preload("res://scripts/ui.gd")
+const Transcript = preload("res://scripts/transcript.gd")
 const TS := 32.0
 const START := Vector2(12.5, 43.5)
 const STATION := Rect2(0, 41, 10.2, 5)
@@ -104,6 +105,22 @@ var cam_a := Vector2.ZERO
 var cam_b := Vector2.ZERO
 var zoom := 2.5          # change this (also in tweens), both cameras follow
 
+# the transcript (level overview) on top of the running game: L or the button, the game pauses
+var tr_layer: CanvasLayer = null
+var tr_closed_frame := -10
+
+
+## Layer for the transcript that keeps running while the game is paused; L closes it again
+## (Esc and Backspace are handled by transcript.gd itself).
+class TranscriptLayer:
+	extends CanvasLayer
+	var main
+
+	func _unhandled_input(event: InputEvent) -> void:
+		if event is InputEventKey and event.pressed and not event.echo and event.physical_keycode == KEY_L:
+			get_viewport().set_input_as_handled()
+			main.close_transcript()
+
 
 func _ready() -> void:
 	randomize()
@@ -162,8 +179,9 @@ func _ready() -> void:
 	hud = HudScript.new()
 	hud.main = self
 	add_child(hud)
+	_add_transcript_button()
 	_update_cameras(0.0, true)
-	var controls := "%s: WASD · E · Shift sprinten · Ctrl schleichen · Tab Weg zur Aufgabe\n%s: Pfeile · Enter · . sprinten · - schleichen · , Weg zur Aufgabe" % [Game.name_of(0), Game.name_of(1)]
+	var controls := "%s: WASD · E · Shift sprinten · Ctrl schleichen · Tab Weg zur Aufgabe\n%s: Pfeile · Enter · . sprinten · - schleichen · , Weg zur Aufgabe\nL: Leistungsüberblick (Levels und Wahlfächer)" % [Game.name_of(0), Game.name_of(1)]
 	if night:
 		var d: Dictionary = CH.DEPTS[dept]
 		hud.show_overlay("Nacht", "Es ist 00:30. %s\n\nBleibt nicht zu lange im Lichtkegel der Professoren." % d["night_text"],
@@ -182,7 +200,7 @@ func _ready() -> void:
 func _setup_input() -> void:
 	var keys := {
 		"interact": [KEY_E, KEY_SPACE], "restart": [KEY_R], "start": [KEY_ENTER, KEY_KP_ENTER],
-		"ability": [KEY_Q], "menu": [KEY_M],
+		"ability": [KEY_Q], "menu": [KEY_M], "transcript": [KEY_L],
 	}
 	for a in keys:
 		if InputMap.has_action(a):
@@ -425,6 +443,9 @@ func busy(i: int) -> bool:
 
 func _process(delta: float) -> void:
 	_update_cameras(delta)
+	if Input.is_action_just_pressed("transcript"):
+		open_transcript()
+		return
 	if state in ["caught", "won", "lost"]:
 		if Input.is_action_just_pressed("restart"):
 			get_tree().reload_current_scene()
@@ -509,6 +530,57 @@ func _next_level() -> void:
 
 func on_overlay_menu() -> void:
 	get_tree().change_scene_to_file("res://menu.tscn")
+
+
+# ------------------------------------------------------------------ transcript in the game
+## Small button bottom right, above everything except cutscenes: the transcript is always one click away.
+func _add_transcript_button() -> void:
+	var cl := CanvasLayer.new()
+	cl.layer = 16   # over the HUD and over full-screen level scenes such as the ski race
+	add_child(cl)
+	var b := UI.button("Leistungsüberblick · L", UI.NAVY2, 14)
+	b.anchor_left = 1.0
+	b.anchor_top = 1.0
+	b.anchor_right = 1.0
+	b.anchor_bottom = 1.0
+	b.grow_horizontal = Control.GROW_DIRECTION_BEGIN
+	b.grow_vertical = Control.GROW_DIRECTION_BEGIN
+	b.offset_right = -14.0
+	b.offset_bottom = -12.0
+	b.modulate.a = 0.85
+	b.pressed.connect(open_transcript)
+	cl.add_child(b)
+
+
+## Shows the transcript over the game and pauses it. A click on a course starts that level
+## (story or elective); Esc, Backspace or L goes back into the game.
+func open_transcript() -> void:
+	if tr_layer != null or Engine.get_process_frames() - tr_closed_frame < 3:
+		return
+	tr_layer = TranscriptLayer.new()
+	tr_layer.main = self
+	tr_layer.layer = 60
+	tr_layer.process_mode = Node.PROCESS_MODE_ALWAYS
+	add_child(tr_layer)
+	var tr := Transcript.new()
+	tr_layer.add_child(tr)
+	tr.set_anchors_and_offsets_preset(Control.PRESET_FULL_RECT)
+	tr.back.connect(close_transcript)
+	tr.start_level.connect(func(n: int):
+		get_tree().paused = false
+		Game.set_level(n)
+		get_tree().reload_current_scene())
+	get_tree().paused = true
+	UI.sfx("pop")
+
+
+func close_transcript() -> void:
+	if tr_layer == null:
+		return
+	get_tree().paused = false
+	tr_layer.queue_free()
+	tr_layer = null
+	tr_closed_frame = Engine.get_process_frames()
 
 
 # ------------------------------------------------------------------ sound

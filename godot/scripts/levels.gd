@@ -82,12 +82,21 @@ static func has_level(n: int) -> bool:
 	return numbers().has(n)
 
 
-## The level that follows `n`, or -1 if `n` is the last one.
+## The story level that follows `n`, or -1 if `n` is the last one. Electives are never next,
+## and after an elective there is no next level either.
 static func next_after(n: int) -> int:
+	if is_elective(n):
+		return -1
 	for k in numbers():
-		if k > n:
+		if k > n and not is_elective(k):
 			return k
 	return -1
+
+
+## Electives ("block": "W" in DEF) are optional levels outside the story: started from the
+## transcript at any time, they do not reset Opps or items of the story (Game.begin_level).
+static func is_elective(n: int) -> bool:
+	return has_level(n) and String(level(n).get("block", "")) == "W"
 
 
 static func _script_of(n: int) -> GDScript:
