@@ -24,15 +24,24 @@ var persist := true                   # --nosave on the command line: keep every
 
 var names: Array = ["", ""]
 var photos: Array = [null, null]      # Texture2D from the camera, or null (then the character is drawn)
-var legi_ids: Array = ["", ""]
+var legi_ids: Array = ["26-622-806", "26-706-606"]
+var birthdays: Array = ["01.11.2005", "06.06.2006"]
+var surnames: Array = ["", ""]        # optional, only shown on the Legi
+var programmes: Array = [0, 1]        # index into PROGRAMMES, chosen with the character design
 var player_looks: Array = []
+
+# study programmes to choose from: [name in the menu, how the Legi prints it]
+const PROGRAMMES := [
+	["Maschinenbau", "Mech. Engin BSc"], ["Informatik", "Comp. Science BSc"], ["Elektrotechnik", "Elec. Engin BSc"],
+	["Bauingenieur", "Civil Engin BSc"], ["Architektur", "Architecture BSc"], ["Mathematik", "Mathematics BSc"],
+	["Physik", "Physics BSc"], ["Chemie", "Chemistry BSc"], ["Biologie", "Biology BSc"],
+	["Materialwiss.", "Mat. Science BSc"], ["Umweltingenieur", "Env. Engin BSc"], ["Gesundheit HST", "Hlth Sci Tech BSc"],
+]
 
 
 func _ready() -> void:
 	randomize()
 	player_looks = [_default_look(0), _default_look(1)]
-	for i in 2:
-		legi_ids[i] = "26-%03d-%03d" % [randi_range(900, 999), randi_range(100, 999)]
 	# dev shortcut, straight into a level: godot --path godot res://main.tscn -- --level=2
 	for a in OS.get_cmdline_user_args():
 		if a.begins_with("--level="):
@@ -190,6 +199,11 @@ func look(i: int = 0) -> Dictionary:
 func name_of(i: int) -> String:
 	var n: String = String(names[i]).strip_edges()
 	return n if n != "" else "Spieler*in %d" % (i + 1)
+
+
+## The study programme as the Legi prints it.
+func programme_of(i: int) -> String:
+	return String(PROGRAMMES[int(programmes[i]) % PROGRAMMES.size()][1])
 
 
 func has_profile() -> bool:

@@ -150,11 +150,14 @@ class MiniMap:
 					var po := _at(op.global_position)
 					draw_circle(po, 4.5 + sin(t * 12.0), UI2.RED)
 					draw_arc(po, 6.5, 0.0, TAU, 16, UI2.RED, 1.0)
-			# the dashed way to a picked task
+			# the way to a picked task: one line (the way has many short pieces, dashes per piece would run together)
 			for i in main.players.size():
 				var route: Array = main.routes[i]
-				for j in range(1, route.size()):
-					draw_dashed_line(_at(route[j - 1]), _at(route[j]), Color(KEYS2.TAG_COLORS[i]), 1.6, 3.0)
+				if route.size() >= 2:
+					var way := PackedVector2Array()
+					for q in route:
+						way.append(_at(q))
+					draw_polyline(way, Color(KEYS2.TAG_COLORS[i]), 1.6, true)
 		# the two players, always on top
 		for i in main.players.size():
 			var pl = main.players[i]

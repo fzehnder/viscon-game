@@ -165,6 +165,69 @@ func find_path(from_px: Vector2, to_px: Vector2) -> Array:
 	return out
 
 
+## True if somebody can walk straight from a to b (px): every tile under the line, and `margin` px
+## to both sides of it, is free in the A* grid.
+func walk_clear(a: Vector2, b: Vector2, margin: float = 9.0) -> bool:
+	var d := b - a
+	var n := int(ceil(d.length() / 8.0))
+	if n == 0:
+		return true
+	var side := Vector2(-d.y, d.x).normalized() * margin
+	for i in n + 1:
+		var p := a.lerp(b, float(i) / n)
+		for q in [p, p + side, p - side]:
+			var tl := _tile_of(q)
+			if not astar.is_in_boundsv(tl) or astar.is_point_solid(tl):
+				return false
+	return true
+
+
+## A way as find_path gives it (from tile middle to tile middle, in steps and zigzags) the way
+## somebody would walk it: straight where the straight line is free, corners rounded, and one
+## point every `step` px. For showing the way; nobody is steered along it.
+func smooth_path(points: Array, step: float = 8.0, corner: float = 24.0) -> Array:
+	if points.size() < 3:
+		return points
+	# 1. from every point that is kept, on to the furthest one that can be reached in a straight line
+	var keep: Array = [points[0]]
+	var i := 0
+	while i < points.size() - 1:
+		var j := mini(points.size() - 1, i + 28)
+		while j > i + 1 and not walk_clear(points[i], points[j]):
+			j -= 1
+		keep.append(points[j])
+		i = j
+	# 2. round every corner, within `corner` px of it (the curve then stays 10 px clear of the wall inside the corner)
+	var round: Array = [keep[0]]
+	for k in range(1, keep.size() - 1):
+		var a: Vector2 = keep[k - 1]
+		var b: Vector2 = keep[k]
+		var c: Vector2 = keep[k + 1]
+		var p := b + (a - b).limit_length(minf(corner, a.distance_to(b) / 2.0))
+		var q := b + (c - b).limit_length(minf(corner, c.distance_to(b) / 2.0))
+		for s in 7:
+			var u := s / 6.0
+			round.append(p.lerp(b, u).lerp(b.lerp(q, u), u))
+	round.append(keep[keep.size() - 1])
+	# 3. points at even distances, so that what is drawn along it moves evenly
+	var out: Array = [round[0]]
+	var left := step
+	for k in range(1, round.size()):
+		var a2: Vector2 = round[k - 1]
+		var b2: Vector2 = round[k]
+		var seg := a2.distance_to(b2)
+		var at := 0.0
+		while seg - at >= left:
+			at += left
+			out.append(a2.lerp(b2, at / seg))
+			left = step
+		left -= seg - at
+	var last: Vector2 = round[round.size() - 1]
+	if (out[out.size() - 1] as Vector2).distance_to(last) > 0.5:
+		out.append(last)
+	return out
+
+
 func ray_end(a: Vector2, b: Vector2) -> Vector2:
 	var space := get_world_2d().direct_space_state
 	var q := PhysicsRayQueryParameters2D.create(a, b, 1)
