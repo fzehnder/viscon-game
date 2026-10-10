@@ -9,11 +9,16 @@ extends Node2D
 ##   on_noise(at, radius)         footsteps and minigame mistakes
 ##   finale(done)                 after the last task, e.g. a cutscene; must call done
 ##   task_targets(id, pid)        where a "level" task can be done right now (px), for the dashed way
-## Camera: one shared view while the players are close, split screen when they drift apart
-## or while one of them is in a minigame (the minigame then opens on that player's half).
-## There are always two half-screen views. While the players are together, the two cameras sit
-## side by side and the halves form one picture; to split, each camera glides over to its own
-## player and the divider grows in (split_k goes from 0 to 1), so nothing ever jumps.
+## Camera: one shared view that zooms out (up to OUT_MAX) as the players drift apart. When even
+## that is not enough, the screen splits and both views slowly zoom back in.
+## The split is a line through the screen centre, always at right angles to the line between the
+## players, so each player is on the side where they really are (P2 to the left of P1 = P2 left,
+## P2 above = horizontal split with P2 on top) and the line turns as they walk around each other.
+## There are always two full-screen views; P2's view lies on top, cut off at the split line
+## (SPLIT_SHADER). While both cameras sit on the middle between the players the two pictures are
+## identical and the cut is invisible; splitting moves the cameras apart, so nothing ever jumps.
+## A minigame for one player turns the split vertical (P1 left, P2 right) and opens on that half.
+## The HUD is a separate layer and never moves.
 
 const MapData = preload("res://scripts/map_data.gd")
 const WorldScript = preload("res://scripts/world.gd")
@@ -38,12 +43,28 @@ const HG_ZONES := ["Hauptgebäude (HG)", "Haupthalle", "Rotunde", "ETH-Bibliothe
 const CAM_OFFSET := Vector2(0, -18)
 const ZOOM_MIN := 1.5
 const ZOOM_MAX := 3.6
-const SPLIT_AT := 0.7      # split when the players are further apart than this share of the screen width
-const MERGE_AT := 0.45     # merge again when closer than this share
-const SPLIT_AT_Y := 0.42   # the same for the height: earlier, so that nobody ends up behind the
-const MERGE_AT_Y := 0.28   # timer (top centre) or the mini map (bottom centre)
-const SPLIT_TIME := 0.7    # seconds for the two views to drift apart or back together
+const OUT_MAX := 2.2       # the shared view zooms out up to this factor, then the screen splits
+const MERGE_OUT := 1.8     # split views join again once the shared view would need less than this
+# In the shared view the players stay within this share of the screen width (FIT_X) and height
+# (FIT_Y, less, so nobody ends up behind the timer at the top or the mini map at the bottom).
+# In split screen each player sits this far from the centre, about the middle of their half.
+const FIT_X := 0.5
+const FIT_Y := 0.42
+const ZOOM_BACK := 1.5     # seconds (roughly) to zoom back in after a split, or out again after joining
+const ZOOM_IN := 1.0       # seconds (roughly) to zoom in when the players come closer in the shared view
+const SPLIT_TIME := 0.7    # seconds for the split to turn upright when a minigame opens
+const SPLIT_TURN := 10.0   # how quickly the split line follows the players (higher = tighter)
 const CAM_FOLLOW := 9.0    # how quickly the cameras follow (higher = tighter)
+const SPLIT_SHADER := """
+shader_type canvas_item;
+uniform vec2 normal = vec2(1.0, 0.0);
+uniform vec2 size = vec2(1280.0, 720.0);
+void fragment() {
+	if (dot(UV * size - size * 0.5, normal) < 0.0) {
+		discard;
+	}
+}
+"""
 const STEAL_BEHIND := 1.9  # rad: you must be at least this far from where the Ersti is looking
 
 var data: Dictionary
@@ -97,13 +118,17 @@ var ping_t := 0.0
 var vcs: Array = []    # SubViewportContainer per view
 var vps: Array = []    # SubViewport per view (both share one World2D)
 var cams: Array = []
-var divider: ColorRect
-var split := false       # where it is heading: true = two separate views
-var split_k := 0.0       # where it is right now: 0 = one picture, 1 = fully split
-var cam_mid := Vector2.ZERO   # smoothed camera targets: middle between the players, P1, P2
-var cam_a := Vector2.ZERO
+var divider: Control
+var split_mat: ShaderMaterial   # cuts P2's view off at the split line
+var split := false       # true = two separate views (too far apart, or a minigame for one player)
+var split_k := 0.0       # how visible the split is: 0 = one seamless picture, 1 = clearly two views
+var split_n := Vector2.RIGHT   # split line normal on screen, from P1's side to P2's side
+var force_k := 0.0       # 0..1: a minigame for one player turns the split upright (P1 left, P2 right)
+var out := 1.0           # dynamic zoom-out on top of `zoom`: 1 = normal, up to OUT_MAX
+var catching_up := false # just joined: zoom out smoothly until both players fit again
+var cam_a := Vector2.ZERO   # smoothed camera positions of P1's and P2's view
 var cam_b := Vector2.ZERO
-var zoom := 2.5          # change this (also in tweens), both cameras follow
+var zoom := 2.5 / 1.3    # about 1.92. Change this (also in tweens), both cameras follow; `out` comes on top
 
 # the transcript (level overview) on top of the running game: L or the button, the game pauses
 var tr_layer: CanvasLayer = null
@@ -322,11 +347,17 @@ func _build_views() -> void:
 		c.stretch = true
 		c.mouse_filter = Control.MOUSE_FILTER_IGNORE
 		vroot.add_child(c)
+		c.set_anchors_and_offsets_preset(Control.PRESET_FULL_RECT)
 		var v := SubViewport.new()
 		v.handle_input_locally = false
 		c.add_child(v)
 		vcs.append(c)
 		vps.append(v)
+	var sh := Shader.new()
+	sh.code = SPLIT_SHADER
+	split_mat = ShaderMaterial.new()
+	split_mat.shader = sh
+	vcs[1].material = split_mat
 	vps[1].world_2d = vps[0].world_2d
 	vps[1].render_target_update_mode = SubViewport.UPDATE_ALWAYS
 	for i in 2:
@@ -339,26 +370,29 @@ func _build_views() -> void:
 		vps[i].add_child(cam)
 		cam.make_current()
 		cams.append(cam)
-	divider = ColorRect.new()
-	divider.color = UI.DARK
+	divider = Control.new()
 	divider.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	divider.draw.connect(_draw_divider)
 	vroot.add_child(divider)
+	divider.set_anchors_and_offsets_preset(Control.PRESET_FULL_RECT)
 	_layout_views()
 
 
 func _layout_views() -> void:
 	var vs: Vector2 = get_viewport().get_visible_rect().size
-	var hw := floorf(vs.x / 2.0)
-	vcs[0].position = Vector2.ZERO
-	vcs[0].size = Vector2(hw, vs.y)
-	vcs[1].position = Vector2(hw, 0.0)
-	vcs[1].size = Vector2(vs.x - hw, vs.y)
-	# the divider grows out of the middle while the views separate
+	split_mat.set_shader_parameter("normal", split_n)
+	split_mat.set_shader_parameter("size", vs)
+	divider.queue_redraw()
+
+
+## The divider grows in along the split line while the two pictures drift apart.
+func _draw_divider() -> void:
 	var e := smoothstep(0.0, 1.0, split_k)
-	divider.visible = e > 0.01
-	divider.size = Vector2(6.0 * e, vs.y)
-	divider.position = Vector2(hw - 3.0 * e, 0.0)
-	divider.modulate.a = e
+	if e <= 0.01:
+		return
+	var c := divider.size / 2.0
+	var along := Vector2(-split_n.y, split_n.x) * divider.size.length()
+	divider.draw_line(c - along, c + along, Color(UI.DARK, e), 6.0 * e)
 
 
 func _solo_minigame_open() -> bool:
@@ -381,33 +415,61 @@ func _update_cameras(delta: float = 0.0, snap: bool = false) -> void:
 	var a: Vector2 = players[0].global_position + CAM_OFFSET
 	var b: Vector2 = players[1].global_position + CAM_OFFSET
 	var vs: Vector2 = get_viewport().get_visible_rect().size
-	var d := (a - b).abs()
-	if _solo_minigame_open():
+	var d := b - a
+	# how far the shared view has to zoom out to show both players
+	var need := maxf(absf(d.x) * zoom / (vs.x * FIT_X), absf(d.y) * zoom / (vs.y * FIT_Y))
+	var forced := _solo_minigame_open()
+	if forced or need > OUT_MAX:
 		split = true
-	elif split:
-		if d.x < vs.x * MERGE_AT / zoom and d.y < vs.y * MERGE_AT_Y / zoom:
-			split = false
-	elif d.x > vs.x * SPLIT_AT / zoom or d.y > vs.y * SPLIT_AT_Y / zoom:
-		split = true
-	var goal := 1.0 if split else 0.0
-	split_k = goal if snap else move_toward(split_k, goal, delta / SPLIT_TIME)
-	_layout_views()
-	# world size of the whole picture and of the two halves
-	var full := vs / zoom
-	var wl: float = vcs[0].size.x / zoom
-	var wr: float = vcs[1].size.x / zoom
+	elif split and need < MERGE_OUT:
+		split = false
+		catching_up = true
+	# zoom: split views go back to normal; the shared view keeps both players in the picture
+	var f_back := 1.0 if snap else 1.0 - exp(-3.0 * delta / ZOOM_BACK)
+	var f_in := 1.0 if snap else 1.0 - exp(-3.0 * delta / ZOOM_IN)
+	if split:
+		out += (1.0 - out) * f_back
+	else:
+		var goal := clampf(need, 1.0, OUT_MAX)
+		out += (goal - out) * (f_back if catching_up else f_in)
+		if catching_up and out >= goal - 0.01:
+			catching_up = false
+		if not catching_up:
+			out = maxf(out, goal)   # zooming out follows the players at once, nobody leaves the picture
+	var z := zoom / out
+	# direction of the split: at right angles to the line between the players, upright for a minigame
+	force_k = (1.0 if forced else 0.0) if snap else move_toward(force_k, 1.0 if forced else 0.0, delta / SPLIT_TIME)
+	var fk := smoothstep(0.0, 1.0, force_k)
+	var n_goal := d.normalized() if d.length() > 1.0 else split_n
+	n_goal = n_goal.slerp(Vector2.RIGHT, fk)
+	if snap or split_k < 0.01:
+		split_n = n_goal   # nothing visible yet, so the line may jump
+	else:
+		split_n = split_n.slerp(n_goal, 1.0 - exp(-SPLIT_TURN * delta)).normalized()
+	var n := split_n
+	# shared picture: both cameras on the middle. Once the players are further apart than fits (r,
+	# measured along n), the cameras move from the middle towards their players by the excess, so
+	# each player stays r away from the screen centre on their own side of the line.
+	var m := (a + b) / 2.0
+	var r := minf(vs.x * FIT_X / 2.0 / maxf(absf(n.x), 0.001), vs.y * FIT_Y / 2.0 / maxf(absf(n.y), 0.001))
+	var excess := maxf(0.0, d.length() / 2.0 - r / z)
+	var goal_a := m - n * excess
+	var goal_b := m + n * excess
+	if fk > 0.0:
+		# minigame: each player in the middle of their own half
+		goal_a = goal_a.lerp(a + n * vs.x / 4.0 / z, fk)
+		goal_b = goal_b.lerp(b - n * vs.x / 4.0 / z, fk)
+	var view := vs / z
 	var f := 1.0 if snap else 1.0 - exp(-CAM_FOLLOW * delta)
-	cam_mid += (_clamp_view((a + b) / 2.0, full) - cam_mid) * f
-	cam_a += (_clamp_view(a, Vector2(wl, full.y)) - cam_a) * f
-	cam_b += (_clamp_view(b, Vector2(wr, full.y)) - cam_b) * f
-	# together: the halves show the left and the right part of one picture around cam_mid
-	var left := Vector2(cam_mid.x - full.x / 2.0 + wl / 2.0, cam_mid.y)
-	var right := Vector2(cam_mid.x + full.x / 2.0 - wr / 2.0, cam_mid.y)
-	var e := smoothstep(0.0, 1.0, split_k)
-	cams[0].global_position = left.lerp(cam_a, e)
-	cams[1].global_position = right.lerp(cam_b, e)
+	cam_a += (_clamp_view(goal_a, view) - cam_a) * f
+	cam_b += (_clamp_view(goal_b, view) - cam_b) * f
+	cams[0].global_position = cam_a
+	cams[1].global_position = cam_b
 	for c in cams:
-		c.zoom = Vector2(zoom, zoom)
+		c.zoom = Vector2(z, z)
+	# the divider shows as much as the two pictures differ
+	split_k = clampf(cam_a.distance_to(cam_b) * z / 24.0, 0.0, 1.0)
+	_layout_views()
 
 
 func _unhandled_input(event: InputEvent) -> void:
@@ -432,8 +494,16 @@ func world_to_screen(p: Vector2) -> Vector2:
 
 
 ## Which half of the screen a player is on right now: 0 left, 1 right, -1 whole screen.
+## With a slanted split it is the half (left or right) that holds most of the player's view.
 func screen_side(pid: int) -> int:
-	return pid if split else -1
+	if force_k > 0.5:
+		return pid
+	if split_k < 0.5:
+		return -1
+	var p2_right := split_n.x >= 0.0
+	if pid == 1:
+		return 1 if p2_right else 0
+	return 0 if p2_right else 1
 
 
 # ------------------------------------------------------------------ loop
