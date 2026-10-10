@@ -67,6 +67,7 @@ var hack_finished := false
 var hack_end_t := 0.0
 # names
 var name_edits: Array = []
+var surname_edits: Array = []
 # photo
 var photo_pid := 0
 var cam_feed: CameraFeed
@@ -211,8 +212,8 @@ func _ready() -> void:
 
 
 func _go(s: String) -> void:
-	if stage == "photo" and s != "photo":
-		_stop_camera()
+	if stage == "photo":
+		_stop_camera()   # also between P1's and P2's photo; _build_photo starts it again
 	stage = s
 	for c in stage_root.get_children():
 		c.queue_free()
@@ -505,35 +506,46 @@ func _build_names() -> void:
 	content.add_child(ok)
 	content.add_child(UI.label("Fast geschafft. Wie heisst ihr?", 20, Color("3a4150")))
 	name_edits = []
+	surname_edits = []
 	for i in 2:
 		var row := HBoxContainer.new()
 		row.add_theme_constant_override("separation", 14)
 		content.add_child(row)
 		var tag := UI.label("Spieler*in %d  (%s)" % [i + 1, "WASD · E" if i == 0 else "Pfeile · Enter"], 18, Color(KEYS.TAG_COLORS[i]).darkened(0.15))
-		tag.custom_minimum_size = Vector2(300, 0)
+		tag.custom_minimum_size = Vector2(250, 0)
 		row.add_child(tag)
-		var e := LineEdit.new()
-		e.max_length = 14
-		e.placeholder_text = "Vorname"
-		e.text = String(Game.names[i])
-		e.custom_minimum_size = Vector2(420, 52)
-		e.add_theme_font_size_override("font_size", 24)
-		e.add_theme_color_override("font_color", Color("1c1d33"))
-		e.add_theme_color_override("caret_color", UI.ETH_BLUE)
-		e.add_theme_color_override("font_placeholder_color", Color("9aa3b5"))
-		e.add_theme_stylebox_override("normal", UI.box(Color.WHITE, Color("b9c0cf"), 10, 3, 10, false))
-		e.add_theme_stylebox_override("focus", UI.box(Color.WHITE, UI.ETH_BLUE, 10, 3, 10, false))
+		var e := _name_edit("Vorname", String(Game.names[i]), 14)
 		row.add_child(e)
 		name_edits.append(e)
+		# surname: optional, only shown on the Legi
+		var se := _name_edit("Nachname (optional)", String(Game.surnames[i]), 18)
+		row.add_child(se)
+		surname_edits.append(se)
 		var idx := i
-		e.text_submitted.connect(func(_s: String): _name_submitted(idx))
-		e.text_changed.connect(func(_s: String): UI.sfx("type", -14.0))
+		e.text_submitted.connect(func(_s: String): se.grab_focus())
+		se.text_submitted.connect(func(_s: String): _name_submitted(idx))
 	var send := UI.button("Bewerbung abschicken", UI.ETH_BLUE, 22)
 	send.size_flags_horizontal = Control.SIZE_SHRINK_END
 	send.pressed.connect(_names_done)
 	content.add_child(send)
 	UI.pop_in(browser, 0.0, 0.85)
 	(name_edits[0] as LineEdit).call_deferred("grab_focus")
+
+
+func _name_edit(placeholder: String, text: String, max_len: int) -> LineEdit:
+	var e := LineEdit.new()
+	e.max_length = max_len
+	e.placeholder_text = placeholder
+	e.text = text
+	e.custom_minimum_size = Vector2(250, 52)
+	e.add_theme_font_size_override("font_size", 24)
+	e.add_theme_color_override("font_color", Color("1c1d33"))
+	e.add_theme_color_override("caret_color", UI.ETH_BLUE)
+	e.add_theme_color_override("font_placeholder_color", Color("9aa3b5"))
+	e.add_theme_stylebox_override("normal", UI.box(Color.WHITE, Color("b9c0cf"), 10, 3, 10, false))
+	e.add_theme_stylebox_override("focus", UI.box(Color.WHITE, UI.ETH_BLUE, 10, 3, 10, false))
+	e.text_changed.connect(func(_s: String): UI.sfx("type", -14.0))
+	return e
 
 
 func _name_submitted(i: int) -> void:
@@ -546,6 +558,7 @@ func _name_submitted(i: int) -> void:
 func _names_done() -> void:
 	for i in 2:
 		Game.names[i] = (name_edits[i] as LineEdit).text.strip_edges()
+		Game.surnames[i] = (surname_edits[i] as LineEdit).text.strip_edges()
 	UI.sfx("grant")
 	photo_pid = 0
 	_go("photo")
@@ -739,38 +752,51 @@ func _capture() -> void:
 	_use_photo(ImageTexture.create_from_image(img) if img != null else null)
 
 
+## First P1 takes their photo, then P2; then the character design, and at the end both Legis side by side.
 func _use_photo(tex) -> void:
 	Game.photos[photo_pid] = tex
-	_go("legi")
+	if photo_pid == 0:
+		photo_pid = 1
+		_go("photo")
+	else:
+		_go("custom")
 
 
 # ------------------------------------------------------------------ 5 · the Legi
 func _build_legi() -> void:
-	var pc := Color(KEYS.TAG_COLORS[photo_pid])
 	var v := _vbox(18)
 	_center().add_child(v)
-	v.add_child(_centered(UI.label("Deine Legi ist da!", 44, UI.YELLOW, 10)))
-	var card := LegiCard.new()
-	card.photo = Game.photos[photo_pid]
-	card.pname = Game.name_of(photo_pid)
-	card.number = Game.legi_ids[photo_pid]
-	card.look = Game.player_looks[photo_pid]
-	card.accent = pc
-	card.custom_minimum_size = Vector2(560, 350)
-	card.size_flags_horizontal = Control.SIZE_SHRINK_CENTER
-	v.add_child(card)
-	v.add_child(_centered(UI.label("Noch nicht validiert. Das macht ihr am Ersti-Tag am Terminal.", 16, UI.MUTED)))
-	var next := UI.button("Weiter", UI.GREEN, 24)
+	v.add_child(_centered(UI.label("Eure Legis sind da!", 44, UI.YELLOW, 10)))
+	var row := HBoxContainer.new()
+	row.alignment = BoxContainer.ALIGNMENT_CENTER
+	row.add_theme_constant_override("separation", 36)
+	v.add_child(row)
+	for i in 2:
+		var pc := Color(KEYS.TAG_COLORS[i])
+		var col := _vbox(8)
+		row.add_child(col)
+		col.add_child(_centered(UI.label(Game.name_of(i), 24, pc, 6)))
+		var card := LegiCard.new()
+		card.set_player(i)
+		card.accent = pc
+		card.custom_minimum_size = Vector2(520, 324)
+		card.size_flags_horizontal = Control.SIZE_SHRINK_CENTER
+		col.add_child(card)
+		# card flip-in, the second one a moment later
+		card.resized.connect(func(): card.pivot_offset = card.size / 2.0)
+		card.scale = Vector2(0.05, 1.0)
+		card.rotation = -0.2 if i == 0 else 0.2
+		var tw := card.create_tween().set_parallel(true)
+		tw.tween_property(card, "scale", Vector2.ONE, 0.55).set_delay(0.15 + 0.2 * i).set_trans(Tween.TRANS_BACK).set_ease(Tween.EASE_OUT)
+		tw.tween_property(card, "rotation", 0.0, 0.55).set_delay(0.15 + 0.2 * i).set_trans(Tween.TRANS_BACK).set_ease(Tween.EASE_OUT)
+		# then the validity (S, date, ASVZ) is printed onto the strip
+		tw.tween_callback(func():
+			card.validate()
+			UI.sfx("click", -4.0)).set_delay(0.9 + 0.25 * i)
+	var next := UI.button("Ab zum Ersti-Tag!", UI.GREEN, 28)
 	next.size_flags_horizontal = Control.SIZE_SHRINK_CENTER
 	next.pressed.connect(_legi_next)
 	v.add_child(next)
-	# card flip-in
-	card.resized.connect(func(): card.pivot_offset = card.size / 2.0)
-	card.scale = Vector2(0.05, 1.0)
-	card.rotation = -0.2
-	var tw := card.create_tween().set_parallel(true)
-	tw.tween_property(card, "scale", Vector2.ONE, 0.55).set_delay(0.15).set_trans(Tween.TRANS_BACK).set_ease(Tween.EASE_OUT)
-	tw.tween_property(card, "rotation", 0.0, 0.55).set_delay(0.15).set_trans(Tween.TRANS_BACK).set_ease(Tween.EASE_OUT)
 	get_tree().create_timer(0.35).timeout.connect(func():
 		if stage == "legi":
 			UI.sfx("success")
@@ -779,11 +805,7 @@ func _build_legi() -> void:
 
 
 func _legi_next() -> void:
-	if photo_pid == 0:
-		photo_pid = 1
-		_go("photo")
-	else:
-		_go("custom")
+	_go("loading")
 
 
 # ------------------------------------------------------------------ 6 · character design
@@ -797,13 +819,13 @@ func _build_custom() -> void:
 	v.add_child(row)
 	for i in 2:
 		row.add_child(_custom_column(i))
-	var go := UI.button("Ab zum Ersti-Tag!", UI.GREEN, 28)
+	var go := UI.button("Weiter zur Legi", UI.GREEN, 28)
 	go.custom_minimum_size = Vector2(340, 70)
 	go.size_flags_horizontal = Control.SIZE_SHRINK_CENTER
-	go.pressed.connect(func(): _go("loading"))
+	go.pressed.connect(func(): _go("legi"))
 	v.add_child(go)
 	UI.pulse(go, 0.05, 1.0)
-	v.add_child(_centered(UI.label("Enter = los", 14, UI.MUTED)))
+	v.add_child(_centered(UI.label("Enter = weiter", 14, UI.MUTED)))
 
 
 func _custom_column(i: int) -> Control:
@@ -847,6 +869,31 @@ func _custom_column(i: int) -> Control:
 		var nxt := UI.button(">", UI.NAVY2.lightened(0.15), 16)
 		nxt.pressed.connect(func(): _cycle(i, key, opts, 1))
 		grid.add_child(nxt)
+	# study programme, printed on the Legi
+	var pl := UI.label("Studium", 15, UI.MUTED)
+	pl.custom_minimum_size = Vector2(88, 0)
+	grid.add_child(pl)
+	var pprev := UI.button("<", UI.NAVY2.lightened(0.15), 16)
+	grid.add_child(pprev)
+	var psw := PanelContainer.new()
+	psw.custom_minimum_size = Vector2(118, 34)
+	psw.add_theme_stylebox_override("panel", UI.box(UI.NAVY2, UI.MUTED, 10, 2, 4, false))
+	var psl := UI.label("", 14, UI.WHITE, 4)
+	psl.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
+	psw.add_child(psl)
+	grid.add_child(psw)
+	var pnext := UI.button(">", UI.NAVY2.lightened(0.15), 16)
+	grid.add_child(pnext)
+	var show_prog := func():
+		psl.text = String(Game.PROGRAMMES[int(Game.programmes[i])][0])
+	var step_prog := func(dir: int):
+		var n: int = Game.PROGRAMMES.size()
+		Game.programmes[i] = (int(Game.programmes[i]) + dir + n) % n
+		UI.sfx("pop", -8.0)
+		show_prog.call()
+	pprev.pressed.connect(func(): step_prog.call(-1))
+	pnext.pressed.connect(func(): step_prog.call(1))
+	show_prog.call()
 	_refresh_swatches(i)
 	return card
 
@@ -929,4 +976,4 @@ func _unhandled_input(event: InputEvent) -> void:
 				_legi_next()
 		"custom":
 			if k in [KEY_ENTER, KEY_KP_ENTER]:
-				_go("loading")
+				_go("legi")
