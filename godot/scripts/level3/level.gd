@@ -19,7 +19,8 @@ extends Node2D
 ##
 ## Three tasks can be played in front of the webcam (autoload Track, see tracker/README.md), and
 ## each of them works with the keys as well, so the level never depends on a camera:
-##   dance floor  both strike the poses that are shown, on the beat (kamera_spiel.gd, "tanz")
+##   dance floor  strike the poses that are shown, on the beat (kamera_spiel.gd, "tanz"): both
+##                players if two people are in the picture, one for both if there is only one
 ##   Prof badge   pull it out of the pocket with two fingers and a steady hand ("badge"); the
 ##                keyboard version is the sequence minigame
 ##   buffet       the timing minigame; opening your mouth wide snaps as well as the key does
@@ -34,6 +35,7 @@ const OPP = preload("res://scripts/opp.gd")
 const Cutscene = preload("res://scripts/cutscene.gd")
 const Vorlage = preload("res://scripts/level3/vorlage.gd")
 const KameraSpiel = preload("res://scripts/level3/kamera_spiel.gd")
+const TM = preload("res://scripts/track_math.gd")
 
 # ---- disguise (tuning)
 const FACTOR_WRONG := 1.8               # wrong clothes or hoodie in a zone: the suspicion bar fills this much faster
@@ -665,7 +667,7 @@ func _snap_with_mouth() -> void:
 			continue
 		if Track.alive and not (mg.info_l.text as String).contains("Mund"):
 			mg.info_l.text += "   Oder vor der Kamera: Mund weit auf!"
-		var f := Track.face(pid)
+		var f := TM.mine(Track.faces, pid)   # the face on this player's side, or the only one there is
 		if f.is_empty():
 			continue
 		var m: float = f["mouth"]

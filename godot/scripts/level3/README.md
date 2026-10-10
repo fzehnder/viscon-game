@@ -19,7 +19,7 @@ Der Weg zwischen Mensa und Hauptgebäude ist Absicht: Für das Armband muss glei
 |---|---|---|
 | **Abendgarderobe organisieren** (zuerst, ohne sie geht nichts anderes) | In der Mensa gleich neben der Tür eine Schürze vom Haken nehmen, dann hinten rechts an der Personalgarderobe einen Kellner-Frack (Timing-Minigame). Jede Person für sich. | nein |
 | **Armband fälschen** (zu zweit) | Eine Person schaut sich am Bändel-Tisch in der Eingangshalle die Vorlage an und sagt die Pfeile an, die andere tippt sie in der Bastelecke der Küche nach. **Wer baut, bekommt die Pfeile absichtlich nicht gezeigt**; unter den Tasten steht, wo sie zu finden sind. Die Vorlage zeigt mit, wie weit die andere Person ist (abgehakt, «als Nächstes», «falsch, wieder von vorne»). Das Nachbauen ist das bestehende Sequenz-Minigame, nur ohne Vorzeigen. Ein falscher Pfeil ist ein Fehler, danach geht es beim ersten Pfeil weiter. Gilt für beide. | nein |
-| **Im Takt über die Tanzfläche** (zu zweit) | Beide stehen in Abendgarderobe auf der Tanzfläche in der Rotunde. Eine Pose wird gezeigt, beide machen sie nach, und sie muss bei beiden sitzen, solange der Balken grün ist. Trifft eine Person nicht, zählt das als Fehler für beide. Vier Treffer. Gilt für beide. | **Körperhaltung** |
+| **Im Takt über die Tanzfläche** (zu zweit) | Beide Figuren stehen in Abendgarderobe auf der Tanzfläche in der Rotunde. Vor der Kamera beginnt es mit «Hände hoch»; danach wird eine Pose nach der anderen gezeigt, und sie muss sitzen, solange der Balken grün ist. Sind zwei Personen ganz im Bild, müssen beide treffen, und trifft eine nicht, ist es ein Fehler für beide. Ist nur eine im Bild, tanzt sie für beide. Vier Treffer. Gilt für beide. | **Körperhaltung** |
 | **Prof-Badge holen** (Hauptmission) | In der Garderobe den grünen Lodenmantel finden (an einem von drei Ständern, jedes Mal an einem anderen). Dann den Badge mit zwei Fingern aus der Innentasche ziehen: Daumen und Zeigefinger zusammendrücken, Hand langsam nach oben, nicht zittern. Nur in Abendgarderobe. Gilt für beide. | **Hand** |
 | **Buffet plündern** | Timing-Minigame an einem der Buffettische. Belohnung: ein Tablett, das man den Rest des Abends herumträgt. Jede Person für sich. | **Gesicht:** Mund weit auf schnappt zu, genau wie die Taste |
 
@@ -31,22 +31,26 @@ Drei Aufgaben lassen sich vor der Webcam spielen (Autoload `Track`, Einrichtung 
 
 | Aufgabe | Mit Kamera | Ohne Kamera |
 |---|---|---|
-| Tanzfläche | Pose nachmachen (`TM.pose_match` über 80 %) | beide drücken die gezeigte Richtung, solange der Balken grün ist |
+| Tanzfläche | Pose mit den Armen nachmachen (ab 50 % Übereinstimmung) | beide drücken die gezeigte Richtung, solange der Balken grün ist |
 | Badge | Pinch und ruhige Hand | das bestehende Sequenz-Minigame «Mantel · Innentasche · Badge» |
 | Buffet | Mund auf | die Taste; beides geht gleichzeitig |
 
 - **Umschalten auf Tasten** passiert von selbst, wenn die Kamera 5 Sekunden lang nichts liefert (kein Tracker, keine Kamera, keine Freigabe). Läuft die Kamera, aber jemand ist nicht im Bild, wartet das Spiel dreimal so lang. Mit der Interagieren-Taste (E / Enter) schaltet man jederzeit selbst um.
 - **Der Bildschirm wird hell**, solange ein Kamera-Minigame offen ist: in der Geschichte der Scheinwerfer auf der Tanzfläche und das hell beleuchtete Buffet, im abgedunkelten Raum die Lampe, ohne die die Kamera niemanden findet. Das ist Absicht und sollte nicht dunkler werden.
-- **Sitzordnung:** Person 1 sitzt links, Person 2 rechts. Die Kamera sieht im Sitzen nur Oberkörper und Arme, deshalb bestehen die Posen nur aus Armhaltungen.
+- **Abstand:** Wer an der Tastatur sitzt, ist für die Kamera eines Laptops zu nah: Im Bild sind nur Kopf und Schultern. Fürs Tanzen muss man zurückrücken oder aufstehen, bis die erhobenen Hände im Bild sind. Deshalb beginnt der Tanz mit «Hände hoch»: Wer das schafft, steht richtig. Für Badge und Buffet kann man sitzen bleiben.
+- **Wer tanzt:** Bleiben zwei Personen im Bild, ist die linke Person 1 und die rechte Person 2, egal wo genau sie stehen, und beide müssen treffen. Sonst tanzt für beide, wer der Bildmitte am nächsten ist. So bricht der Tanz nicht ab, wenn die zweite Person halb aus dem Bild ragt oder jemand im Hintergrund vorbeigeht. Verlässt bei zwei Tanzenden jemand das Bild, wird er noch 6 Sekunden erwartet (kostet einen Takt), danach tanzt die andere Person allein weiter.
+- **Badge und Buffet** nehmen, was im Bild ist: irgendeine Hand, die zugreift, und das Gesicht auf der eigenen Seite oder das einzige im Bild.
 - Der Tracker startet schon beim Start des Levels (`PREWARM`), die Kamera selbst geht erst in einem Kamera-Minigame an. So liefert sie etwa 2 bis 3 Sekunden nach dem Öffnen (gemessen: 2.6 s) und damit vor Ablauf der 5 Sekunden.
 
 ### Zielposen: Platzhalter
 
-Die vier Posen (Jubel, Flieger, Disco, Kaktus) in `posen.gd` sind **Platzhalter**, aus Armrichtungen errechnet. Niemand ist dafür vor der Kamera gestanden. Echte Posen einsetzen:
+Die vier Posen in `posen.gd` (Hände hoch, Dach, Disco links, Disco rechts) sind **Platzhalter**, aus Armrichtungen errechnet. Sie halten die Arme oben und über den eigenen Schultern, weil alles andere aus dem Bild ragt oder der Person daneben in die Quere kommt. Eine Person hat sie vor der Kamera durchgetanzt (siehe Stand). Eigene Posen einsetzen:
 
 1. `godot --path godot res://track_debug.tscn`, Taste 3 (Körper), Pose hinstellen, Taste P.
 2. Den Inhalt der gespeicherten `pose_target.json` als Eintrag in `AUFGENOMMEN` oben in `posen.gd` kopieren und einen Namen dazuschreiben: `{"name": "Jubel", "pts": [...]}`.
-3. Sobald `AUFGENOMMEN` nicht leer ist, werden nur noch diese Posen benutzt.
+3. Sobald `AUFGENOMMEN` nicht leer ist, werden nur noch diese Posen benutzt. «Hände hoch» zum Start bleibt.
+
+Beim Aufnehmen so stehen wie später beim Spielen, am besten zu zweit nebeneinander, und prüfen, dass Ellbogen und Handgelenke im Bild bleiben.
 
 ## Wo was ist
 
@@ -103,18 +107,21 @@ Oben in `kamera_spiel.gd`:
 | Konstante | Wert | Wirkung |
 |---|---|---|
 | `CAM_WAIT` | 5 s | so lange ohne Ergebnis von der Kamera, dann übernehmen die Tasten |
-| `CAM_PATIENCE` | 3 | mal so lange, wenn die Kamera läuft, aber jemand nicht im Bild ist |
+| `CAM_PATIENCE` | 3 | mal so lange, wenn die Kamera läuft, aber niemand im Bild ist |
 | `LIGHT` | fast weiss | wie hell der Bildschirm wird |
-| `POSE_OK` | 80 % | ab wann eine Pose als getroffen gilt. Kleiner = leichter |
-| `BEAT` | 3.2 s | Zeit pro Pose |
-| `BEAT_WINDOW` | 1.2 s | die letzten Sekunden einer Pose, in denen sie sitzen muss (Balken grün) |
-| `DANCE_HITS` | 4 | so viele Posen müssen beide treffen |
+| `POSE_OK` | 50 % | ab wann eine Pose als getroffen gilt (eigene Skala, siehe `_arms`). Kleiner = leichter. Gemessen: gut getroffene Posen 50 bis 65 %, eine andere Pose unter 40 % |
+| `READY_OK`, `READY_HOLD` | 42 %, 0.5 s | wie gut und wie lange «Hände hoch» sitzen muss, damit der Tanz beginnt |
+| `ARM_TOLERANCE` | 70° | ab wie viel Abweichung ein Ober- oder Unterarm 0 Punkte gibt |
+| `PAIR_ON`, `PAIR_MEMORY` | 1 s, 6 s | wie lange zwei im Bild sein müssen, bis beide tanzen müssen, und wie lange eine fehlende Person noch erwartet wird |
+| `BEAT` | 3.4 s | Zeit pro Pose |
+| `BEAT_WINDOW` | 1.4 s | die letzten Sekunden einer Pose, in denen sie sitzen muss (Balken grün) |
+| `DANCE_HITS` | 4 | so viele Posen müssen getroffen werden |
 | `PINCH_GRAB`, `PINCH_DROP` | 0.3, 0.6 | wie nah die Finger zusammen sein müssen, um den Badge zu halten, und ab wann er entgleitet |
 | `PULL` | 0.16 | wie weit die Hand nach oben muss, in Bildhöhen |
 | `JITTER_MAX`, `JITTER_TIME` | 12, 0.35 s | so zittrig darf die Hand so lange sein, sonst raschelt der Mantel (Fehler, nochmals) |
 | `HAND_LOST` | 0.8 s | so lange darf die Hand aus dem Bild sein, bevor der Badge zurückrutscht |
 
-Wie streng die Posen bewertet werden, steckt ausserdem in `POSE_TOLERANCE` in `scripts/track_math.gd` (gilt für alle Levels).
+Die Vorgabe für das Tanzen war `TM.pose_match` über 80 %. Vor der echten Kamera kamen damit auch gut getroffene Posen nur auf 55 bis 80 %, und weil die Schulterlinie immer passt, lag eine falsche Pose nicht weit darunter. Das Tanzen wertet deshalb selbst aus (`_arms`): nur die Arme, und der schlechtere Arm zählt.
 
 ## Wie es gebaut ist
 
@@ -124,6 +131,7 @@ Wie streng die Posen bewertet werden, steckt ausserdem in `POSE_TOLERANCE` in `s
 - **Aufpasser** sind gewöhnliche `npcs` aus `DEF`. `_ready` setzt sie auf «wachsam» (`angry`, Zustand `LAUERN`); als Opp gespeichert werden sie nie. `on_opp_catch` übernimmt ihren Rauswurf und lässt alte Opps beim Standard (Level verloren).
 - **Kleidung:** `_wear` baut das Aussehen aus dem eigenen Look der Figur plus `LOOK_ABEND` (Stil `jacket`, Hemd in der Farbe der Person) oder `LOOK_SCHUERZE` (Stil `labcoat`, weiss). Dafür war kein neues Accessoire nötig.
 - **Armband:** `_build` öffnet das bestehende Sequenz-Minigame über `main.open_minigame`, setzt das Muster des Armbands als Sequenz und schaltet sofort auf Eingabe. Nach einem Fehler würde das Minigame die Sequenz neu vorzeigen; `_blind` verhindert das. Die Vorlage (`vorlage.gd`) benutzt dieselben vier Richtungen. `_build_info` schreibt den Text unter den Tasten, `_view_info` den Stand auf der Vorlage. Solange niemand angefangen hat, schickt die Wegführung (Tab / Komma) die Person, die näher am Eingang steht, zur Vorlage und die andere in die Bastelecke.
+- **Tanzen:** `_find_dancers` entscheidet jeden Frame, wer tanzt (eine Person für beide oder zwei), `_arms` vergleicht pro Arm die Richtung von Ober- und Unterarm mit der Zielpose. Der Tanz beginnt erst, wenn «Hände hoch» einen halben Moment lang sitzt.
 - **Kamera-Minigames:** `kamera_spiel.gd` hält sich an den Vertrag von `minigame.gd` (Signale `finished` und `mistake`, Zähler `mistakes`). `_open_cam` trägt es so in `main.minis` ein, wie `main.gd` es mit eigenen Minigames tut. Dadurch gelten die Figuren als beschäftigt, der Bildschirm teilt sich bei einer Person, und `main._abort_mini` funktioniert. Die Kamera hält `Track.use(self, …)` und geht mit dem Schliessen von selbst wieder aus.
 - **Badge:** Das Signal `fallback` schliesst das Kamera-Minigame und öffnet stattdessen das Sequenz-Minigame.
 - **Buffet:** Das Timing-Minigame bleibt, wie es ist. `_snap_with_mouth` ruft bei offenem Mund dieselbe Funktion auf wie die Taste und färbt den Hintergrund des Minigames hell.
@@ -136,13 +144,16 @@ Das Armband ist zusätzlich mit echten Tastendrücken geprüft (E am Tisch, Ente
 
 Per Bot von Start bis Siegbildschirm durchgespielt: im Hoodie in der Küche erwischt und rausgeworfen, Schürze, Frack, draussen umziehen, in Abendgarderobe von Security übersehen, in der Schürze im Saal rausgeworfen, Armband zu zweit über den geteilten Bildschirm (mit einem Fehler), Buffet, falscher und richtiger Ständer, Badge im Spielstand, Finale. Dazu geprüft: Opps aus Level 1 und 2 erscheinen an ihren Plätzen, übersehen Abendgarderobe und erwischen den Hoodie; alle Orte sind zu Fuss erreichbar. Das Aussehen ist an Screenshots geprüft.
 
-Kamera-Aufgaben: Der Bot hat sie mit eingespeisten Kameradaten gespielt (Tanzen mit einer falschen Pose und bis zum Erfolg, Badge mit Zittern, Loslassen und ruhiger Hand, Buffet nur mit dem Mund) und alle drei Tasten-Varianten. Mit der echten Kamera ist nur geprüft, dass sie rechtzeitig liefert (2.6 s nach dem Öffnen) und dass die Bildschirme stimmen. **Vor der echten Kamera hat noch niemand getanzt, gegriffen oder zugeschnappt.**
+Kamera-Aufgaben: Der Bot hat sie mit eingespeisten Kameradaten gespielt (Tanzen allein und zu zweit, mit falscher Pose, mit jemandem, der das Bild verlässt, und mit einer Person, die am Bildrand nur flackernd erkannt wird; Badge mit Zittern, Loslassen und ruhiger Hand; Buffet nur mit dem Mund) und alle drei Tasten-Varianten.
 
-**Noch nie von Menschen gespielt.** Zeitlimit, `FACTOR_WRONG`, die Standorte der Aufpasser und alle Kamera-Schwellen sind geschätzt.
+Mit der echten Kamera (MacBook, 10.10.2026): Sie liefert 1.6 bis 2.6 s nach dem Öffnen. **Eine Person hat den Tanz vor der Kamera zu Ende getanzt** (vier Treffer, ein Fehler, 15 Sekunden). Zu zweit im Bild wurden beide erkannt und richtig zugeordnet, und eine falsche Pose der zweiten Person wurde als falsch gewertet; das war aber noch mit der alten Wertung, zu zweit ist die neue noch nicht durchgetanzt. Der Badge funktioniert laut Rückmeldung aus dem Spieltest, das Buffet mit dem Mund hat vor der Kamera noch niemand probiert.
+
+Das Level als Ganzes hat noch niemand in einem Zug durchgespielt. Zeitlimit, `FACTOR_WRONG` und die Standorte der Aufpasser sind geschätzt, ebenso die Schwellen für Badge und Buffet.
 
 ## Offen
 
-- **Zielposen sind Platzhalter** (siehe oben). Ob sich 80 % mit ihnen bequem treffen lassen, zeigt erst ein Versuch vor der Kamera; sonst `POSE_OK` senken.
+- **Zielposen sind Platzhalter** (siehe oben). «Dach» lag im Versuch am knappsten (44 bis 60 %); wenn es zu oft daneben geht, `POSE_OK` weiter senken.
+- **Tanzen zu zweit** braucht Platz: Beide müssen mit erhobenen Armen ins Bild passen, also etwa anderthalb Meter Abstand zur Kamera.
 - **`JITTER_MAX` ist geraten.** Die Messung zittert auch bei ruhiger Hand, weiter weg von der Kamera stärker. In `track_debug` aus Spielabstand den Wert «Zittern» einer ruhigen Hand ablesen und deutlich darüber gehen.
 - **Mund am Buffet:** Erkennung und Mundbewegung brauchen einen Moment, man muss etwas früher aufmachen als drücken. Wenn das nervt: `BUFFET_SPEED` senken.
 - Ursprünglich war nur ein Kamera-Moment pro Level geplant, damit sich die Mechanik nicht abnutzt. Auf Wunsch (10.10.2026) sind es jetzt drei, jeder mit einer anderen Erkennung (Körper, Hand, Gesicht).
