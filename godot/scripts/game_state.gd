@@ -19,20 +19,32 @@ var grades: Dictionary = {}
 # Things the players carry from level to level (e.g. "prof_badge" from the Polyball).
 # item id -> level in which they got it
 var items: Dictionary = {}
+# What happened in the electives of this game (one study), e.g. the freelance application:
+# key -> any value. Kept across levels, cleared only by new_game().
+var electives: Dictionary = {}
 var save_path := "user://save.cfg"
 var persist := true                   # --nosave on the command line: keep everything in memory
 
 var names: Array = ["", ""]
 var photos: Array = [null, null]      # Texture2D from the camera, or null (then the character is drawn)
-var legi_ids: Array = ["", ""]
+var legi_ids: Array = ["26-622-806", "26-706-606"]
+var birthdays: Array = ["01.11.2005", "06.06.2006"]
+var surnames: Array = ["", ""]        # optional, only shown on the Legi
+var programmes: Array = [0, 1]        # index into PROGRAMMES, chosen with the character design
 var player_looks: Array = []
+
+# study programmes to choose from: [name in the menu, how the Legi prints it]
+const PROGRAMMES := [
+	["Maschinenbau", "Mech. Engin BSc"], ["Informatik", "Comp. Science BSc"], ["Elektrotechnik", "Elec. Engin BSc"],
+	["Bauingenieur", "Civil Engin BSc"], ["Architektur", "Architecture BSc"], ["Mathematik", "Mathematics BSc"],
+	["Physik", "Physics BSc"], ["Chemie", "Chemistry BSc"], ["Biologie", "Biology BSc"],
+	["Materialwiss.", "Mat. Science BSc"], ["Umweltingenieur", "Env. Engin BSc"], ["Gesundheit HST", "Hlth Sci Tech BSc"],
+]
 
 
 func _ready() -> void:
 	randomize()
 	player_looks = [_default_look(0), _default_look(1)]
-	for i in 2:
-		legi_ids[i] = "26-%03d-%03d" % [randi_range(900, 999), randi_range(100, 999)]
 	# dev shortcut, straight into a level: godot --path godot res://main.tscn -- --level=2
 	for a in OS.get_cmdline_user_args():
 		if a.begins_with("--level="):
@@ -133,10 +145,21 @@ func grade_of(n: int) -> float:
 	return float(grades[n]["grade"]) if grades.has(n) else 0.0
 
 
+## State of an elective in this game (default if it has none yet).
+func elective(key: String, default = null):
+	return electives.get(key, default)
+
+
+func set_elective(key: String, value) -> void:
+	electives[key] = value
+	save_game()
+
+
 func new_game() -> void:
 	opps.clear()
 	grades.clear()
 	items.clear()
+	electives.clear()
 	save_game()
 	set_level(1)
 
@@ -151,6 +174,8 @@ func save_game() -> void:
 		cfg.set_value("grades", str(n), grades[n])
 	for id in items:
 		cfg.set_value("items", id, items[id])
+	for key in electives:
+		cfg.set_value("electives", key, electives[key])
 	cfg.save(save_path)
 
 
@@ -158,6 +183,7 @@ func load_game() -> void:
 	opps.clear()
 	grades.clear()
 	items.clear()
+	electives.clear()
 	if not persist:
 		return
 	var cfg := ConfigFile.new()
@@ -177,6 +203,9 @@ func load_game() -> void:
 	if cfg.has_section("items"):
 		for id in cfg.get_section_keys("items"):
 			items[id] = int(cfg.get_value("items", id))
+	if cfg.has_section("electives"):
+		for key in cfg.get_section_keys("electives"):
+			electives[key] = cfg.get_value("electives", key)
 
 
 func reset_look(i: int) -> void:
@@ -190,6 +219,11 @@ func look(i: int = 0) -> Dictionary:
 func name_of(i: int) -> String:
 	var n: String = String(names[i]).strip_edges()
 	return n if n != "" else "Spieler*in %d" % (i + 1)
+
+
+## The study programme as the Legi prints it.
+func programme_of(i: int) -> String:
+	return String(PROGRAMMES[int(programmes[i]) % PROGRAMMES.size()][1])
 
 
 func has_profile() -> bool:

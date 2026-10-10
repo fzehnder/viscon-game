@@ -13,6 +13,8 @@ extends Node
 ## as Track.preview. Lists are sorted from left to right; P1 sits left, P2 right.
 ## What every entry contains and one example per planned minigame: tracker/README.md
 
+const TM = preload("res://scripts/track_math.gd")
+
 const PORT_IN := 47800        # tracker -> game
 const PORT_CMD := 47801       # game -> tracker
 const HEARTBEAT := 0.5        # how often the game tells the tracker what it wants
@@ -35,6 +37,7 @@ var alive := false             # the tracker is sending results from a camera pi
 var status := "aus"            # short German text for the UI
 var fps := 0.0
 var aspect := 4.0 / 3.0        # width / height of the camera picture
+var camera := ""                # name of the camera the tracker uses, if the system tells it (macOS)
 var faces: Array = []
 var hands: Array = []
 var poses: Array = []
@@ -91,8 +94,10 @@ func release(who: Node) -> void:
 
 
 ## The face in player pid's half of the picture, or {}. pid -1: the one closest to the middle.
+## The tracker reports up to four faces and bodies. Only the two biggest count here: the players
+## are in front, and whoever stands behind them and looks on must not take over.
 func face(pid: int = -1) -> Dictionary:
-	return _pick(faces, pid)
+	return _pick(TM.front(faces, 2), pid)
 
 
 func hand(pid: int = -1) -> Dictionary:
@@ -100,7 +105,7 @@ func hand(pid: int = -1) -> Dictionary:
 
 
 func pose(pid: int = -1) -> Dictionary:
-	return _pick(poses, pid)
+	return _pick(TM.front(poses, 2), pid)
 
 
 func _pick(list: Array, pid: int) -> Dictionary:
@@ -211,6 +216,7 @@ func _apply(d: Dictionary) -> void:
 	_last_data = _now
 	fps = float(d.get("fps", 0.0))
 	aspect = float(d.get("aspect", aspect))
+	camera = String(d.get("cam", camera))
 	faces = d.get("faces", [])
 	hands = d.get("hands", [])
 	poses = d.get("poses", [])
