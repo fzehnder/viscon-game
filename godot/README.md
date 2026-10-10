@@ -42,7 +42,9 @@ Ein 2D-Spiel für **Godot 4.3 oder neuer**. Du wählst dein Departement, gestalt
 
 ## Zu zweit (Co-op)
 
-Zwei Spieler*innen an einer Tastatur. Sind beide nah beieinander, gibt es eine gemeinsame Kamera. Laufen sie auseinander oder ist jemand in einem Minigame, teilt sich der Bildschirm (P1 links, P2 rechts). Das Minigame öffnet sich auf der Hälfte von dem, der es gestartet hat.
+Zwei Spieler*innen an einer Tastatur. Sind beide nah beieinander, gibt es eine gemeinsame Kamera. Laufen sie auseinander oder ist jemand in einem Minigame, teilt sich der Bildschirm (P1 links, P2 rechts). Der Übergang ist fliessend: Die beiden Bildhälften gleiten auseinander und wieder zusammen, nichts springt. Das Minigame öffnet sich auf der Hälfte von dem, der es gestartet hat.
+
+Anzeigen: Die Aufgaben stehen auf der Seite der jeweiligen Person, links für P1 (WASD), rechts für P2 (Pfeiltasten), mit Häkchen und Zähler. Unten in der Mitte Level und Zeit, unten rechts die Minimap: der ganze Campus, beide Figuren in ihrer Farbe, offene Aufgaben als Rauten (in der Farbe derer, die sie noch brauchen, Gelb heisst beide) und rot blinkend ein Opp, der gerade jemanden jagt.
 
 | | P1 | P2 |
 |---|---|---|

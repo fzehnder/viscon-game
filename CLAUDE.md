@@ -107,7 +107,8 @@ Level 3:
 
 Auf `level-base`:
 - Koop-Steuerung (`controls.gd`, physische Tastenpositionen): P1 WASD / E / Shift Sprint / Ctrl Schleichen / Esc / 1 2 3; P2 Pfeile / Enter / `.` Sprint / `-` Schleichen / Backspace / 8 9 0
-- Dynamischer Split Screen (`main.gd`, `SPLIT_AT` / `MERGE_AT`), auch wenn jemand im Minigame ist
+- Dynamischer Split Screen (`main.gd`, `SPLIT_AT` / `MERGE_AT`), auch wenn jemand im Minigame ist, mit fliessendem Übergang (`split_k`, `SPLIT_TIME`)
+- HUD: Aufgaben pro Person auf ihrer Seite (P1 links, P2 rechts), Level und Zeit unten Mitte, Minimap unten rechts
 - Schleichen / Gehen / Sprinten, Stamina (2 s Sprint, ca. 3 s Regeneration), Geräuschkreise pro Schritt (`player.gd`, `fx.gd`)
 - Story-Intro im Menü: Startseite, Hack der Bewerbungsseite, Namen, Legi-Foto, Charakter-Editor; Level-Auswahl «Direkt zu»
 - Level 1 "Ersti-Tag" (Tag, 7 min): Ersti-Bag klauen (bei Deniz und Livia am Lesetisch, macht sie zu Opps), Legi validieren, Moodle & Code Expert einrichten, Koop-High-Five, Note 1 bis 6
@@ -158,7 +159,10 @@ So funktioniert die Engine-Seite des Spiels:
 - **`main.state`:** `intro`, `play`, `cutscene`, `caught`, `won`, `lost`. Die Zeit läuft nur in `play`. Studierende und `fx` stehen ausserhalb von `play` still bzw. sind unsichtbar; wer in einer Cutscene weiterlaufen soll, muss `cutscene` selbst zulassen.
 - **Spieler sperren:** `pl.enabled = false`. Achtung: `main.open_minigame` setzt beim Schliessen `enabled = true`. Reihenfolge der Callbacks dort: `on_close`, dann `enabled = true`, dann `on_success`.
 - **Wegfindung:** `main.world.find_path(von_px, nach_px)` liefert Tile-Mittelpunkte ohne exakten Endpunkt, den selbst anhängen. Mit `astar.set_point_weight_scale(tile, 6.0)` hält man Läufer von Bereichen fern, ohne sie zu sperren.
-- **HUD ausblenden:** `main.hud.visible = false`. Kamera für Cutscenes: `main.cams[0].zoom` tweenen.
+- **HUD ausblenden:** `main.hud.visible = false`.
+- **Kamera und Split Screen:** Es gibt immer zwei halbe Viewports. Sind die Figuren zusammen, stehen die beiden Kameras nebeneinander und die Hälften ergeben ein Bild; zum Teilen gleitet jede Kamera zu ihrer Figur (`split_k` 0 bis 1, `split` ist nur das Ziel). Deshalb: Kamerapositionen setzt ausschliesslich `main._update_cameras`, Zoom nur über `main.zoom` (auch in Tweens: `tween_property(main, "zoom", 3.5, 0.9)`), nie an einer einzelnen Kamera, sonst passen die Hälften nicht mehr zusammen. Die eingebaute Kameraglättung ist aus, geglättet wird in `_update_cameras` (`CAM_FOLLOW`).
+- **HUD-Plätze:** oben links und rechts die Aufgabenkarten, unten Mitte die Zeit, unten rechts die Minimap, unten links die Nacht-Fähigkeit, Eingabehinweise unten bei 30 % und 70 % der Breite, Toast darüber. Oben in der Mitte bleibt frei: Im gemeinsamen Bild kann die obere Figur dort stehen (bis zu 0.35 Bildschirmhöhen über der Mitte). Neue feste Anzeigen gehören in eine Ecke oder an den unteren Rand.
+- **Minimap:** Klasse `MiniMap` in `hud.gd`, Kacheln einmal als Textur, Markierungen aus `main.goal_positions()`. Was ein Level dort zeigen will, liefert es über `goal_positions`.
 - **Aufgabe wieder öffnen:** `main.done[pid].erase(id)`; das HUD zieht den Chip von selbst zurück.
 - **Spielstand:** Alles, was `Game.save_game()` schreibt, landet im echten `user://`-Ordner des Rechners. Tests mit `--nosave` starten oder `Game.save_path` auf eine Testdatei umbiegen und diese am Ende löschen.
 
@@ -198,6 +202,7 @@ godot --headless --path godot --fixed-fps 60 --quit-after 600 res://main.tscn --
 
 - Für echte Abläufe eine temporäre Szene ins Projekt legen (`zz_test.tscn` plus Skript), die `main.tscn` instanziert, `main.start_game()` aufruft und spielt: Tasten über `Input.action_press("p1_left")`, Interaktion über `main._interact(pid)`, Timing-Minigame über `main.minis[pid]._timing_press()`, wenn `pos` in `zone` liegt, Abkürzungen per Teleport. Am Ende `RESULT` ausgeben und `get_tree().quit(code)`. `--fixed-fps 60` lässt das schneller als Echtzeit laufen. Tweens (zum Beispiel das Hinausschieben aus der Schlange) überschreiben einen Teleport kurz, also danach eine Sekunde warten.
 - Mit so einem Bot wurden geprüft: Level 1 gewinnen, "Weiter", Level 2 bis zum Siegbildschirm; Lücken in den Level-Nummern; ein Minimal-Level ohne Hooks; das Gerüst aus der README; das Opp-System (ungesehen klauen, gesehen werden, Jagd, Beute verlieren, Balken, weglocken, speichern und laden, Wiederkehr in einem Testlevel 3).
+- Kamerabewegung nur mit echtem Laufen messen (`Input.action_press`), ein Teleport ist selbst ein Sprung. Nahtprüfung fürs gemeinsame Bild: rechte Kante der linken Kamera gleich linke Kante der rechten.
 - Fehler in Teleport-Tests sind oft Fehler des Tests: Abstände genau nachrechnen (eine Interaktion mit "kleiner als 1.1" greift bei genau 1.1 nicht), und Zähler gehen bei `reload_current_scene` verloren, weil die Testszene neu entsteht.
 - Screenshots brauchen ein echtes Fenster (headless rendert nicht): ohne `--headless`, mit `--audio-driver Dummy --disable-vsync` und einer temporären `override.cfg` mit `display/window/size/no_focus=true`; speichern mit `get_viewport().get_texture().get_image().save_png(...)`.
 - Temporäre Testdateien (`zz_*`, `override.cfg`, deren `.uid`) vor dem Commit wieder löschen.
