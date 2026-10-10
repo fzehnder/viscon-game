@@ -85,7 +85,7 @@ Per Bot von Start bis Siegbildschirm durchgespielt: im Hoodie in der Küche erwi
 
 ## Offen
 
-- **Tanzfläche (Kamera-Minigame) fehlt.** Der Autoload `Track` liegt auf dem Branch `tracking` und ist auf `level-base` noch nicht angekommen, deshalb ist dieser Schritt ausgelassen. Die Tanzfläche in der Rotunde ist bisher nur Dekoration. Sobald `tracking` da ist: Aufgabe in `DEF.tasks` ergänzen, auf der Tanzfläche `Track.use(self, ["pose"])` und `TM.pose_match`, Zielposen aus `track_debug` (Taste P), Bildschirm hell färben (Scheinwerfer), Tasten-Variante bei `Track.alive == false` oder nach 5 Sekunden ohne Ergebnis.
+- **Tanzfläche (Kamera-Minigame) fehlt.** Als das Level gebaut wurde, war der Autoload `Track` noch nicht auf `level-base`, deshalb ist dieser Schritt ausgelassen. Seit dem 10.10.2026 ist `Track` da (siehe `tracker/README.md`); die Tanzfläche in der Rotunde ist aber weiterhin nur Dekoration. Zu bauen: Aufgabe in `DEF.tasks` ergänzen, auf der Tanzfläche `Track.use(self, ["pose"])` und `TM.pose_match`, Zielposen aus `track_debug` (Taste P), Bildschirm hell färben (Scheinwerfer), Tasten-Variante bei `Track.alive == false` oder nach 5 Sekunden ohne Ergebnis.
 - **«Relay-Prinzip aus Level 1»:** Im Code ist «Legi validieren» ein Timing-Minigame für eine Person, ein Relay gibt es dort nicht. Das Armband benutzt deshalb das bestehende Sequenz-Minigame für die bauende Person und eine eigene kleine Anzeige für die Vorlage.
 - **Hans Muster** gibt es bisher in keinem Level als Opp. Welche id er bekommt, muss mit `HANS_ID` übereinstimmen.
 - **Küchenschürze** sieht aus wie eine weisse Kochjacke (`labcoat`). Eine echte Schürze wäre ein neues Accessoire in `character_art.gd`.
