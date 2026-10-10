@@ -1,7 +1,6 @@
 extends Node2D
-## ETH Zentrum – Tag & Nacht. Two players on one keyboard.
-## Builds the round from the menu choices (Game autoload): department and mode.
-## Day = Level 1 (co-op tasks against the clock), night = break into the lab.
+## ETH Zentrum – Tag & Nacht. Story mode for two players on one keyboard.
+## The level comes from the Game autoload (levels.gd). Level 1 is the Ersti-Tag (day).
 ## Camera: one shared view while the players are close, split screen when they drift apart
 ## or while one of them is in a minigame (the minigame then opens on that player's half).
 
@@ -14,8 +13,10 @@ const HudScript = preload("res://scripts/hud.gd")
 const FxScript = preload("res://scripts/fx.gd")
 const MiniScript = preload("res://scripts/minigame.gd")
 const CH = preload("res://scripts/characters.gd")
+const ART = preload("res://scripts/character_art.gd")
 const KEYS = preload("res://scripts/controls.gd")
 const LV = preload("res://scripts/levels.gd")
+const UI = preload("res://scripts/ui.gd")
 const TS := 32.0
 const START := Vector2(12.5, 43.5)
 const STATION := Rect2(0, 41, 10.2, 5)
@@ -23,8 +24,9 @@ const HG_ZONES := ["Hauptgebäude (HG)", "Haupthalle", "ETH-Bibliothek", "Lounge
 const CAM_OFFSET := Vector2(0, -18)
 const ZOOM_MIN := 1.5
 const ZOOM_MAX := 3.6
-const SPLIT_AT := 0.7    # split when the players are further apart than this share of the screen
-const MERGE_AT := 0.45   # merge again when closer than this share
+const SPLIT_AT := 0.7      # split when the players are further apart than this share of the screen
+const MERGE_AT := 0.45     # merge again when closer than this share
+const STEAL_BEHIND := 1.9  # rad: you must be at least this far from where the Ersti is looking
 
 var data: Dictionary
 var world: Node2D
@@ -36,29 +38,29 @@ var students: Array = []
 var hud: CanvasLayer
 var fx: Node2D
 var minis: Array = [null, null]       # open minigame per player (same object twice for co-op games)
-var nears: Array = [null, null]       # object each player could interact with
+var nears: Array = [null, null]       # thing each player could interact with
 var near = null                       # = nears[0]
-var open_task: Array = ["", ""]       # task id each player is working on
+var busy_spot: Array = [null, null]   # station object each player is using
 
-var dept := "MAVT"
-var mode := "night"
-var night := true
+var dept := "D-INFK"
+var mode := "day"
+var night := false
 var state := "intro"   # intro, play, caught, won, lost
 var zone := "Polyterrasse"
 var time_played := 0.0
-var day_time := 300.0
+var day_time := 420.0
+var gather_time := 7.0
 var spotted_count := 0
 var mistakes_total := 0
+var hint_noise_shown := false
 
 # night progress
 var entered_hg := false
 var has_prep := false
 var lab_open := false
 var has_item := false
-# day progress (Level 1)
-var done_tasks := {}
-var bag_watch := 0.0
-var bag_warned := false
+# day progress: per player, task id -> true
+var done: Array = [{}, {}]
 # abilities (night, P1)
 var ability: Dictionary
 var cooldown := 0.0
@@ -83,8 +85,10 @@ func _ready() -> void:
 	night = mode == "night"
 	ability = CH.DEPTS[dept]["ability"]
 	data = MapData.new().build(mode, dept)
+	var lv: Dictionary = LV.level(Game.level)
 	if not night:
-		day_time = float(LV.level(1)["time"])
+		day_time = float(lv["time"])
+		gather_time = float(lv["gather"])
 	_build_views()
 	world = WorldScript.new()
 	world.data = data
@@ -96,39 +100,44 @@ func _ready() -> void:
 	fx = FxScript.new()
 	fx.main = self
 	vps[0].add_child(fx)
+	var start: Vector2 = START if night else (lv["start"] as Vector2)
 	for i in 2:
 		var pl = PlayerScript.new()
 		pl.pid = i
 		pl.main = self
-		pl.look = _look_for(i)
+		pl.look = (Game.player_looks[i] as Dictionary).duplicate(true)
 		pl.night = night
-		pl.position = (START + Vector2(0.0, -0.8 + 1.6 * i)) * TS
+		pl.position = (start + Vector2(-0.6 + 1.2 * i, 0.3)) * TS
+		pl.dir = 0.0
+		pl.facing = ART.facing_from_angle(0.0)
 		actors.add_child(pl)
 		players.append(pl)
 	player = players[0]
 	for p in data["profs"]:
+		if not night:
+			continue   # Level 1: no professors on the map
 		var pr = ProfScript.new()
 		pr.setup(p, world, self)
 		actors.add_child(pr)
 		profs.append(pr)
 	if not night:
 		_spawn_students()
+		_spawn_crowd(lv)
 	hud = HudScript.new()
 	hud.main = self
 	add_child(hud)
 	_update_cameras(true)
-	var d: Dictionary = CH.DEPTS[dept]
-	var controls := "P1: WASD · E · Shift sprinten · Ctrl schleichen      P2: Pfeile · Enter · . sprinten · - schleichen"
+	var controls := "%s: WASD · E · Shift sprinten · Ctrl schleichen\n%s: Pfeile · Enter · . sprinten · - schleichen" % [Game.name_of(0), Game.name_of(1)]
 	if night:
-		hud.show_overlay("%s · Nacht" % d["char"],
-			"Es ist 00:30. %s\n\nDie Professoren drehen mit Taschenlampen ihre Runden. Bleibt ihr zu lange in einem Lichtkegel, seid ihr erwischt. Geht leise (schleichen), versteckt euch (Interagieren) und nutzt die Fähigkeit (Q, nur P1): %s." % [d["night_text"], d["ability"]["name"]],
-			controls + "\nQ Fähigkeit · Mausrad / +/- Zoom",
-			"Los geht's")
+		var d: Dictionary = CH.DEPTS[dept]
+		hud.show_overlay("Nacht", "Es ist 00:30. %s\n\nBleibt nicht zu lange im Lichtkegel der Professoren." % d["night_text"],
+			controls, "Los geht's!", false, "info", "LEVEL %d" % Game.level)
 	else:
-		hud.show_overlay(LV.level(1)["name"],
-			String(LV.level(1)["intro"]) % int(day_time / 60.0),
-			controls + "\nMausrad / +/- Zoom",
-			"Los geht's")
+		var lines := String(lv["intro"]) + "\n"
+		for tk in LV.tasks():
+			lines += "\n•  %s  –  %s" % [tk["name"], tk["where"]]
+		lines += "\n\nIhr habt %d Minuten. Leise sein (schleichen), sonst merken die Erstis was." % int(day_time / 60.0)
+		hud.show_overlay(String(lv["name"]), lines, controls, "Los geht's!", false, "info", String(lv["tag"]))
 
 
 func _setup_input() -> void:
@@ -146,14 +155,17 @@ func _setup_input() -> void:
 			InputMap.action_add_event(a, ev)
 
 
-func _look_for(i: int) -> Dictionary:
-	if i == 0:
-		return Game.look().duplicate(true)
-	var order: Array = CH.DEPT_ORDER
-	var other: String = order[(order.find(dept) + 1) % order.size()]
-	return (Game.looks[other] as Dictionary).duplicate(true)
+func _new_student(rng: RandomNumberGenerator, pos_px: Vector2, z: Array) -> CharacterBody2D:
+	var st = StudentScript.new()
+	st.look = CH.random_student(rng)
+	st.zone = z
+	st.world = world
+	st.main = self
+	st.position = pos_px
+	return st
 
 
+## Older students spread over the campus (no bags).
 func _spawn_students() -> void:
 	var rng := RandomNumberGenerator.new()
 	rng.seed = 4711
@@ -169,13 +181,47 @@ func _spawn_students() -> void:
 					break
 			if not ok:
 				continue
-			var st = StudentScript.new()
-			st.look = CH.random_student(rng)
-			st.zone = z
-			st.world = world
-			st.position = pos
+			var st = _new_student(rng, pos, z)
 			actors.add_child(st)
 			students.append(st)
+
+
+## The Ersti welcome crowd around the players. Some of them carry an Ersti bag.
+func _spawn_crowd(lv: Dictionary) -> void:
+	var rng := RandomNumberGenerator.new()
+	rng.randomize()
+	var center: Vector2 = lv["start"]
+	var n := int(lv["crowd"])
+	var bags := int(lv["bags"])
+	var spots: Array = []
+	var tries := 0
+	while spots.size() < n and tries < n * 40:
+		tries += 1
+		var a := rng.randf() * TAU
+		var r := sqrt(rng.randf())
+		var p := center + Vector2(cos(a) * r * 6.5, sin(a) * r * 5.0)
+		var tile := Vector2i(int(floor(p.x)), int(floor(p.y)))
+		if not world.astar.is_in_boundsv(tile) or world.astar.is_point_solid(tile):
+			continue
+		if p.distance_to(center) < 1.4:
+			continue
+		var free := true
+		for q in spots:
+			if (q as Vector2).distance_to(p) < 0.95:
+				free = false
+				break
+		if free:
+			spots.append(p)
+	var zones: Array = data["student_zones"]
+	for k in spots.size():
+		var st = _new_student(rng, (spots[k] as Vector2) * TS, zones[rng.randi() % zones.size()])
+		st.gathering = true
+		st.face_point = (lv["speaker"] as Vector2) * TS
+		st.wait = rng.randf_range(0.0, 2.0)
+		if k < bags:
+			st.set_bag(true)
+		actors.add_child(st)
+		students.append(st)
 
 
 # ------------------------------------------------------------------ split screen
@@ -211,7 +257,7 @@ func _build_views() -> void:
 		cam.make_current()
 		cams.append(cam)
 	divider = ColorRect.new()
-	divider.color = Color(0.02, 0.03, 0.05)
+	divider.color = UI.DARK
 	divider.mouse_filter = Control.MOUSE_FILTER_IGNORE
 	vroot.add_child(divider)
 	_layout_views()
@@ -222,13 +268,13 @@ func _layout_views() -> void:
 	if split:
 		var hw := floorf(vs.x / 2.0)
 		vcs[0].position = Vector2.ZERO
-		vcs[0].size = Vector2(hw - 2.0, vs.y)
+		vcs[0].size = Vector2(hw - 3.0, vs.y)
 		vcs[1].visible = true
-		vcs[1].position = Vector2(hw + 2.0, 0.0)
-		vcs[1].size = Vector2(vs.x - hw - 2.0, vs.y)
+		vcs[1].position = Vector2(hw + 3.0, 0.0)
+		vcs[1].size = Vector2(vs.x - hw - 3.0, vs.y)
 		divider.visible = true
-		divider.position = Vector2(hw - 2.0, 0.0)
-		divider.size = Vector2(4.0, vs.y)
+		divider.position = Vector2(hw - 3.0, 0.0)
+		divider.size = Vector2(6.0, vs.y)
 		vps[1].render_target_update_mode = SubViewport.UPDATE_ALWAYS
 	else:
 		vcs[0].position = Vector2.ZERO
@@ -276,7 +322,7 @@ func _unhandled_input(event: InputEvent) -> void:
 	elif event is InputEventKey and event.pressed:
 		if event.physical_keycode in [KEY_EQUAL, KEY_KP_ADD, KEY_PLUS]:
 			dz = 0.2
-		elif event.physical_keycode in [KEY_MINUS, KEY_KP_SUBTRACT]:
+		elif event.physical_keycode in [KEY_KP_SUBTRACT]:
 			dz = -0.2
 	if dz != 0.0:
 		zoom = clampf(zoom + dz, ZOOM_MIN, ZOOM_MAX)
@@ -287,6 +333,11 @@ func _unhandled_input(event: InputEvent) -> void:
 ## World position -> screen position in P1's view (used by the HUD ping arrows).
 func world_to_screen(p: Vector2) -> Vector2:
 	return vcs[0].position + vps[0].get_canvas_transform() * p
+
+
+## Which half of the screen a player is on right now: 0 left, 1 right, -1 whole screen.
+func screen_side(pid: int) -> int:
+	return pid if split else -1
 
 
 # ------------------------------------------------------------------ loop
@@ -312,7 +363,6 @@ func _process(delta: float) -> void:
 			cooldown = maxf(0.0, cooldown - delta)
 			blackout_t = maxf(0.0, blackout_t - delta)
 			ping_t = maxf(0.0, ping_t - delta)
-			bag_watch = maxf(0.0, bag_watch - delta)
 			zone = world.zone_at(players[0].global_position)
 			if night and not entered_hg:
 				for pl in players:
@@ -334,7 +384,7 @@ func _process(delta: float) -> void:
 					if state != "play":
 						break
 			near = nears[0]
-			if state == "play" and Input.is_action_just_pressed("ability"):
+			if state == "play" and night and Input.is_action_just_pressed("ability"):
 				_use_ability()
 			if state == "play" and night and has_item:
 				for pl in players:
@@ -349,10 +399,11 @@ func start_game() -> void:
 	for pl in players:
 		pl.enabled = true
 	hud.hide_overlay()
+	UI.sfx("pop")
 	if night:
-		hud.toast("Polyterrasse, 00:30", "Der Haupteingang ist sicher zu. Versucht es hinten an der Künstlergasse – und passt auf Prof. Widmer auf.", 6.0)
+		hud.toast("Polyterrasse, 00:30", "Der Haupteingang ist zu. Versucht es hinten an der Künstlergasse.", 6.0)
 	else:
-		hud.toast("Polyterrasse, 10:15", "Die Uhr läuft. Folgt den gelben Markierungen. Den Ersti-Stand gleich hier vorne erreicht ihr am besten schleichend.", 6.0)
+		hud.toast("Willkommen, Erstis!", "Die grünen Bags sind auf den Rucksäcken. Von hinten anschleichen, nicht rennen!", 6.0)
 
 
 func on_overlay_button() -> void:
@@ -376,22 +427,22 @@ func on_step(pl, radius: float) -> void:
 		col = Color(0.7, 0.85, 1.0, 0.3)
 	fx.sound(pl.global_position, radius, col, 0.8 if pl.gait == "sprint" else 0.6)
 	if not night and pl.gait != "sneak":
-		_check_bag_noise(pl.global_position, radius)
+		_alert_erstis(pl.global_position, radius)
 
 
-func _check_bag_noise(at: Vector2, radius: float) -> void:
-	if night or done_tasks.has("ersti"):
-		return
-	var tk: Dictionary = LV.task("ersti")
-	if tk.is_empty():
-		return
-	var c: Vector2 = (tk["rect"] as Rect2).get_center() * TS
-	if at.distance_to(c) > radius + TS:
-		return
-	bag_watch = 3.0
-	if not bag_warned:
-		bag_warned = true
-		hud.toast("Die Helfer*innen schauen her", "Am Ersti-Stand hat man euch gehört. Wartet kurz und schleicht euch an (P1 Ctrl, P2 -).", 4.0)
+## Erstis with a bag hear noise within `radius` px, turn around and hold their bag.
+func _alert_erstis(at: Vector2, radius: float) -> void:
+	var any := false
+	for st in students:
+		if not st.has_bag or st.frozen:
+			continue
+		if st.global_position.distance_to(at) < radius + 0.4 * TS:
+			if st.alert_t <= 0.0:
+				any = true
+			st.alert(at, 3.0)
+	if any and not hint_noise_shown:
+		hint_noise_shown = true
+		hud.toast("Psst! Zu laut!", "Die Erstis hören dich und halten ihre Bag fest. Schleichen: %s Ctrl, %s -" % [Game.name_of(0), Game.name_of(1)], 5.0)
 
 
 func make_noise(at: Vector2, radius: float) -> void:
@@ -413,7 +464,7 @@ func _update_near(i: int) -> void:
 	for o in data["objs"]:
 		if not o.has("use") or o.get("taken", false) or o.get("opened", false):
 			continue
-		if o["use"] == "station" and done_tasks.has(o["task"]):
+		if o["use"] == "station" and done[i].has(o["task"]):
 			continue
 		var r: Rect2 = o["rect"]
 		var c := Vector2(clampf(p.x, r.position.x, r.end.x), clampf(p.y, r.position.y, r.end.y))
@@ -421,6 +472,23 @@ func _update_near(i: int) -> void:
 		if dd < best:
 			best = dd
 			nears[i] = o
+	if night:
+		return
+	if not done[i].has("ersti"):
+		for st in students:
+			if not st.has_bag or st.frozen:
+				continue
+			var ds: float = p.distance_to(st.global_position / TS)
+			if ds < best and ds < 1.25:
+				best = ds
+				nears[i] = {"use": "steal", "student": st, "label": "Ersti-Bag klauen",
+					"rect": Rect2(st.global_position / TS - Vector2(0.5, 1.7), Vector2(1.0, 1.9))}
+	if not done[i].has("highfive") and best > 0.6:
+		var other = players[1 - i]
+		var op: Vector2 = other.global_position / TS
+		if p.distance_to(op) < 1.8 and not busy(1 - i) and not other.hidden_mode:
+			var mid := (p + op) / 2.0
+			nears[i] = {"use": "highfive", "label": "High Five!", "rect": Rect2(mid - Vector2(1.3, 1.7), Vector2(2.6, 2.1))}
 
 
 func _interact(i: int) -> void:
@@ -443,10 +511,7 @@ func _interact(i: int) -> void:
 			o["taken"] = true
 			has_prep = true
 			world.queue_redraw()
-			if dept == "MAVT":
-				hud.toast("Dietrich-Set", "Spanner und Haken aus der Werkzeugkiste. Damit bekommt ihr die Labortür im Ostflügel auf.")
-			else:
-				hud.toast("Schaltplan", "Der Plan zeigt, wie der Sicherungskasten neben dem Labor verdrahtet werden muss, damit das Türschloss stromlos wird.")
+			hud.toast("Gefunden", "Das hilft euch am Labor weiter.")
 		"moodle_prep":
 			if has_prep:
 				hud.toast("Moodle", "Das Wartungspasswort habt ihr schon. Jetzt zum Kartenleser am Labor.")
@@ -455,47 +520,50 @@ func _interact(i: int) -> void:
 					has_prep = true
 					o["use"] = "info"
 					o["info"] = ["Moodle", "Du bist noch eingeloggt. Das Passwort habt ihr bereits."]
-					hud.toast("Passwort gefunden", "Im Moodle-Kurs «Robotik-Labor» steht das Wartungspasswort des Kartenlesers. Ab zum Labor!")
+					hud.toast("Passwort gefunden", "Ab zum Labor!")
 				open_minigame("moodle", {"count": 2}, on_pw, i)
 		"labdoor":
 			_lab_door(i)
 		"fusebox":
 			if not has_prep:
-				hud.toast("Sicherungskasten", "Zu viele Kabel. Ohne Schaltplan wisst ihr nicht, was wohin gehört. An der Ausleihe der Bibliothek liegt einer.")
+				hud.toast("Sicherungskasten", "Zu viele Kabel. Ohne Schaltplan wisst ihr nicht, was wohin gehört.")
 			else:
 				var on_fuse := func():
 					_open_lab()
-					hud.toast("Klick.", "Das Laborschloss ist stromlos. Drinnen sitzt Prof. Huber noch am Messplatz – wartet, bis er euch den Rücken zudreht.")
+					hud.toast("Klick.", "Das Laborschloss ist stromlos.")
 				open_minigame("wiring", {"title": "Sicherungskasten umverdrahten", "wires": 5}, on_fuse, i)
 		"goal":
 			o["taken"] = true
 			has_item = true
 			world.queue_redraw()
-			var names := {"MAVT": "Prototyp-Getriebe", "ITET": "Festplatte mit den Messdaten", "D-INFK": "USB-Stick mit deiner Bachelorarbeit"}
-			hud.toast("%s gesichert" % names[dept], "Jetzt nichts wie raus – zurück zur Polybahn!")
+			hud.toast("Gesichert!", "Jetzt nichts wie raus – zurück zur Polybahn!")
 		"station":
 			_day_station(o, i)
+		"steal":
+			_steal(i, o["student"])
+		"highfive":
+			_highfive(i)
 
 
 func _lab_door(i: int) -> void:
 	match dept:
 		"MAVT":
 			if not has_prep:
-				hud.toast("Verschlossen", "Ein altes Zylinderschloss. Mit Werkzeug ginge das – im Seminarraum steht eine Werkzeugkiste.")
+				hud.toast("Verschlossen", "Ein altes Zylinderschloss. Mit Werkzeug ginge das.")
 			else:
 				var on_lock := func():
 					_open_lab()
-					hud.toast("Offen!", "Der letzte Stift springt. Drinnen sitzt Prof. Huber – wartet, bis er euch den Rücken zudreht.")
+					hud.toast("Offen!", "Der letzte Stift springt.")
 				open_minigame("timing", {"title": "Schloss knacken", "hits": 4, "verb": "Stift", "speed": 280.0}, on_lock, i)
 		"ITET":
-			hud.toast("Elektronisches Schloss", "Die Tür hängt am Sicherungskasten links im Gang. Dort müsst ihr ansetzen.")
-		"D-INFK":
+			hud.toast("Elektronisches Schloss", "Die Tür hängt am Sicherungskasten links im Gang.")
+		_:
 			if not has_prep:
-				hud.toast("Kartenleser", "Er will ein Wartungspasswort. Vielleicht steht es im Moodle – der Katalog-PC in der Bibliothek ist noch an.")
+				hud.toast("Kartenleser", "Er will ein Wartungspasswort. Vielleicht steht es im Moodle.")
 			else:
 				var on_hack := func():
 					_open_lab()
-					hud.toast("Zugriff gewährt", "Die Tür summt und springt auf. Drinnen sitzt Prof. Huber – wartet auf euren Moment.")
+					hud.toast("Zugriff gewährt", "Die Tür summt und springt auf.")
 				open_minigame("sequence", {"title": "Kartenleser hacken", "length": 6}, on_hack, i)
 
 
@@ -507,43 +575,110 @@ func _open_lab() -> void:
 # ------------------------------------------------------------------ Level 1 (day)
 func _day_station(o: Dictionary, i: int) -> void:
 	var id: String = o["task"]
-	if done_tasks.has(id):
-		hud.toast("Erledigt", "Diese Aufgabe habt ihr schon abgeschlossen.", 2.5)
+	if done[i].has(id):
+		hud.toast("Schon erledigt", "Das hast du schon. Schau, was noch fehlt.", 2.5)
 		return
-	if open_task[1 - i] == id:
-		hud.toast("Besetzt", "%s ist hier schon dran." % KEYS.TAGS[1 - i], 2.5)
+	if busy_spot[1 - i] == o:
+		hud.toast("Besetzt", "%s ist hier gerade dran. Es gibt noch andere Plätze." % Game.name_of(1 - i), 2.5)
 		return
 	var tk: Dictionary = LV.task(id)
 	if tk.is_empty():
 		return
-	if tk.get("sneak", false) and bag_watch > 0.0:
-		hud.toast("Sie schauen gerade her", "Die Helfer*innen am Ersti-Stand haben euch gehört. Kurz warten, dann leise zugreifen.", 3.0)
-		return
-	if tk.get("coop", false):
-		var other = players[1 - i]
-		var center: Vector2 = (o["rect"] as Rect2).get_center() * TS
-		if busy(1 - i) or other.global_position.distance_to(center) > 2.6 * TS:
-			hud.toast("Zu zweit!", "Für einen High Five braucht ihr beide. Kommt zusammen zur Markierung.", 3.0)
-			return
-		var on_coop := func(): _task_done(tk)
-		open_coop_minigame(tk["game"], tk["params"], on_coop)
-		return
-	open_task[i] = id
-	var on_done := func(): _task_done(tk)
-	open_minigame(tk["game"], tk["params"], on_done, i)
+	var params: Dictionary = (tk["params"] as Dictionary).duplicate()
+	if id == "legi":
+		params["legi"] = i
+	busy_spot[i] = o
+	var on_ok := func(): _task_done(i, id)
+	var on_close := func(): busy_spot[i] = null
+	open_minigame(String(tk["game"]), params, on_ok, i, Callable(), on_close)
 
 
-func _task_done(tk: Dictionary) -> void:
-	var id: String = tk["id"]
-	if done_tasks.has(id) or state != "play":
+func _steal(i: int, st) -> void:
+	var pl = players[i]
+	if done[i].has("ersti") or not st.has_bag:
 		return
-	done_tasks[id] = true
+	if st.alert_t > 0.0:
+		hud.toast("Festgehalten!", "Die Ersti hält die Bag gerade gut fest. Kurz warten, dann leise von hinten.", 3.0)
+		UI.sfx("fail")
+		return
+	var to: Vector2 = pl.global_position - st.global_position
+	var ang := absf(wrapf(to.angle() - st.dir, -PI, PI))
+	if ang < STEAL_BEHIND or pl.gait == "sprint":
+		st.alert(pl.global_position, 3.5)
+		fx.sound(st.global_position, 2.0 * TS, Color(1.0, 0.4, 0.4, 0.7), 0.6)
+		hud.toast("Bemerkt!", "Von vorne klappt das nicht. Schleich dich von hinten an.", 3.0)
+		UI.sfx("fail")
+		return
+	st.frozen = true
+	var on_ok := func():
+		st.frozen = false
+		st.set_bag(false)
+		_give_bag(i)
+		_task_done(i, "ersti")
+	var on_mistake := func():
+		st.frozen = false
+		st.alert(pl.global_position, 4.0)
+		_abort_mini(i)
+		hud.toast("Ups, gemerkt!", "Die Ersti hat dich gespürt. Versuch's gleich nochmal bei jemand anderem.", 3.0)
+	var on_close := func(): st.frozen = false
+	open_minigame("timing", {"title": "Ersti-Bag klauen", "hits": 2, "verb": "Griff", "speed": 330.0}, on_ok, i, on_mistake, on_close)
+
+
+func _give_bag(i: int) -> void:
+	var pl = players[i]
+	var acc: Array = pl.look.get("acc", [])
+	if not acc.has("erstibag"):
+		acc.append("erstibag")
+	pl.look["acc"] = acc
+	pl.queue_redraw()
+	UI.sfx("steal")
+	UI.confetti(fx, pl.global_position + Vector2(0, -30), 40, true, 70.0, 0.3)
+
+
+func _highfive(i: int) -> void:
+	var other = players[1 - i]
+	if busy(1 - i):
+		hud.toast("Moment!", "%s ist gerade beschäftigt." % Game.name_of(1 - i), 2.5)
+		return
+	if other.global_position.distance_to(players[i].global_position) > 1.9 * TS:
+		hud.toast("Zu weit weg", "Für einen High Five müsst ihr nebeneinander stehen.", 2.5)
+		return
+	var tk: Dictionary = LV.task("highfive")
+	var on_ok := func(): _coop_done("highfive")
+	open_coop_minigame(String(tk["game"]), tk["params"], on_ok)
+
+
+func _left(pid: int) -> int:
+	return LV.tasks().size() - done[pid].size()
+
+
+func _task_done(pid: int, id: String) -> void:
+	if done[pid].has(id) or state != "play":
+		return
+	done[pid][id] = true
 	world.queue_redraw()
-	var left: int = (LV.level(1)["tasks"] as Array).size() - done_tasks.size()
-	if left > 0:
-		hud.toast("%s erledigt" % tk["name"], "Noch %d Aufgabe%s." % [left, "" if left == 1 else "n"])
-	else:
-		_win_day()
+	var tk: Dictionary = LV.task(id)
+	var left := _left(pid)
+	var sub := "%s · noch %d" % [Game.name_of(pid), left] if left > 0 else "%s hat alles!" % Game.name_of(pid)
+	hud.celebrate(String(tk["name"]), sub, Color(KEYS.TAG_COLORS[pid]), screen_side(pid))
+	_check_win()
+
+
+func _coop_done(id: String) -> void:
+	if state != "play":
+		return
+	for pid in 2:
+		done[pid][id] = true
+	var tk: Dictionary = LV.task(id)
+	hud.celebrate(String(tk["name"]) + "!", "%s & %s" % [Game.name_of(0), Game.name_of(1)], UI.YELLOW, -1)
+	_check_win()
+
+
+func _check_win() -> void:
+	if _left(0) == 0 and _left(1) == 0:
+		get_tree().create_timer(1.4).timeout.connect(func():
+			if state == "play":
+				_win_day())
 
 
 func _win_day() -> void:
@@ -555,9 +690,9 @@ func _win_day() -> void:
 	grade = clampf(snappedf(grade, 0.25), 1.0, 6.0)
 	var verdict := "Hervorragend!" if grade >= 5.5 else ("Gut gemacht." if grade >= 4.5 else ("Bestanden." if grade >= 4.0 else "Knapp daneben."))
 	var t := int(time_played)
-	hud.show_overlay("Note " + String.num(grade, 2),
-		"Erster Tag geschafft: «%s»\n\nZeit: %d:%02d · Fehler in Minigames: %d\nIn der Schweiz ist 6 die Bestnote, ab 4 ist bestanden." % [verdict, t / 60, t % 60, mistakes_total],
-		"R neue Runde · M zurück zum Menü", "Nochmals spielen", true)
+	hud.show_overlay("Ersti-Tag geschafft!",
+		"%s & %s haben den ersten Tag überlebt.\n\nNote %s · %s\nZeit: %d:%02d · Fehler in Minigames: %d\n\nIn der Schweiz ist 6 die Bestnote, ab 4 ist bestanden." % [Game.name_of(0), Game.name_of(1), String.num(grade, 2), verdict, t / 60, t % 60, mistakes_total],
+		"R nochmals spielen · M zum Startbildschirm", "Nochmals spielen", true, "win", "LEVEL %d" % Game.level)
 
 
 func _lose_day() -> void:
@@ -565,10 +700,10 @@ func _lose_day() -> void:
 	state = "lost"
 	for pl in players:
 		pl.enabled = false
-	var total: int = (LV.level(1)["tasks"] as Array).size()
+	var total := LV.tasks().size()
 	hud.show_overlay("Zeit abgelaufen",
-		"Der erste Tag ist vorbei, und es ist noch nicht alles erledigt.\n\nErledigt: %d von %d Aufgaben." % [done_tasks.size(), total],
-		"R neue Runde · M zurück zum Menü", "Nochmals versuchen", true)
+		"Der erste Tag ist vorbei, und es ist noch nicht alles erledigt.\n\n%s: %d von %d\n%s: %d von %d" % [Game.name_of(0), done[0].size(), total, Game.name_of(1), done[1].size(), total],
+		"R nochmals versuchen · M zum Startbildschirm", "Nochmals versuchen", true, "lose", "LEVEL %d" % Game.level)
 
 
 # ------------------------------------------------------------------ minigames
@@ -579,33 +714,50 @@ func _close_minis() -> void:
 			seen.append(mg)
 			mg.queue_free()
 	minis = [null, null]
-	open_task = ["", ""]
+	busy_spot = [null, null]
+	for st in students:
+		st.frozen = false
+
+
+func _abort_mini(pid: int) -> void:
+	var mg = minis[pid]
+	if mg == null:
+		return
+	mg.finished.emit(false, mg.mistakes)
+	mg.queue_free()
 
 
 ## Minigame for one player, on that player's half of the screen with that player's keys.
-func open_minigame(kind: String, params: Dictionary, on_success: Callable, pid: int = 0) -> void:
+func open_minigame(kind: String, params: Dictionary, on_success: Callable, pid: int = 0,
+		on_mistake: Callable = Callable(), on_close: Callable = Callable()) -> void:
 	var mg = MiniScript.new()
 	mg.screen_side = pid
 	mg.keys = KEYS.keys_for(pid)
 	mg.labels = KEYS.labels_for(pid)
+	mg.accent = Color(KEYS.TAG_COLORS[pid])
 	minis[pid] = mg
 	nears[pid] = null
 	players[pid].enabled = false
 	_update_cameras()
 	add_child(mg)
 	mg.open(kind, params, dept)
-	mg.mistake.connect(func(): _on_mini_mistake(pid))
+	mg.mistake.connect(func():
+		_on_mini_mistake(pid)
+		if on_mistake.is_valid():
+			on_mistake.call())
 	mg.finished.connect(func(ok: bool, _m: int):
-		if minis[pid] == mg:
-			minis[pid] = null
-		open_task[pid] = ""
+		if minis[pid] != mg:
+			return
+		minis[pid] = null
+		if on_close.is_valid():
+			on_close.call()
 		if state != "play":
 			return
 		players[pid].enabled = true
 		if ok:
 			on_success.call()
 		else:
-			hud.toast("Abgebrochen", "Ihr könnt es jederzeit nochmals versuchen.", 2.5))
+			hud.toast("Abgebrochen", "Du kannst es jederzeit nochmals versuchen.", 2.5))
 
 
 ## Minigame for both players at once (full screen, P1 and P2 keys).
@@ -616,6 +768,7 @@ func open_coop_minigame(kind: String, params: Dictionary, on_success: Callable) 
 	mg.labels = KEYS.labels_for(0)
 	mg.keys2 = KEYS.keys_for(1)
 	mg.labels2 = KEYS.labels_for(1)
+	mg.accent = UI.YELLOW
 	for j in 2:
 		minis[j] = mg
 		nears[j] = null
@@ -624,6 +777,8 @@ func open_coop_minigame(kind: String, params: Dictionary, on_success: Callable) 
 	mg.open(kind, params, dept)
 	mg.mistake.connect(func(): _on_mini_mistake(-1))
 	mg.finished.connect(func(ok: bool, _m: int):
+		if minis[0] != mg and minis[1] != mg:
+			return
 		for j in 2:
 			if minis[j] == mg:
 				minis[j] = null
@@ -642,19 +797,16 @@ func _on_mini_mistake(pid: int) -> void:
 	var at: Vector2 = (players[0].global_position + players[1].global_position) / 2.0
 	if pid >= 0:
 		at = players[pid].global_position
-	fx.sound(at, 5.5 * TS, Color(1.0, 0.45, 0.35, 0.7), 1.0)
+	fx.sound(at, 4.0 * TS, Color(1.0, 0.45, 0.35, 0.7), 1.0)
 	if night:
 		make_noise(at, 5.5 * TS)
 		hud.toast("Zu laut!", "Das hat jemand gehört …", 1.8)
 	else:
-		_check_bag_noise(at, 5.5 * TS)
+		_alert_erstis(at, 3.0 * TS)
 
 
 # ------------------------------------------------------------------ abilities (night, P1)
 func _use_ability() -> void:
-	if not night:
-		hud.toast(ability["name"], "Fähigkeiten braucht ihr nur nachts.", 2.0)
-		return
 	if cooldown > 0.0 or busy(0):
 		return
 	cooldown = ability["cooldown"]
@@ -668,7 +820,7 @@ func _use_ability() -> void:
 			get_tree().create_timer(0.45).timeout.connect(func():
 				fx.ring(land)
 				make_noise(land, 7.0 * TS))
-			hud.toast("Klirr!", "Der Schlüssel scheppert über den Boden. Wer in der Nähe ist, schaut nach.", 2.5)
+			hud.toast("Klirr!", "Der Schlüssel scheppert über den Boden.", 2.5)
 		"blackout":
 			blackout_t = 7.0
 			hud.toast("Stromausfall!", "Für 7 Sekunden reichen die Taschenlampen nur halb so weit.", 3.0)
@@ -678,21 +830,20 @@ func _use_ability() -> void:
 
 
 # ------------------------------------------------------------------ status for HUD / FX
+## Night: [text, done, active]. Day: [name, where, [done P1, done P2]].
 func objectives() -> Array:
 	if night:
-		var prep := {"MAVT": "Dietrich-Set holen (Seminarraum)", "ITET": "Schaltplan holen (Ausleihe)", "D-INFK": "Passwort im Moodle finden (Bibliothek)"}
-		var open := {"MAVT": "Labortür knacken", "ITET": "Sicherungskasten verdrahten", "D-INFK": "Kartenleser hacken"}
-		var item := {"MAVT": "Prototyp-Getriebe holen", "ITET": "Festplatte holen", "D-INFK": "USB-Stick holen"}
 		return [
 			["Ins Hauptgebäude gelangen", entered_hg, true],
-			[prep[dept], has_prep, entered_hg],
-			[open[dept], lab_open, has_prep],
-			[item[dept], has_item, lab_open],
+			["Vorbereitung finden", has_prep, entered_hg],
+			["Labor öffnen", lab_open, has_prep],
+			["Beute holen", has_item, lab_open],
 			["Zur Polybahn fliehen", state == "won", has_item],
 		]
 	var out: Array = []
-	for tk in LV.level(1)["tasks"]:
-		out.append(["%s · %s" % [tk["name"], tk["where"]], done_tasks.has(tk["id"]), true])
+	for tk in LV.tasks():
+		var id: String = tk["id"]
+		out.append([tk["name"], tk["where"], [done[0].has(id), done[1].has(id)]])
 	return out
 
 
@@ -704,6 +855,13 @@ func _obj_center(pred: Callable) -> Array:
 	return out
 
 
+func _need_color(n0: bool, n1: bool) -> Color:
+	if n0 and n1:
+		return UI.YELLOW
+	return Color(KEYS.TAG_COLORS[0 if n0 else 1])
+
+
+## Night: plain positions. Day: [position, colour] (colour = who still needs it).
 func goal_positions() -> Array:
 	if night:
 		if not entered_hg:
@@ -715,7 +873,25 @@ func goal_positions() -> Array:
 		if not has_item:
 			return _obj_center(func(o): return o.get("use", "") == "goal")
 		return [Vector2(10.5, 43.0) * TS]
-	return _obj_center(func(o): return o.get("use", "") == "station" and not done_tasks.has(o["task"]))
+	var out: Array = []
+	for tk in LV.tasks():
+		var id: String = tk["id"]
+		var n0: bool = not done[0].has(id)
+		var n1: bool = not done[1].has(id)
+		if not (n0 or n1):
+			continue
+		var c := _need_color(n0, n1)
+		match String(tk.get("type", "")):
+			"steal":
+				for st in students:
+					if st.has_bag:
+						out.append([st.global_position + Vector2(0, -30), c])
+			"coop":
+				pass
+			_:
+				for p in _obj_center(func(o): return o.get("use", "") == "station" and o.get("task", "") == id):
+					out.append([p, c])
+	return out
 
 
 func time_left() -> float:
@@ -742,7 +918,7 @@ func caught(prof) -> void:
 		pl.enabled = false
 		pl.hidden_mode = false
 	hud.show_overlay("Erwischt!", "%s: «%s»" % [prof.pname, prof.quote],
-		"R nochmals versuchen · M zurück zum Menü", "Nochmals versuchen", true)
+		"R nochmals versuchen · M zum Startbildschirm", "Nochmals versuchen", true, "lose")
 
 
 func _win_night() -> void:
@@ -750,10 +926,8 @@ func _win_night() -> void:
 	for pl in players:
 		pl.enabled = false
 	var t := int(time_played)
-	var rank := "Phantom der ETH" if spotted_count == 0 else ("Knapp entwischt" if spotted_count < 3 else "Mit Herzklopfen")
-	hud.show_overlay("Geschafft!",
-		"%s sitzt in der Polybahn, die Beute in der Tasche.\n\nZeit: %d:%02d · Fast entdeckt: %d× · Titel: %s" % [CH.DEPTS[dept]["char"], t / 60, t % 60, spotted_count, rank],
-		"R neue Runde · M zurück zum Menü", "Nochmals spielen", true)
+	hud.show_overlay("Geschafft!", "Ihr sitzt in der Polybahn, die Beute in der Tasche.\n\nZeit: %d:%02d · Fast entdeckt: %d×" % [t / 60, t % 60, spotted_count],
+		"R nochmals spielen · M zum Startbildschirm", "Nochmals spielen", true, "win")
 
 
 func day_total() -> float:

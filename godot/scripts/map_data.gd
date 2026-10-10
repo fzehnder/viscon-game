@@ -228,11 +228,14 @@ func _dept_objects() -> void:
 					o["use"] = "fusebox"
 					o["label"] = "Sicherungskasten verdrahten"
 	else:
-		# Level 1 (day, co-op): stations come from levels.gd
-		for tk in LV.level(1)["tasks"]:
-			var r: Rect2 = tk["rect"]
-			R("station", r.position.x, r.position.y, r.size.x, r.size.y,
-				{"solid": false, "use": "station", "task": tk["id"], "label": tk["label"]})
+		# Level 1 (day, co-op): every task with fixed places gets one station per spot (levels.gd)
+		for tk in LV.tasks():
+			if not tk.has("spots"):
+				continue
+			for r in tk["spots"]:
+				var rr: Rect2 = r
+				R(String(tk.get("kind", "station")), rr.position.x, rr.position.y, rr.size.x, rr.size.y,
+					{"solid": false, "use": "station", "task": tk["id"], "label": tk["label"]})
 
 
 func _trees_labels_zones() -> void:

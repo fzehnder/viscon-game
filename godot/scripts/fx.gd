@@ -68,12 +68,23 @@ func _draw() -> void:
 		var pr := Rect2(rr.position * TS - Vector2(4, 4), rr.size * TS + Vector2(8, 8))
 		var a := 0.55 + 0.45 * (sin(t * 6.0) * 0.5 + 0.5)
 		draw_rect(pr, Color(Color(KEYS.TAG_COLORS[i]), a), false, 2.0)
+	# goal markers: a bobbing diamond in the colour of whoever still needs it (yellow = both)
 	var bob := sin(t * 3.0) * 4.0
 	for goal in main.goal_positions():
-		var g: Vector2 = goal + Vector2(0, -26 + bob)
-		draw_colored_polygon(PackedVector2Array([g + Vector2(0, -10), g + Vector2(8, 0), g + Vector2(0, 10), g + Vector2(-8, 0)]), Color(0.95, 0.76, 0.3, 0.92))
-		draw_circle(g, 2.8, Color(0.16, 0.14, 0.06))
-	# P1 / P2 tag and stamina bar above each player
+		var gp: Vector2
+		var gc := Color(0.95, 0.76, 0.3)
+		if goal is Array:
+			gp = goal[0]
+			gc = goal[1]
+		else:
+			gp = goal
+		var g: Vector2 = gp + Vector2(0, -26 + bob)
+		var sc := 1.0 + 0.12 * sin(t * 6.0)
+		var dia := PackedVector2Array([g + Vector2(0, -11) * sc, g + Vector2(9, 0) * sc, g + Vector2(0, 11) * sc, g + Vector2(-9, 0) * sc])
+		draw_colored_polygon(dia, Color(gc, 0.95))
+		draw_polyline(dia + PackedVector2Array([dia[0]]), Color(0.08, 0.09, 0.17), 1.5)
+		draw_circle(g, 2.6, Color(0.08, 0.09, 0.17))
+	# name tag and stamina bar above each player
 	var font := ThemeDB.fallback_font
 	for i in main.players.size():
 		var pl = main.players[i]
@@ -81,11 +92,12 @@ func _draw() -> void:
 			continue
 		var top: Vector2 = pl.global_position + Vector2(0, -60)
 		var tc := Color(KEYS.TAG_COLORS[i])
-		var tag: String = KEYS.TAGS[i]
-		var sz := font.get_string_size(tag, HORIZONTAL_ALIGNMENT_LEFT, -1, 12)
-		draw_string(font, top + Vector2(-sz.x / 2.0, 0), tag, HORIZONTAL_ALIGNMENT_LEFT, -1, 12, tc)
+		var tag: String = Game.name_of(i)
+		var sz := font.get_string_size(tag, HORIZONTAL_ALIGNMENT_LEFT, -1, 11)
+		draw_rect(Rect2(top + Vector2(-sz.x / 2.0 - 4, -11), Vector2(sz.x + 8, 14)), Color(0.08, 0.09, 0.17, 0.75))
+		draw_string(font, top + Vector2(-sz.x / 2.0, 0), tag, HORIZONTAL_ALIGNMENT_LEFT, -1, 11, tc)
 		var f: float = pl.stamina_frac()
 		if f < 0.999:
-			var bar := Rect2(top + Vector2(-14, 4), Vector2(28, 3))
+			var bar := Rect2(top + Vector2(-14, 6), Vector2(28, 3))
 			draw_rect(bar, Color(0, 0, 0, 0.55))
 			draw_rect(Rect2(bar.position, Vector2(28 * f, 3)), Color("ff5a4e") if pl.exhausted else tc)

@@ -135,6 +135,20 @@ static func draw_character(ci: CanvasItem, look: Dictionary, facing: int, phase:
 			else:
 				_rect(ci, -5.5, -27 - b, 11.0, 12.0, Color("3a3f46"))
 				_rect(ci, -4.5, -20 - b, 9.0, 4.0, Color("4a5058"))
+		if "erstibag" in acc:
+			# green drawstring bag from the Ersti-Tag, worn on the back
+			var cord := Color("f3efe2")
+			if front:
+				ci.draw_line(Vector2(-4.5, -28 - b), Vector2(-6.8, -17 - b), cord, 1.1)
+				ci.draw_line(Vector2(4.5, -28 - b), Vector2(6.8, -17 - b), cord, 1.1)
+			else:
+				var bag := Color("2f9e5b")
+				_rect(ci, -7.0, -30 - b, 14.0, 13.5, bag)
+				_ell(ci, Vector2(0, -16.5 - b), 7.0, 2.4, bag)
+				_rect(ci, -7.0, -30 - b, 14.0, 1.6, bag.darkened(0.25))
+				ci.draw_line(Vector2(-7.0, -29.2 - b), Vector2(7.0, -29.2 - b), cord, 1.1)
+				_rect(ci, -2.6, -25.5 - b, 5.2, 4.2, cord)
+				_rect(ci, -1.6, -24.6 - b, 3.2, 1.0, bag)
 		# arms
 		var sleeve := skin if style == "tshirt" else top
 		var al := sw * 1.6
@@ -201,6 +215,9 @@ static func draw_character(ci: CanvasItem, look: Dictionary, facing: int, phase:
 		# backpack
 		if "backpack" in acc:
 			_rect(ci, -k * 5.0 - 3.0, -27 - b, 6.0, 11.0, Color("3a3f46"))
+		if "erstibag" in acc:
+			_rect(ci, -k * 5.6 - 3.6, -30 - b, 7.2, 13.5, Color("2f9e5b"))
+			_rect(ci, -k * 5.6 - 1.4, -25.5 - b, 2.8, 3.2, Color("f3efe2"))
 		# torso
 		_rect(ci, -5.0, -28 - b, 10.0, 15.0, top)
 		_rect(ci, -5.0, -16 - b, 10.0, 3.0, top.darkened(0.12))

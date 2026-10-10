@@ -612,6 +612,14 @@ func _draw_obj(o: Dictionary) -> void:
 				_:
 					draw_rect(Rect2(x, y, w * 0.7, h), Color(0.85, 0.2, 0.2))
 					draw_rect(Rect2(x + w * 0.7, y + h * 0.2, w * 0.3, h * 0.6), Color(0.8, 0.82, 0.85))
+		"legi_terminal":
+			# blue validation terminal (Ersti-Tag)
+			_shadow(R2)
+			draw_rect(R2, Color("1f4f9a"))
+			draw_rect(Rect2(x + 3, y + 3, w - 6, h * 0.45), Color("8fd3ff"))
+			draw_rect(Rect2(x + w * 0.5 - 4, y + h * 0.62, 8, 3), Color("ffffff"))
+			draw_rect(Rect2(x + w * 0.5 - 1.5, y + h * 0.62 - 2.5, 3, 8), Color("ffffff"))
+			draw_rect(R2, Color("0f2a55"), false, 2.0)
 		"fusebox":
 			draw_rect(R2, N("8a939b", 0.2))
 			draw_rect(R2.grow(-2), N("5b646d", 0.2))

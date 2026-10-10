@@ -55,7 +55,15 @@ Zwei Spieler*innen an einer Tastatur. Sind beide nah beieinander, gibt es eine g
 
 Jeder Schritt sendet einen Geräusch-Kreis aus: schleichen fast lautlos, gehen normal, sprinten laut. Fehler in Minigames machen ebenfalls einen Kreis.
 
-**Level 1 (Tag):** Ersti-Bag klauen (anschleichen, sonst schauen die Helfer*innen her), Legi validieren, Moodle & Code Expert einrichten, High Five zu zweit. Inhalte und Positionen in `scripts/levels.gd`, Tasten in `scripts/controls.gd`.
+**Ablauf (Story-Modus, keine Departemente mehr):** Startseite → Hack der Bewerbungsseite → Namen → Legi-Foto pro Person (Kamera des Geräts, sonst gezeichnete Figur) → Figuren gestalten → Level 1.
+
+**Level 1 · Ersti-Tag (Tag):** Ihr startet in der Ersti-Menge auf der Polyterrasse. Beide müssen alles erledigen:
+- Ersti-Bag klauen: von hinten anschleichen. Wer laut ist, wird gehört, dann halten die Erstis ihre Bag fest. Die Bag erscheint danach auf eurer Figur.
+- Legi validieren: an einem der Terminals in der Haupthalle.
+- Moodle & Code Expert einrichten: an einem der PCs (Bibliothek, Seminarraum).
+- High Five: zu zweit, überall, wo ihr nebeneinander steht.
+
+Inhalte und Positionen in `scripts/levels.gd`, Tasten in `scripts/controls.gd`, Popup-Stil in `scripts/ui.gd`, Sounds in `scripts/sfx.gd` (werden im Code erzeugt, keine Audiodateien).
 
 ## Charakter-Design
 

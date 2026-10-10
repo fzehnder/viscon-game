@@ -10,11 +10,13 @@ signal mistake
 const CH = preload("res://scripts/characters.gd")
 const KEYS = preload("res://scripts/controls.gd")
 const LV = preload("res://scripts/levels.gd")
-const INK := Color("eef1ea")
-const MUTED := Color("a6b5c0")
-const SIGNAL := Color("f2c14e")
-const OKC := Color("86c97f")
-const BAD := Color("ff5a4e")
+const UI = preload("res://scripts/ui.gd")
+const LegiCard = preload("res://scripts/legi_card.gd")
+const INK := Color("ffffff")
+const MUTED := Color("b9bde6")
+const SIGNAL := Color("ffc93c")
+const OKC := Color("3ddc97")
+const BAD := Color("ff4d5e")
 const WIRE_COLORS := ["e74c3c", "3498db", "f1c40f", "2ecc71", "ecf0f1", "e67e22"]
 
 var kind := ""
@@ -28,6 +30,8 @@ var keys: Dictionary = {}
 var labels: Dictionary = {}
 var keys2: Dictionary = {}
 var labels2: Dictionary = {}
+var accent := Color("ffc93c")   # border colour: the player's colour (yellow for co-op)
+var legi_card: Control
 
 var root: Control
 var panel: PanelContainer
@@ -108,8 +112,8 @@ func _style(bg: Color, border: Color, pad: float = 8.0) -> StyleBoxFlat:
 	var sb := StyleBoxFlat.new()
 	sb.bg_color = bg
 	sb.border_color = border
-	sb.set_border_width_all(1)
-	sb.set_corner_radius_all(4)
+	sb.set_border_width_all(3)
+	sb.set_corner_radius_all(12)
 	sb.content_margin_left = pad + 4
 	sb.content_margin_right = pad + 4
 	sb.content_margin_top = pad
@@ -134,9 +138,9 @@ func _button(text: String, size: int = 16) -> Button:
 	b.text = text
 	b.focus_mode = Control.FOCUS_NONE
 	b.add_theme_font_size_override("font_size", size)
-	b.add_theme_stylebox_override("normal", _style(Color(0.15, 0.2, 0.26), Color(0.3, 0.38, 0.46)))
-	b.add_theme_stylebox_override("hover", _style(Color(0.2, 0.26, 0.34), Color(0.45, 0.55, 0.65)))
-	b.add_theme_stylebox_override("pressed", _style(Color(0.24, 0.3, 0.38), SIGNAL))
+	b.add_theme_stylebox_override("normal", _style(UI.NAVY2, Color(0.45, 0.5, 0.85)))
+	b.add_theme_stylebox_override("hover", _style(UI.NAVY2.lightened(0.1), SIGNAL))
+	b.add_theme_stylebox_override("pressed", _style(UI.NAVY2.darkened(0.1), SIGNAL))
 	b.add_theme_color_override("font_color", INK)
 	b.add_theme_color_override("font_hover_color", INK)
 	return b
@@ -158,27 +162,38 @@ func open(k: String, p: Dictionary, d: String) -> void:
 	else:
 		_place_half()
 	var dim := ColorRect.new()
-	dim.color = Color(0.02, 0.04, 0.07, 0.55)
+	dim.color = Color(0.05, 0.05, 0.12, 0.5)
 	root.add_child(dim)
 	dim.set_anchors_and_offsets_preset(Control.PRESET_FULL_RECT)
 	var cc := CenterContainer.new()
 	root.add_child(cc)
 	cc.set_anchors_and_offsets_preset(Control.PRESET_FULL_RECT)
 	panel = PanelContainer.new()
-	panel.add_theme_stylebox_override("panel", _style(Color(0.08, 0.11, 0.15, 0.97), Color(0.3, 0.38, 0.46), 16))
+	panel.add_theme_stylebox_override("panel", UI.box(UI.NAVY, accent, 24, 5, 18))
 	cc.add_child(panel)
 	body = VBoxContainer.new()
 	body.add_theme_constant_override("separation", 10)
 	panel.add_child(body)
 	var head := HBoxContainer.new()
 	body.add_child(head)
-	title_l = _label(p.get("title", "Minigame"), 24, INK)
+	title_l = UI.label(p.get("title", "Minigame"), 30, accent, 7)
 	title_l.size_flags_horizontal = Control.SIZE_EXPAND_FILL
 	head.add_child(title_l)
 	var abort_txt: String = labels["abort"]
 	if kind == "highfive" and not labels2.is_empty():
 		abort_txt = "%s / %s" % [labels["abort"], labels2["abort"]]
 	head.add_child(_label("%s · abbrechen" % abort_txt, 13, MUTED))
+	if p.has("legi"):
+		var pid := int(p["legi"])
+		legi_card = LegiCard.new()
+		legi_card.photo = Game.photos[pid]
+		legi_card.pname = Game.name_of(pid)
+		legi_card.number = Game.legi_ids[pid]
+		legi_card.look = Game.player_looks[pid]
+		legi_card.accent = accent
+		legi_card.custom_minimum_size = Vector2(360, 225)
+		legi_card.size_flags_horizontal = Control.SIZE_SHRINK_CENTER
+		body.add_child(legi_card)
 	match kind:
 		"timing": _setup_timing()
 		"wiring": _setup_wiring()
@@ -191,6 +206,8 @@ func open(k: String, p: Dictionary, d: String) -> void:
 	info_l.custom_minimum_size = Vector2(640, 0)
 	body.add_child(info_l)
 	_update_info()
+	UI.pop_in(panel, 0.0, 0.6)
+	UI.sfx("whoosh", -10.0)
 
 
 ## Fit the panel into the left or right half of the screen (split screen), scaled down if needed.
@@ -240,16 +257,32 @@ func _update_info() -> void:
 
 func _err() -> void:
 	mistakes += 1
+	UI.sfx("fail", -8.0)
+	UI.shake(panel)
 	mistake.emit()
 	_update_info()
+
+
+## Small reward for every correct step.
+func _ding() -> void:
+	UI.sfx("pop", -9.0)
+	if title_l:
+		title_l.pivot_offset = title_l.size / 2.0
+		title_l.scale = Vector2(1.12, 1.12)
+		title_l.create_tween().tween_property(title_l, "scale", Vector2.ONE, 0.2).set_trans(Tween.TRANS_BACK).set_ease(Tween.EASE_OUT)
 
 
 func _succeed(msg: String) -> void:
 	if closing >= 0.0:
 		return
-	closing = 0.9
+	closing = 1.1 if legi_card else 0.9
 	info_l.text = msg
 	info_l.label_settings.font_color = OKC
+	panel.add_theme_stylebox_override("panel", UI.box(UI.NAVY, OKC, 24, 5, 18))
+	title_l.label_settings.font_color = OKC
+	if legi_card:
+		legi_card.validate()
+	UI.sfx("grant", -6.0)
 
 
 # ------------------------------------------------------------------ timing
@@ -272,6 +305,7 @@ func _timing_press() -> void:
 		flash_ok = true
 		flash = 0.35
 		vel *= 1.15
+		_ding()
 		if hits >= need:
 			_succeed("Geschafft!")
 		else:
@@ -318,6 +352,7 @@ func _try_link(li: int, rj: int) -> void:
 		return
 	if right_order[rj] == li:
 		links[li] = rj
+		_ding()
 		sel_left = -1
 		side = 0
 		cur = 0
@@ -363,6 +398,7 @@ func _seq_press(i: int) -> void:
 	if seq[input_i] == i:
 		lit_bad = false
 		input_i += 1
+		UI.sfx("tick", -10.0)
 		if input_i >= seq.size():
 			seq_phase = "done"
 			_succeed("Zugriff gewährt.")
@@ -420,6 +456,7 @@ func _quiz_answer(i: int) -> void:
 	q_buttons[q_right].add_theme_stylebox_override("normal", _style(Color(0.2, 0.45, 0.25), OKC))
 	if i == q_right:
 		q_correct += 1
+		_ding()
 	else:
 		q_buttons[i].add_theme_stylebox_override("normal", _style(Color(0.5, 0.18, 0.15), BAD))
 		_err()
@@ -650,6 +687,7 @@ func _setup_pick(i: int) -> void:
 	s_cur = i
 	if s_opts[i][1]:
 		s_buttons[i].add_theme_stylebox_override("normal", _style(Color(0.2, 0.45, 0.25), OKC))
+		_ding()
 		s_lock = 0.6
 	else:
 		_setup_paint(i)
@@ -685,6 +723,7 @@ func _hf_resolve(late: String) -> void:
 		hits += 1
 		flash_ok = true
 		hf_msg = "Klatsch!"
+		_ding()
 		vel *= 1.12
 		if hits >= need:
 			_succeed("Up top! Perfekter High Five.")

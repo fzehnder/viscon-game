@@ -29,7 +29,7 @@ const LABELS := [
 const SOLO_LABELS := {"ok": "E oder Leertaste", "nums": "1 2 3", "dirs": "Pfeiltasten oder WASD", "abort": "Esc"}
 const KEY_NAMES := ["E", "Enter"]
 const TAGS := ["P1", "P2"]
-const TAG_COLORS := ["f2c14e", "6a9be0"]
+const TAG_COLORS := ["ff5d8f", "4d8dff"]   # P1 pink, P2 blue (yellow = both)
 
 
 static func action(pid: int, what: String) -> String:
