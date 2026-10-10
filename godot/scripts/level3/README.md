@@ -18,7 +18,7 @@ Der Weg zwischen Mensa und Hauptgebäude ist Absicht: Für das Armband muss glei
 | Aufgabe | Was passiert | Kamera |
 |---|---|---|
 | **Abendgarderobe organisieren** (zuerst, ohne sie geht nichts anderes) | In der Mensa gleich neben der Tür eine Schürze vom Haken nehmen, dann hinten rechts an der Personalgarderobe einen Kellner-Frack (Timing-Minigame). Jede Person für sich. | nein |
-| **Armband fälschen** (zu zweit) | Eine Person schaut sich am Bändel-Tisch in der Eingangshalle die Vorlage an und sagt sie an, die andere baut sie in der Bastelecke der Küche nach. Das Nachbauen ist das bestehende Sequenz-Minigame, nur ohne Vorzeigen. Gilt für beide. | nein |
+| **Armband fälschen** (zu zweit) | Eine Person schaut sich am Bändel-Tisch in der Eingangshalle die Vorlage an und sagt die Pfeile an, die andere tippt sie in der Bastelecke der Küche nach. **Wer baut, bekommt die Pfeile absichtlich nicht gezeigt**; unter den Tasten steht, wo sie zu finden sind. Die Vorlage zeigt mit, wie weit die andere Person ist (abgehakt, «als Nächstes», «falsch, wieder von vorne»). Das Nachbauen ist das bestehende Sequenz-Minigame, nur ohne Vorzeigen. Ein falscher Pfeil ist ein Fehler, danach geht es beim ersten Pfeil weiter. Gilt für beide. | nein |
 | **Im Takt über die Tanzfläche** (zu zweit) | Beide stehen in Abendgarderobe auf der Tanzfläche in der Rotunde. Eine Pose wird gezeigt, beide machen sie nach, und sie muss bei beiden sitzen, solange der Balken grün ist. Trifft eine Person nicht, zählt das als Fehler für beide. Vier Treffer. Gilt für beide. | **Körperhaltung** |
 | **Prof-Badge holen** (Hauptmission) | In der Garderobe den grünen Lodenmantel finden (an einem von drei Ständern, jedes Mal an einem anderen). Dann den Badge mit zwei Fingern aus der Innentasche ziehen: Daumen und Zeigefinger zusammendrücken, Hand langsam nach oben, nicht zittern. Nur in Abendgarderobe. Gilt für beide. | **Hand** |
 | **Buffet plündern** | Timing-Minigame an einem der Buffettische. Belohnung: ein Tablett, das man den Rest des Abends herumträgt. Jede Person für sich. | **Gesicht:** Mund weit auf schnappt zu, genau wie die Taste |
@@ -86,6 +86,7 @@ Oben in `level.gd`:
 | `METER_DECAY` | 0.35 pro s | wie schnell der Balken sinkt, wenn nur richtig Angezogene im Kegel stehen. Gleicher Wert wie in `opp.gd` |
 | `FRACK_HITS`, `FRACK_SPEED` | 2, 300 | Timing-Minigame für den Frack |
 | `ARMBAND_LEN` | 6 | Anzahl Zeichen auf dem Armband |
+| `ARMBAND_SOLO` | aus | an: Wer baut, bekommt die Pfeile zuerst vorgezeigt wie im normalen Sequenz-Minigame. Zum Spielen allein; die Vorlage braucht es dann nicht |
 | `BADGE_SEQ` | 5 | Länge der Sequenz für die Innentasche (Tasten-Variante) |
 | `BUFFET_HITS`, `BUFFET_SPEED` | 3, 280 | Timing-Minigame am Buffet. Langsamer als sonst, weil ein Mund träger ist als eine Taste |
 | `MOUTH_OPEN`, `MOUTH_SHUT` | 0.45, 0.25 | wie weit der Mund aufgehen muss, damit er zuschnappt, und wie weit wieder zu, bevor er es nochmals kann |
@@ -122,7 +123,7 @@ Wie streng die Posen bewertet werden, steckt ausserdem in `POSE_TOLERANCE` in `s
 - **Schritte:** `on_noise` setzt Opps, die wegen der Schritte einer richtig angezogenen Person losgegangen sind, auf ihren Stand vom Schritt davor zurück.
 - **Aufpasser** sind gewöhnliche `npcs` aus `DEF`. `_ready` setzt sie auf «wachsam» (`angry`, Zustand `LAUERN`); als Opp gespeichert werden sie nie. `on_opp_catch` übernimmt ihren Rauswurf und lässt alte Opps beim Standard (Level verloren).
 - **Kleidung:** `_wear` baut das Aussehen aus dem eigenen Look der Figur plus `LOOK_ABEND` (Stil `jacket`, Hemd in der Farbe der Person) oder `LOOK_SCHUERZE` (Stil `labcoat`, weiss). Dafür war kein neues Accessoire nötig.
-- **Armband:** `_build` öffnet das bestehende Sequenz-Minigame über `main.open_minigame`, setzt das Muster des Armbands als Sequenz und schaltet sofort auf Eingabe. Nach einem Fehler würde das Minigame die Sequenz neu vorzeigen; `_blind` verhindert das. Die Vorlage (`vorlage.gd`) benutzt dieselben vier Richtungen.
+- **Armband:** `_build` öffnet das bestehende Sequenz-Minigame über `main.open_minigame`, setzt das Muster des Armbands als Sequenz und schaltet sofort auf Eingabe. Nach einem Fehler würde das Minigame die Sequenz neu vorzeigen; `_blind` verhindert das. Die Vorlage (`vorlage.gd`) benutzt dieselben vier Richtungen. `_build_info` schreibt den Text unter den Tasten, `_view_info` den Stand auf der Vorlage. Solange niemand angefangen hat, schickt die Wegführung (Tab / Komma) die Person, die näher am Eingang steht, zur Vorlage und die andere in die Bastelecke.
 - **Kamera-Minigames:** `kamera_spiel.gd` hält sich an den Vertrag von `minigame.gd` (Signale `finished` und `mistake`, Zähler `mistakes`). `_open_cam` trägt es so in `main.minis` ein, wie `main.gd` es mit eigenen Minigames tut. Dadurch gelten die Figuren als beschäftigt, der Bildschirm teilt sich bei einer Person, und `main._abort_mini` funktioniert. Die Kamera hält `Track.use(self, …)` und geht mit dem Schliessen von selbst wieder aus.
 - **Badge:** Das Signal `fallback` schliesst das Kamera-Minigame und öffnet stattdessen das Sequenz-Minigame.
 - **Buffet:** Das Timing-Minigame bleibt, wie es ist. `_snap_with_mouth` ruft bei offenem Mund dieselbe Funktion auf wie die Taste und färbt den Hintergrund des Minigames hell.
@@ -130,6 +131,8 @@ Wie streng die Posen bewertet werden, steckt ausserdem in `POSE_TOLERANCE` in `s
 - **Hans Muster** steht als `npcs`-Eintrag mit der id `hans_muster` an der Bar. Macht ihn ein früheres Level unter genau dieser id zum Opp, lauert er hier von Anfang an.
 
 ## Stand
+
+Das Armband ist zusätzlich mit echten Tastendrücken geprüft (E am Tisch, Enter in der Bastelecke, Pfeiltasten, ein falscher Pfeil, dann richtig). Allein lässt es sich spielen, indem man eine Figur an der Vorlage stehen lässt und mit der anderen baut.
 
 Per Bot von Start bis Siegbildschirm durchgespielt: im Hoodie in der Küche erwischt und rausgeworfen, Schürze, Frack, draussen umziehen, in Abendgarderobe von Security übersehen, in der Schürze im Saal rausgeworfen, Armband zu zweit über den geteilten Bildschirm (mit einem Fehler), Buffet, falscher und richtiger Ständer, Badge im Spielstand, Finale. Dazu geprüft: Opps aus Level 1 und 2 erscheinen an ihren Plätzen, übersehen Abendgarderobe und erwischen den Hoodie; alle Orte sind zu Fuss erreichbar. Das Aussehen ist an Screenshots geprüft.
 

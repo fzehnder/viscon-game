@@ -46,6 +46,7 @@ const METER_DECAY := 0.35               # per second, how fast a bar drains with
 const FRACK_HITS := 2                   # timing minigame for the tailcoat
 const FRACK_SPEED := 300.0
 const ARMBAND_LEN := 6                  # symbols on the wristband
+const ARMBAND_SOLO := false             # true: the builder is shown the arrows first, as in the normal sequence minigame (to play alone)
 const BADGE_SEQ := 5                    # length of the sequence for the inner pocket
 const BUFFET_HITS := 3                  # timing minigame at the buffet
 const BUFFET_SPEED := 280.0             # slower than usual: a mouth is not as quick as a key
@@ -418,6 +419,7 @@ func _process(delta: float) -> void:
 		_stop_view()
 	if panel != null:
 		panel.side = main.screen_side(viewer)
+		_view_info()
 	queue_redraw()
 	marks.queue_redraw()
 
@@ -448,8 +450,10 @@ func _physics_process(delta: float) -> void:
 		var mg = main.minis[builder]
 		if mg == null:
 			builder = -1
-		elif mg.seq_phase == "show":
-			_blind(mg)
+		elif not ARMBAND_SOLO:
+			if mg.seq_phase == "show":
+				_blind(mg)
+			_build_info(mg)
 	_snap_with_mouth()
 
 
@@ -469,8 +473,8 @@ func _spots(pid: int) -> Array:
 	if not d.has("abend"):
 		out.append(_near("frack", "Kellner-Frack nehmen", FRACK))
 	if not d.has("armband"):
-		out.append(_near("vorlage", "Armband-Vorlage ansehen", TISCH))
-		out.append(_near("basteln", "Armband nachbauen", BASTEL))
+		out.append(_near("vorlage", "Armband-Vorlage ansehen und ansagen", TISCH))
+		out.append(_near("basteln", "Armband nachbauen (jemand muss ansagen)", BASTEL))
 	if not d.has("tanz"):
 		out.append(_near("tanz", "Tanzen (zu zweit)", Rect2(DANCE - Vector2(2.0, 2.0), Vector2(4.0, 4.0))))
 	if not d.has("badge"):
@@ -674,6 +678,8 @@ func _snap_with_mouth() -> void:
 
 
 # ------------------------------------------------------------------ wristband: one looks, the other builds
+## One player looks at the template at the table in the entrance hall and reads it out, the other
+## one rebuilds it at the craft corner in the kitchen. Each side is told what the other is doing.
 func _view(pid: int) -> void:
 	viewer = pid
 	main.players[pid].enabled = false
@@ -681,8 +687,8 @@ func _view(pid: int) -> void:
 	panel.side = main.screen_side(pid)
 	panel.pattern = pattern
 	panel.accent = Color(String(KEYS.TAG_COLORS[pid]))
-	panel.hint = "Sag %s die Reihenfolge an: in der Bastelecke der Küche baut %s das Armband nach. %s = weglegen" % [
-		Game.name_of(1 - pid), Game.name_of(1 - pid), KEYS.labels_for(pid)["ok"]]
+	panel.hint = "%s = Vorlage weglegen" % KEYS.labels_for(pid)["ok"]
+	_view_info()
 	main.add_child(panel)
 
 
@@ -693,7 +699,36 @@ func _stop_view() -> void:
 	viewer = -1
 
 
-## The existing sequence minigame, but with the wristband as the sequence and without showing it.
+## The minigame of whoever is building right now, or null.
+func _build_mg():
+	if builder < 0:
+		return null
+	var mg = main.minis[builder]
+	return mg if (mg != null and is_instance_valid(mg)) else null
+
+
+## Tells the one at the template how far the builder is.
+func _view_info() -> void:
+	var who: String = Game.name_of(1 - viewer)
+	var mg = _build_mg()
+	panel.wrong = false
+	if mg == null:
+		panel.built = -1
+		panel.status = "Sag %s die Pfeile der Reihe nach an. %s baut sie in der Bastelecke der Küche nach (Mensa, links an der Wand) und ist noch nicht dort." % [who, who]
+	elif mg.closing >= 0.0:
+		panel.built = pattern.size()
+		panel.status = "Geschafft, das Armband ist fertig!"
+	elif mg.seq_phase == "wait":
+		panel.built = 0
+		panel.wrong = true
+		panel.status = "Falsch getippt! %s fängt wieder beim ersten Pfeil an." % who
+	else:
+		panel.built = int(mg.input_i)
+		panel.status = "%s baut: %d von %d. Sag den Pfeil Nummer %d an." % [who, mg.input_i, pattern.size(), mini(int(mg.input_i) + 1, pattern.size())]
+
+
+## The existing sequence minigame, but with the wristband as the sequence and without showing it:
+## the arrows are only on the template, somebody has to read them out.
 func _build(pid: int) -> void:
 	var on_ok := func():
 		_stop_view()
@@ -704,10 +739,11 @@ func _build(pid: int) -> void:
 	builder = pid
 	var mg = main.minis[pid]
 	mg.seq = pattern.duplicate()
+	if ARMBAND_SOLO:
+		mg._restart_show()
+		return
 	_blind(mg)
-	if viewer < 0 and not told.has("blind"):
-		told["blind"] = true
-		main.hud.toast("Welches Muster?", "Die Vorlage liegt am Bändel-Tisch beim Eingang des Hauptgebäudes. Jemand muss dort nachsehen und ansagen.", 5.0)
+	_build_info(mg)
 
 
 func _blind(mg) -> void:
@@ -715,6 +751,29 @@ func _blind(mg) -> void:
 	mg.input_i = 0
 	mg.lit = -1
 	mg._update_info()
+
+
+## The text under the pads: why there are no arrows to copy here, and where they are.
+func _build_info(mg) -> void:
+	if mg.closing >= 0.0:
+		return
+	var who: String = Game.name_of(1 - builder)
+	var s := ""
+	var col := UI.WHITE
+	if mg.seq_phase == "wait":
+		s = "Falsch! Gleich geht es nochmals von vorne los, mit dem ersten Pfeil."
+		col = UI.RED
+	elif viewer < 0:
+		s = "Die Pfeile stehen nicht hier, sondern auf der Vorlage am Bändel-Tisch beim Eingang des Hauptgebäudes. %s muss sie dort ansehen und dir ansagen." % who
+		col = UI.YELLOW
+	else:
+		s = "%s sieht die Vorlage und sagt dir die Pfeile an. Tippe sie mit %s: %d von %d." % [who, mg.labels["dirs"], mg.input_i, mg.seq.size()]
+	if mg.mistakes > 0:
+		s += "   Fehler: %d" % mg.mistakes
+	if mg.info_l.text != s:
+		mg.info_l.text = s
+	mg.info_l.label_settings.font_size = 17
+	mg.info_l.label_settings.font_color = col
 
 
 # ================================================================== markers and ways for the HUD
@@ -732,7 +791,12 @@ func task_targets(id: String, pid: int) -> Array:
 				return [_c(BASTEL)]
 			if builder == 1 - pid:
 				return [_c(TISCH)]
-			return [_c(TISCH), _c(BASTEL)]
+			if viewer == pid or builder == pid:
+				return []
+			# nobody has started: whoever is closer to the template goes there, the other one builds
+			var mine: float = main.players[pid].global_position.distance_to(_c(TISCH))
+			var theirs: float = main.players[1 - pid].global_position.distance_to(_c(TISCH))
+			return [_c(TISCH) if (mine < theirs or (mine == theirs and pid == 0)) else _c(BASTEL)]
 		"tanz":
 			return [DANCE * TS]
 		"badge":
