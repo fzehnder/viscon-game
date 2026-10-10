@@ -173,6 +173,8 @@ Eine neue Frisur oder ein neues Accessoire fügst du in `character_art.gd` hinzu
 | `scripts/minigame.gd` | Alle Minigames inklusive Moodle |
 | `scripts/player.gd`, `professor.gd`, `student.gd` | Figuren |
 | `scripts/hud.gd`, `scripts/fx.gd` | Anzeigen und Effekte |
+| `scripts/tracking.gd`, `scripts/track_math.gd` | Autoload «Track»: Webcam und Mikrofon für Minigames, siehe `../tracker/README.md` |
+| `track_debug.tscn`, `scripts/track_debug.gd` | Testszene für das Tracking, nicht Teil des Spiels |
 | `scripts/game_state.gd` | Autoload «Game»: gewählte Optionen |
 
 Die Karte ist an die ETH Zentrum angelehnt, aber vereinfacht. Professoren und Figuren sind erfunden. Die Datei `scripts/person_draw.gd` aus der ersten Version wird nicht mehr gebraucht und kann gelöscht werden.

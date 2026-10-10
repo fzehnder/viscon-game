@@ -5,3 +5,8 @@ dist/
 .env
 .vscode/
 .idea/
+
+# camera tracker: models are downloaded on first run
+tracker/models/
+tracker/.venv/
+__pycache__/

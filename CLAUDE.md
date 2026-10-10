@@ -123,6 +123,7 @@ Offen:
 | `map_data.gd`, `world.gd` | Kartendaten, Zeichnen, Kollision, Wegfindung |
 | `menu.gd`, `legi_card.gd` | Story-Intro, Charakter-Erstellung, Level-Auswahl |
 | `hud.gd`, `ui.gd`, `fx.gd`, `sfx.gd` | Anzeigen, Popup-Stil, Effekte, Sounds |
+| `tracking.gd`, `track_math.gd` | Autoload `Track`: Webcam (Gesicht, Hand, Körper) und Pusten ins Mikrofon für Minigames; Auswertungen dazu. Anleitung und Rezepte in `tracker/README.md`, Testszene `track_debug.tscn` |
 | `characters.gd`, `character_art.gd` | Looks, Quiz-/Moodle-Inhalte, Figuren-Zeichnung |
 
 Konventionen: Code-Kommentare auf Englisch, Texte im Spiel auf Deutsch (Schweizer Schreibweise, kein ß). Zeilenenden LF (`godot/.gitattributes`). Godot legt neben jedes Skript eine `.uid`-Datei, die gehört mit ins Repo.
