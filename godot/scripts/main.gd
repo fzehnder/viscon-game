@@ -106,8 +106,9 @@ var done: Array = [{}, {}]
 # the task each player has picked (index into LV.tasks(), -1 = none) and the dashed way to where
 # it can be done: points in px, drawn by fx.gd and on the mini map
 var picked: Array = [-1, -1]
-var routes: Array = [[], []]
+var routes: Array = [[], []]       # the way to the picked task per player: points in px, about 8 px apart
 var route_t: Array = [0.0, 0.0]
+var route_age: Array = [9.0, 9.0]  # seconds since a player's way changed to a different one (it fades in then)
 # abilities (night, P1)
 var ability: Dictionary
 var cooldown := 0.0
@@ -206,7 +207,11 @@ func _ready() -> void:
 	add_child(hud)
 	_add_transcript_button()
 	_update_cameras(0.0, true)
-	var controls := "%s: WASD · E · Shift sprinten · Ctrl schleichen · Tab Weg zur Aufgabe\n%s: Pfeile · Enter · . sprinten · - schleichen · , Weg zur Aufgabe\nL: Leistungsüberblick (Levels und Wahlfächer)" % [Game.name_of(0), Game.name_of(1)]
+	var controls := ""
+	for i in 2:
+		var kl: Dictionary = KEYS.labels_for(i)
+		controls += "%s: %s · %s · %s sprinten · %s schleichen · %s Weg zur Aufgabe\n" % [Game.name_of(i), "WASD" if i == 0 else "Pfeile", kl["ok"], kl["sprint"], kl["sneak"], kl["select"]]
+	controls += "L: Leistungsüberblick (Levels und Wahlfächer)"
 	if night:
 		var d: Dictionary = CH.DEPTS[dept]
 		hud.show_overlay("Nacht", "Es ist 00:30. %s\n\nBleibt nicht zu lange im Lichtkegel der Professoren." % d["night_text"],
@@ -683,7 +688,7 @@ func _alert_erstis(at: Vector2, radius: float) -> void:
 			st.alert(at, 3.0)
 	if any and not hint_noise_shown:
 		hint_noise_shown = true
-		hud.toast("Psst! Zu laut!", "Die Erstis hören dich und halten ihre Bag fest. Schleichen: %s Ctrl, %s -" % [Game.name_of(0), Game.name_of(1)], 5.0)
+		hud.toast("Psst! Zu laut!", "Die Erstis hören dich und halten ihre Bag fest. Schleichen: %s %s, %s %s" % [Game.name_of(0), KEYS.labels_for(0)["sneak"], Game.name_of(1), KEYS.labels_for(1)["sneak"]], 5.0)
 
 
 func make_noise(at: Vector2, radius: float) -> void:
@@ -1346,11 +1351,11 @@ func _update_routes(delta: float) -> void:
 			continue
 		var from: Vector2 = players[pid].global_position
 		route_t[pid] -= delta
+		route_age[pid] += delta
 		if route_t[pid] > 0.0:
-			if not routes[pid].is_empty():
-				routes[pid][0] = from   # the line starts at the feet, also between two searches
+			routes[pid] = _trim_route(routes[pid], from)   # between two searches the line gets shorter at the feet
 			continue
-		route_t[pid] = 0.35
+		route_t[pid] = 0.2
 		var best: Array = []
 		var best_len := INF
 		for target in task_targets(tasks[k]["id"], pid):
@@ -1365,7 +1370,39 @@ func _update_routes(delta: float) -> void:
 			if total < best_len:
 				best_len = total
 				best = p
-		routes[pid] = best if best_len > 1.5 * TS else []   # standing in front of it: no line needed
+		var fresh: Array = world.smooth_path(best) if best_len > 1.5 * TS else []   # standing in front of it: no line needed
+		if _other_way(routes[pid], fresh):
+			route_age[pid] = 0.0
+		routes[pid] = fresh
+
+
+## The way without the part the player has already walked: it starts at the feet again.
+func _trim_route(r: Array, from: Vector2) -> Array:
+	if r.size() < 3:
+		return r
+	var best := 0
+	var best_d := INF
+	for i in mini(r.size() - 1, 16):   # the nearest point within the first stretch
+		var d := (r[i] as Vector2).distance_squared_to(from)
+		if d < best_d:
+			best_d = d
+			best = i
+	var out: Array = r.slice(best + 1)
+	out.push_front(from)
+	return out
+
+
+## True if `b` is a different way than `a` and not just the same one a few steps on: measured
+## back from the goal (the points are about 8 px apart), the two are far from each other somewhere.
+func _other_way(a: Array, b: Array) -> bool:
+	if a.is_empty() or b.is_empty():
+		return a.is_empty() != b.is_empty()
+	for k in [0, 12, 40, 80, 140]:
+		if k >= a.size() or k >= b.size():
+			break
+		if (a[a.size() - 1 - k] as Vector2).distance_to(b[b.size() - 1 - k]) > 2.0 * TS:
+			return true
+	return false
 
 
 func time_left() -> float:

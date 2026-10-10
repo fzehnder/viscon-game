@@ -31,6 +31,7 @@ const KEYS = preload("res://scripts/controls.gd")
 const UI = preload("res://scripts/ui.gd")
 const TM = preload("res://scripts/track_math.gd")
 const Posen = preload("res://scripts/level3/posen.gd")
+const Fund = preload("res://scripts/level3/fund.gd")
 
 # ---- tuning
 const CAM_WAIT := 5.0            # seconds without a result from the camera until the keys take over
@@ -806,13 +807,7 @@ func _draw_badge() -> void:
 	canvas.draw_circle(coat.position + Vector2(206, 60), 7.0, Color("d9b24c"))
 	# the badge comes up out of the pocket
 	var card := Rect2(128, slit - 12.0 - 104.0 * progress, 74, 104)
-	canvas.draw_rect(card, Color("f4f1ea"))
-	canvas.draw_rect(card, INK, false, 2.0)
-	canvas.draw_rect(Rect2(card.position + Vector2(8, 10), Vector2(26, 30)), Color("c9c4ba"))
-	canvas.draw_rect(Rect2(card.position + Vector2(40, 12), Vector2(26, 5)), UI.ETH_BLUE)
-	canvas.draw_rect(Rect2(card.position + Vector2(40, 24), Vector2(22, 4)), SOFT)
-	canvas.draw_rect(Rect2(card.position + Vector2(8, 52), Vector2(58, 6)), SOFT)
-	_txt(card.position + Vector2(8, 82), "PROF", 13, INK)
+	Fund.draw_card(canvas, card)
 	# front of the pocket hides the part that is still inside
 	canvas.draw_rect(Rect2(coat.position.x, slit, coat.size.x, coat.end.y - slit), loden.lightened(0.06))
 	canvas.draw_line(Vector2(80, slit), Vector2(250, slit), loden.darkened(0.4), 4.0)

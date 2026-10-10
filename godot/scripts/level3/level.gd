@@ -32,9 +32,10 @@ const ART = preload("res://scripts/character_art.gd")
 const KEYS = preload("res://scripts/controls.gd")
 const UI = preload("res://scripts/ui.gd")
 const OPP = preload("res://scripts/opp.gd")
-const Cutscene = preload("res://scripts/cutscene.gd")
 const Vorlage = preload("res://scripts/level3/vorlage.gd")
 const KameraSpiel = preload("res://scripts/level3/kamera_spiel.gd")
+const Fund = preload("res://scripts/level3/fund.gd")
+const Abgang = preload("res://scripts/level3/abgang.gd")
 const TM = preload("res://scripts/track_math.gd")
 
 # ---- disguise (tuning)
@@ -107,8 +108,8 @@ const DEF := {
 	"time": 480.0,
 	"start": Vector2(27.0, 51.0),   # on the Polyterrasse, between the west entrance and the Mensa
 	"timer_title": "GARDEROBE SCHLIESST IN",
-	"intro": "Ende November, Polyball: 9000 Gäste im Hauptgebäude. In der Garderobe hängt der Mantel eines Professors, mit seinem Badge in der Innentasche. Im Hoodie kommt ihr nicht weit. Beide müssen alles erledigen:",
-	"hint": "Jede Verkleidung gilt nur an ihrem Ort: Abendgarderobe im Hauptgebäude, Küchenschürze in der Mensa. Richtig angezogen übersehen euch die Lichtkegel, falsch angezogen füllt sich der Balken schneller.",
+	"intro": "Polyball: 9000 Gäste im Hauptgebäude. In der Garderobe hängt der Mantel eines Professors, sein Badge steckt in der Innentasche. Im Hoodie kommt ihr nicht weit. Beide müssen alles erledigen:",
+	"hint": "Verkleidungen gelten nur an ihrem Ort: Abendgarderobe im Hauptgebäude, Küchenschürze in der Mensa. Falsch angezogen füllt sich der Balken schneller.",
 	"start_toast": ["Zuerst in die Mensa", "Dort ist heute die Küche. Gleich neben der Tür hängen Schürzen, hinten rechts die Fracks der Kellner."],
 	"win_title": "Badge gesichert",
 	"win_text": "%s & %s tanzen mit dem Badge eines Professors aus dem Polyball.",
@@ -132,11 +133,11 @@ const DEF := {
 		{"pos": Vector2(47.5, 54.5), "face": -PI / 2.0, "mode": "jagd"},
 	],
 	"tasks": [
-		{"id": "abend", "name": "Abendgarderobe organisieren", "where": "Fracks der Kellner in der Küche (Mensa)", "type": "level"},
-		{"id": "armband", "name": "Armband fälschen", "where": "Vorlage am Bändel-Tisch beim Eingang, Bastelecke in der Küche", "type": "level"},
-		{"id": "tanz", "name": "Im Takt über die Tanzfläche", "where": "zu zweit auf der Tanzfläche in der Rotunde", "type": "level"},
-		{"id": "badge", "name": "Prof-Badge holen", "where": "grüner Lodenmantel in der Garderobe", "type": "level"},
-		{"id": "buffet", "name": "Buffet plündern", "where": "Buffettische in der Haupthalle", "type": "level"},
+		{"id": "abend", "name": "Abendgarderobe organisieren", "where": "Fracks in der Küche (Mensa)", "type": "level"},
+		{"id": "armband", "name": "Armband fälschen", "where": "Vorlage beim Eingang, Bastelecke in der Küche", "type": "level"},
+		{"id": "tanz", "name": "Im Takt über die Tanzfläche", "where": "zu zweit in der Rotunde", "type": "level"},
+		{"id": "badge", "name": "Prof-Badge holen", "where": "grüner Lodenmantel, Garderobe", "type": "level"},
+		{"id": "buffet", "name": "Buffet plündern", "where": "Buffet in der Haupthalle", "type": "level"},
 	],
 }
 
@@ -163,6 +164,9 @@ var panel = null
 var builder := -1                     # who is rebuilding the wristband right now
 var buffet_mg: Array = [null, null]   # the timing minigame at the buffet, while the mouth can snap
 var mouth_open: Array = [false, false]
+var badge_taken := false              # the badge is out of the pocket (the task is ticked a moment later, see _badge_moment)
+var fund = null                       # the badge being shown off (fund.gd), while it is on the screen
+var fund_pid := -1
 var covers: Array = [0, 0]            # how many opaque minigames lie over each half of the screen
 var view_mode: Array = [-1, -1]       # how each view was drawn before it was switched off (-1 = it is on)
 var marks: Node2D
@@ -424,6 +428,9 @@ func _process(delta: float) -> void:
 	if panel != null:
 		panel.side = main.screen_side(viewer)
 		_view_info()
+	if fund != null and is_instance_valid(fund):
+		fund.side = main.screen_side(fund_pid)
+		fund.visible = main.state == "play"
 	if covers[0] > 0 or covers[1] > 0:
 		_apply_covers()
 	queue_redraw()
@@ -483,7 +490,7 @@ func _spots(pid: int) -> Array:
 		out.append(_near("basteln", "Armband nachbauen (jemand muss ansagen)", BASTEL))
 	if not d.has("tanz"):
 		out.append(_near("tanz", "Tanzen (zu zweit)", Rect2(DANCE - Vector2(2.0, 2.0), Vector2(4.0, 4.0))))
-	if not d.has("badge"):
+	if not d.has("badge") and not badge_taken:
 		for k in RACKS.size():
 			out.append(_near("mantel", "Mäntel durchsuchen", RACKS[k], {"rack": k}))
 	if not d.has("buffet"):
@@ -678,11 +685,31 @@ func _apply_covers() -> void:
 func _steal_badge(pid: int) -> void:
 	var on_badge := func():
 		Game.add_item(BADGE_ITEM)
-		main._coop_done("badge")
-		main.hud.toast("Der Badge!", "Innentasche, Etui, Badge. Der Professor merkt es frühestens beim Heimgehen.", 4.5)
+		_badge_moment(pid)
 	var with_keys := func():
 		main.open_minigame("sequence", {"title": "Mantel · Innentasche · Badge", "length": BADGE_SEQ}, on_badge, pid)
 	_open_cam("badge", pid, on_badge, with_keys)
+
+
+## The badge is out: it is shown off on that player's half of the screen while the game goes on
+## for both (fund.gd), and what the two say about it comes now and not at the end of the level.
+## The task is ticked when that is over. With little time left it is ticked at once, so that the
+## clock cannot run out in between.
+func _badge_moment(pid: int) -> void:
+	badge_taken = true
+	var late: bool = main.time_left() > Fund.TIME + 4.0
+	if not late:
+		main._coop_done("badge")
+	fund = Fund.new()
+	fund_pid = pid
+	fund.pid = pid
+	fund.side = main.screen_side(pid)
+	fund.looks = [main.players[0].look, main.players[1].look]
+	main.add_child(fund)
+	fund.done.connect(func():
+		fund = null
+		if late:
+			main._coop_done("badge"))
 
 
 ## Buffet: the timing minigame stays as it is, the camera only adds a second way to press.
@@ -844,7 +871,7 @@ func task_targets(id: String, pid: int) -> Array:
 		"tanz":
 			return [DANCE * TS]
 		"badge":
-			return [Vector2(42.5, 38.5) * TS]
+			return [] if badge_taken else [Vector2(42.5, 38.5) * TS]
 		"buffet":
 			return [_c(BUFFETS[0]) + Vector2(0, -0.9 * TS), _c(BUFFETS[1]) + Vector2(0, -0.9 * TS)]
 	return []
@@ -867,30 +894,29 @@ func goal_positions(id: String, n0: bool, n1: bool) -> Array:
 		"tanz":
 			out.append([DANCE * TS, c])
 		"badge":
-			out.append([_c(GARDEROBE), c])
+			if not badge_taken:
+				out.append([_c(GARDEROBE), c])
 		"buffet":
 			for r in BUFFETS:
 				out.append([_c(r), c])
 	return out
 
 
-## Called by main.gd when every task is done: a short scene on the dance floor, then the win screen.
+## Called by main.gd when every task is done: the two dance out of the ball (abgang.gd), then the
+## win screen. What they say about the badge itself comes when they take it (_badge_moment).
 func finale(done: Callable) -> void:
 	main.state = "cutscene"
 	main.hud.visible = false
 	_stop_view()
+	if fund != null and is_instance_valid(fund):
+		fund.queue_free()
 	for pl in main.players:
 		pl.enabled = false
-	create_tween().tween_property(main, "zoom", 3.3, 0.9).set_trans(Tween.TRANS_SINE)
-	var steps := [
-		{"say": 0, "text": "Ein echter Prof-Badge. Damit geht jede Tür im Departement auf."},
-		{"say": 1, "text": "Und der Besitzer sucht gerade seinen Garderobenzettel. Wir haben vielleicht zehn Minuten."},
-		{"say": 0, "text": "Dann tanzen wir uns jetzt ganz unauffällig zum Ausgang."},
-		{"title": "POLYBALL", "sub": "ein Badge wechselt den Besitzer"},
-	]
-	var cs = Cutscene.new()
-	main.add_child(cs)
-	cs.play(steps, func():
+	var a = Abgang.new()
+	a.looks = [main.players[0].look, main.players[1].look]
+	main.add_child(a)
+	_cover(a, [0, 1])              # the scene fills the screen: the map behind it is not drawn
+	a.play(func():
 		main.hud.visible = true
 		done.call())
 

@@ -40,6 +40,7 @@ var toast_t := 0.0
 var toast_tw: Tween
 # overlay
 var overlay: Control
+var ov_cc: CenterContainer     # holds the card; scaled down when the card would not fit on the screen
 var ov_card: PanelContainer
 var ov_tag: Label
 var ov_tag_p: PanelContainer
@@ -149,11 +150,14 @@ class MiniMap:
 					var po := _at(op.global_position)
 					draw_circle(po, 4.5 + sin(t * 12.0), UI2.RED)
 					draw_arc(po, 6.5, 0.0, TAU, 16, UI2.RED, 1.0)
-			# the dashed way to a picked task
+			# the way to a picked task: one line (the way has many short pieces, dashes per piece would run together)
 			for i in main.players.size():
 				var route: Array = main.routes[i]
-				for j in range(1, route.size()):
-					draw_dashed_line(_at(route[j - 1]), _at(route[j]), Color(KEYS2.TAG_COLORS[i]), 1.6, 3.0)
+				if route.size() >= 2:
+					var way := PackedVector2Array()
+					for q in route:
+						way.append(_at(q))
+					draw_polyline(way, Color(KEYS2.TAG_COLORS[i]), 1.6, true)
 		# the two players, always on top
 		for i in main.players.size():
 			var pl = main.players[i]
@@ -384,6 +388,8 @@ func _ready() -> void:
 	var cc := CenterContainer.new()
 	overlay.add_child(cc)
 	cc.set_anchors_and_offsets_preset(Control.PRESET_FULL_RECT)
+	ov_cc = cc
+	root.resized.connect(_fit_overlay)
 	ov_card = UI.panel(UI.NAVY, UI.YELLOW, 28, 26)
 	ov_card.mouse_filter = Control.MOUSE_FILTER_STOP
 	cc.add_child(ov_card)
@@ -398,10 +404,10 @@ func _ready() -> void:
 	ov_title = UI.label("", 52, UI.YELLOW, 10)
 	ov.add_child(ov_title)
 	ov_body = UI.label("", 18, UI.WHITE, 0, true)
-	ov_body.custom_minimum_size = Vector2(640, 0)
+	ov_body.custom_minimum_size = Vector2(780, 0)
 	ov.add_child(ov_body)
 	ov_hint = UI.label("", 14, UI.MUTED, 0, true)
-	ov_hint.custom_minimum_size = Vector2(640, 0)
+	ov_hint.custom_minimum_size = Vector2(780, 0)
 	ov.add_child(ov_hint)
 	var brow := HBoxContainer.new()
 	brow.add_theme_constant_override("separation", 14)
@@ -439,6 +445,8 @@ func show_overlay(title: String, body: String, hint: String, button: String, wit
 	ov_btn.add_theme_stylebox_override("hover", UI._btn_box(btn.lightened(0.12), 8, 10))
 	ov_menu.visible = with_menu
 	overlay.visible = true
+	_fit_overlay()
+	_fit_overlay.call_deferred()   # once more when the new texts have been laid out
 	UI.pop_in(ov_card, 0.05)
 	match kind:
 		"win":
@@ -457,6 +465,19 @@ func show_overlay(title: String, body: String, hint: String, button: String, wit
 
 func hide_overlay() -> void:
 	overlay.visible = false
+
+
+## A card with a long text (mission description) can be taller than the screen: then the whole
+## card is shown smaller instead of running over the edge. The container is scaled, not the card,
+## because the card has its own pop-in animation.
+func _fit_overlay() -> void:
+	if ov_cc == null or not overlay.visible:
+		return
+	var vs: Vector2 = root.size
+	var need: Vector2 = ov_card.get_combined_minimum_size()
+	var k := minf(1.0, minf((vs.x - 36.0) / maxf(need.x, 1.0), (vs.y - 36.0) / maxf(need.y, 1.0)))
+	ov_cc.pivot_offset = vs / 2.0
+	ov_cc.scale = Vector2(k, k)
 
 
 # ------------------------------------------------------------------ toast + celebrate
