@@ -9,6 +9,7 @@ const UI = preload("res://scripts/ui.gd")
 const KEYS = preload("res://scripts/controls.gd")
 const LV = preload("res://scripts/levels.gd")
 const LegiCard = preload("res://scripts/legi_card.gd")
+const Transcript = preload("res://scripts/transcript.gd")
 
 const HACK := [
 	["> verbinde mit bewerbung.ethz.ch ...", false],
@@ -207,6 +208,7 @@ func _go(s: String) -> void:
 	stage_root.create_tween().tween_property(stage_root, "modulate:a", 1.0, 0.25)
 	match s:
 		"title": _build_title()
+		"transcript": _build_transcript()
 		"hack": _build_hack()
 		"names": _build_names()
 		"photo": _build_photo()
@@ -260,18 +262,12 @@ func _build_title() -> void:
 		cont.pressed.connect(func(): _go("loading"))
 		v.add_child(cont)
 	v.add_child(_centered(UI.label("Enter drücken", 15, UI.MUTED)))
-	# straight into a level (skips the intro), handy for testing and demos
-	var jump := HBoxContainer.new()
-	jump.alignment = BoxContainer.ALIGNMENT_CENTER
-	jump.add_theme_constant_override("separation", 10)
-	v.add_child(jump)
-	jump.add_child(UI.label("Direkt zu:", 15, UI.MUTED))
-	for n in LV.numbers():
-		var jb := UI.button("%d · %s" % [n, LV.level(n)["name"]], UI.NAVY2.lightened(0.15), 15)
-		jb.pressed.connect(func():
-			Game.set_level(n)
-			_go("loading"))
-		jump.add_child(jb)
+	# the levels as a transcript of records: grades so far, and a click goes straight into a level
+	# (skips the intro), handy for testing and demos
+	var levels := UI.button("Leistungsüberblick · Level wählen", UI.NAVY2.lightened(0.15), 16)
+	levels.size_flags_horizontal = Control.SIZE_SHRINK_CENTER
+	levels.pressed.connect(func(): _go("transcript"))
+	v.add_child(levels)
 	UI.pop_in(title, 0.05, 0.3)
 	title.resized.connect(func(): title.pivot_offset = title.size / 2.0)
 	var tw := title.create_tween().set_loops()
@@ -280,8 +276,19 @@ func _build_title() -> void:
 
 
 func _new_game() -> void:
-	Game.new_game()   # level 1, and nobody is an Opp yet
+	Game.new_game()   # level 1, nobody is an Opp yet, no grades
 	_go("hack")
+
+
+# ------------------------------------------------------------------ level overview (transcript.gd)
+func _build_transcript() -> void:
+	var tr := Transcript.new()
+	stage_root.add_child(tr)
+	tr.set_anchors_and_offsets_preset(Control.PRESET_FULL_RECT)
+	tr.back.connect(func(): _go("title"))
+	tr.start_level.connect(func(n: int):
+		Game.set_level(n)
+		_go("loading"))
 
 
 # ------------------------------------------------------------------ 2 · hacking the application portal

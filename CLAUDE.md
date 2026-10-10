@@ -7,7 +7,7 @@
 - **Das echte Spiel ist das Godot-Projekt in `godot/`** (Godot 4.3+, `project.godot` meldet Feature 4.7, GDScript, alles im Code gezeichnet, keine Asset-Dateien, Sounds werden in `sfx.gd` erzeugt).
 - Seit dem 10.10.2026 liegt es auch auf `main`: Das Team führt die Branches dort per Pull Request zusammen. Daneben liegt auf `main` noch das ursprüngliche Phaser/TypeScript/Vite-Gerüst mit dem Platzhalter "ETH Exam Run" (`src/`, `package.json`). Das ist **nicht** das Spiel und wird nicht weiterentwickelt; der Pages-Workflow baut weiterhin nur diesen Platzhalter.
 - Remote: `git@github.com:fzehnder/viscon-game.git`.
-- Starten: Godot öffnen, `godot/project.godot` importieren, F5. Startszene ist `menu.tscn`. Direkt in ein Level: auf der Startseite unter «Direkt zu», oder `godot --path godot res://main.tscn -- --level=2`.
+- Starten: Godot öffnen, `godot/project.godot` importieren, F5. Startszene ist `menu.tscn`. Direkt in ein Level: auf der Startseite «Leistungsüberblick · Level wählen» und dort ein Fach anklicken, oder `godot --path godot res://main.tscn -- --level=2`.
 
 ## Arbeitsweise (Wunsch des Teams, 10.10.2026)
 
@@ -49,6 +49,7 @@ Regeln:
 - Aufgaben mit `"type": "level"` gehören dem Level. Hooks, die `main.gd` aufruft, alle optional: `update_near(pid)` (setzt `main.nears[pid] = {"use": "level", "label", "rect", ...}`), `interact(pid, o)`, `goal_positions(id, n0, n1)`, `task_targets(id, pid)`, `on_noise(at, radius)`, `finale(done)`. Aufgabe erledigt: `main._task_done(pid, id)`.
 - Aufgaben mit `"spots"` (wie in Level 1) werden ohne eigene Logik zu Stationen mit Minigame.
 - Nach dem Sieg zeigt `main.gd` "Weiter zu Level N", solange es ein nächstes gibt.
+- Leistungsüberblick (`scripts/transcript.gd`, Wunsch des Teams vom 10.10.2026: Level-Übersicht wie der Leistungsüberblick auf myStudies): Jedes Level ist ein Fach mit Nummer, Session, Note und Gewicht, einsortiert in «Basisprüfungsblock A/B»; die späteren Studienjahre stehen als leere Kategorien darunter (`LATER`). Ein Klick auf ein Fach startet das Level. Optionale Felder in `DEF`: `course` (Fachnummer, sonst `252-000N-00 L`), `ects` (Kreditpunkte und Gewicht, sonst 6), `block` (`"A"` oder `"B"`, sonst A für Level 1 und 2, B ab Level 3). Kein Level muss etwas eintragen. Die Note schreibt `main._win_day` über `Game.add_grade` (beste Note pro Level, in `user://save.cfg`); Kreditpunkte gibt es ab Note 4.
 - `scripts/cutscene.gd`: Cutscenes aus Schritten (`say`, `phones`, `mail`, `title`), für alle Levels.
 - Opps: `"npcs"` und `"opp_spots"` in `DEF`, `Game.add_opp(...)` für eigene Auslöser, optionaler Hook `on_opp_catch(opp, pid) -> bool`. Siehe Abschnitt "Opp-System".
 - Ein lauffähiges Gerüst für ein neues Level steht in `godot/README.md` (getestet), die ausführliche Vorlage ist `scripts/level2/level.gd` auf `level2-mensa`.
@@ -162,7 +163,7 @@ Auf `level-base`:
 - Karte: Hauptgebäude nach dem echten Grundriss des E-Geschosses (siehe "Karte")
 - Aufgabe wählen (Tab für P1, Komma für P2, oder Klick auf die Aufgabe): gestrichelte Pfeile in der Farbe der Person zeigen den kürzesten Weg zum nächsten Ort, an dem die Aufgabe lösbar ist, auch auf der Minimap. `main.picked` / `main.routes`, Ziele aus `main.task_targets(id, pid)` (Stationen, Bags, bei Koop-Aufgaben die andere Person, bei Level-Aufgaben der Hook `task_targets` oder ersatzweise `goal_positions`), gezeichnet in `fx.gd` (`_draw_route`). Nur auf Skriptfehler und einen kurzen Lauf geprüft, nicht gespielt
 - Schleichen / Gehen / Sprinten, Stamina (2 s Sprint, ca. 3 s Regeneration), Geräuschkreise pro Schritt (`player.gd`, `fx.gd`)
-- Story-Intro im Menü: Startseite, Hack der Bewerbungsseite, Namen, Legi-Foto, Charakter-Editor; Level-Auswahl «Direkt zu»
+- Story-Intro im Menü: Startseite, Hack der Bewerbungsseite, Namen, Legi-Foto, Charakter-Editor; Level-Auswahl als «Leistungsüberblick» im Aussehen von myStudies (ersetzt die Zeile «Direkt zu»), mit den besten Noten pro Level. START beginnt ein neues Studium und löscht Opps und Noten. Nur per Startlauf und einem Screenshot geprüft, nicht gespielt
 - Level 1 "Ersti-Tag" (Tag, 7 min): Ersti-Bag klauen (bei Deniz und Livia am Lesetisch, macht sie zu Opps), Legi validieren, Moodle & Code Expert einrichten, Koop-High-Five, Note 1 bis 6
 - Minigames (`minigame.gd`): Timing, Kabel, Sequenz, Quiz, Moodle, Setup, High Five
 - Karte ETH Zentrum mit Tag/Nacht, Kollision, A*-Wegfindung, HUD, Popups
@@ -189,7 +190,7 @@ Offen:
 
 | Datei | Inhalt |
 |---|---|
-| `game_state.gd` | Autoload `Game`: Level, Modus, Namen, Fotos, Looks der beiden Spieler, Liste der Opps und Spielstand (`user://save.cfg`) |
+| `game_state.gd` | Autoload `Game`: Level, Modus, Namen, Fotos, Looks der beiden Spieler, Liste der Opps, Noten pro Level und Spielstand (`user://save.cfg`) |
 | `levels.gd` | findet die Levels, enthält Level 1 (Positionen in Tiles, 1 Tile = 32 px) |
 | `level<N>/` | je ein weiteres Level: `level.gd`, eigene Figuren, `README.md` |
 | `cutscene.gd` | Cutscene-Abspieler |
@@ -198,7 +199,8 @@ Offen:
 | `opp.gd` | Leute, die zu Opps werden (Zustände, Kegel, Verdachtsbalken, klaubare Bag) |
 | `minigame.gd` | alle Minigames |
 | `map_data.gd`, `world.gd` | Kartendaten (Hauptgebäude in `_hauptgebaeude`), Zeichnen, Kollision, Wegfindung, Sichtlinien |
-| `menu.gd`, `legi_card.gd` | Story-Intro, Charakter-Erstellung, Level-Auswahl |
+| `menu.gd`, `legi_card.gd` | Story-Intro, Charakter-Erstellung |
+| `transcript.gd` | Level-Auswahl als Leistungsüberblick (myStudies-Look): Tabelle von Hand gezeichnet, Systemschrift Arial |
 | `hud.gd`, `ui.gd`, `fx.gd`, `sfx.gd` | Anzeigen (Aufgabenkarten, Zeit, Minimap), Popup-Stil, Effekte, Sounds |
 | `characters.gd`, `character_art.gd` | Looks, Quiz-/Moodle-Inhalte, Figuren-Zeichnung |
 

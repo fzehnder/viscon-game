@@ -12,6 +12,9 @@ var dept := "D-INFK"       # internal content set for quiz/Moodle texts and nigh
 # Opps: people you have wronged. They stay Opps in later levels and are saved to disk.
 # opp id -> {"name": String, "look": Dictionary, "level": int, "by": [player ids], "why": String}
 var opps: Dictionary = {}
+# Grades: the best grade per level that was won, shown in the transcript (transcript.gd) and saved to disk.
+# level number -> {"grade": float, "time": int (seconds), "mistakes": int}
+var grades: Dictionary = {}
 var save_path := "user://save.cfg"
 var persist := true                   # --nosave on the command line: keep everything in memory
 
@@ -93,8 +96,23 @@ func begin_level() -> void:
 		save_game()
 
 
+## Remembers the grade of a level that was just won. Only the best one counts; returns true if this is it.
+func add_grade(n: int, grade: float, time: int, mistakes: int) -> bool:
+	if grades.has(n) and float(grades[n]["grade"]) >= grade:
+		return false
+	grades[n] = {"grade": grade, "time": time, "mistakes": mistakes}
+	save_game()
+	return true
+
+
+## Best grade of level `n`, or 0.0 if it has never been won.
+func grade_of(n: int) -> float:
+	return float(grades[n]["grade"]) if grades.has(n) else 0.0
+
+
 func new_game() -> void:
 	opps.clear()
+	grades.clear()
 	save_game()
 	set_level(1)
 
@@ -105,21 +123,30 @@ func save_game() -> void:
 	var cfg := ConfigFile.new()
 	for id in opps:
 		cfg.set_value("opps", id, opps[id])
+	for n in grades:
+		cfg.set_value("grades", str(n), grades[n])
 	cfg.save(save_path)
 
 
 func load_game() -> void:
 	opps.clear()
+	grades.clear()
 	if not persist:
 		return
 	var cfg := ConfigFile.new()
-	if cfg.load(save_path) != OK or not cfg.has_section("opps"):
+	if cfg.load(save_path) != OK:
 		return
-	for id in cfg.get_section_keys("opps"):
-		var d = cfg.get_value("opps", id)
-		if d is Dictionary and d.has("name") and d.has("look") and d.has("level"):
-			d["by"] = d.get("by", [])
-			opps[id] = d
+	if cfg.has_section("opps"):
+		for id in cfg.get_section_keys("opps"):
+			var d = cfg.get_value("opps", id)
+			if d is Dictionary and d.has("name") and d.has("look") and d.has("level"):
+				d["by"] = d.get("by", [])
+				opps[id] = d
+	if cfg.has_section("grades"):
+		for key in cfg.get_section_keys("grades"):
+			var g = cfg.get_value("grades", key)
+			if g is Dictionary and g.has("grade"):
+				grades[int(key)] = g
 
 
 func reset_look(i: int) -> void:

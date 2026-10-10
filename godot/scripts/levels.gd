@@ -25,6 +25,8 @@ const LEVEL1 := {
 	"tag": "LEVEL 1",
 	"mode": "day",
 	"time": 420.0,
+	# how the level shows up in the transcript (transcript.gd); all three are optional
+	"course": "252-0001-00 L", "ects": 6, "block": "A",
 	"start": Vector2(26.0, 42.0),        # crowd centre on the Polyterrasse
 	"speaker": Vector2(36.5, 45.5),      # the crowd faces the entrance of the main building
 	"crowd": 26,                          # Erstis in the welcome crowd

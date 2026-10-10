@@ -915,6 +915,7 @@ func _win_day() -> void:
 	grade = clampf(snappedf(grade, 0.25), 1.0, 6.0)
 	var verdict := "Hervorragend!" if grade >= 5.5 else ("Gut gemacht." if grade >= 4.5 else ("Bestanden." if grade >= 4.0 else "Knapp daneben."))
 	var t := int(time_played)
+	Game.add_grade(Game.level, grade, t, mistakes_total)   # for the transcript in the menu
 	var story: String = String(lv.get("win_text", "%s & %s haben den ersten Tag überlebt.")) % [Game.name_of(0), Game.name_of(1)]
 	var nxt := LV.next_after(Game.level)
 	var more := nxt > 0
