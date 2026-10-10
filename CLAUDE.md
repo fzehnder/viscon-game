@@ -177,7 +177,7 @@ Level 3:
 ## Stand (10.10.2026)
 
 Auf `level-base`:
-- Koop-Steuerung (`controls.gd`, physische Tastenpositionen): P1 WASD / E / Shift Sprint / Ctrl Schleichen / Esc / 1 2 3; P2 Pfeile / Enter / `.` Sprint / `-` Schleichen / Backspace / 8 9 0
+- Koop-Steuerung (`controls.gd`, physische Tastenpositionen): P1 WASD / E / Shift Sprint / C Schleichen / Esc / 1 2 3; P2 Pfeile / Enter / `.` Sprint / `-` Schleichen / Backspace / 8 9 0 Schleichen lag bis zum 10.10.2026 auf Ctrl: Ctrl + Pfeiltasten der anderen Person ist ein System-Kürzel (macOS wechselt den Schreibtisch). Deshalb keine Modifier-Taste (Ctrl, Alt, Cmd) als Halte-Taste vergeben. Tastennamen für Texte stehen in `KEYS.LABELS` (`sneak`, `sprint`, `select`), nicht fest in die Texte schreiben
 - Dynamischer Zoom und Split Screen (`main.gd`): Das gemeinsame Bild zoomt beim Auseinanderlaufen bis 2.2x heraus (`OUT_MAX`), Grundzoom 2.5 / 1.3 (etwa 1.92), danach teilt es sich und zoomt langsam zurück (`ZOOM_BACK`); zusammen wieder unter `MERGE_OUT`. Die Trennlinie steht immer senkrecht zur Linie zwischen den Figuren (jede Figur auf ihrer echten Seite) und dreht mit. Bei einem Minigame für eine Person steht sie senkrecht, P1 links, P2 rechts. HUD bleibt fest. Nicht gespielt, nur geschrieben (10.10.2026, Finn)
 - HUD: Aufgaben pro Person auf ihrer Seite (P1 links, P2 rechts), Level und Zeit oben Mitte, Minimap unten Mitte
 - Karte: Hauptgebäude nach dem echten Grundriss des E-Geschosses (siehe "Karte")

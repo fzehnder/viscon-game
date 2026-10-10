@@ -206,7 +206,11 @@ func _ready() -> void:
 	add_child(hud)
 	_add_transcript_button()
 	_update_cameras(0.0, true)
-	var controls := "%s: WASD · E · Shift sprinten · Ctrl schleichen · Tab Weg zur Aufgabe\n%s: Pfeile · Enter · . sprinten · - schleichen · , Weg zur Aufgabe\nL: Leistungsüberblick (Levels und Wahlfächer)" % [Game.name_of(0), Game.name_of(1)]
+	var controls := ""
+	for i in 2:
+		var kl: Dictionary = KEYS.labels_for(i)
+		controls += "%s: %s · %s · %s sprinten · %s schleichen · %s Weg zur Aufgabe\n" % [Game.name_of(i), "WASD" if i == 0 else "Pfeile", kl["ok"], kl["sprint"], kl["sneak"], kl["select"]]
+	controls += "L: Leistungsüberblick (Levels und Wahlfächer)"
 	if night:
 		var d: Dictionary = CH.DEPTS[dept]
 		hud.show_overlay("Nacht", "Es ist 00:30. %s\n\nBleibt nicht zu lange im Lichtkegel der Professoren." % d["night_text"],
@@ -683,7 +687,7 @@ func _alert_erstis(at: Vector2, radius: float) -> void:
 			st.alert(at, 3.0)
 	if any and not hint_noise_shown:
 		hint_noise_shown = true
-		hud.toast("Psst! Zu laut!", "Die Erstis hören dich und halten ihre Bag fest. Schleichen: %s Ctrl, %s -" % [Game.name_of(0), Game.name_of(1)], 5.0)
+		hud.toast("Psst! Zu laut!", "Die Erstis hören dich und halten ihre Bag fest. Schleichen: %s %s, %s %s" % [Game.name_of(0), KEYS.labels_for(0)["sneak"], Game.name_of(1), KEYS.labels_for(1)["sneak"]], 5.0)
 
 
 func make_noise(at: Vector2, radius: float) -> void:
