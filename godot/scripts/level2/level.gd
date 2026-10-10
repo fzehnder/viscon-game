@@ -774,6 +774,27 @@ func _stand(pid: int) -> void:
 			pl.enabled = true)
 
 
+## Where the dashed way leads when a player has picked a task (px): a place beside the line
+## just outside the cashier's view, the till, or a table that still has room for both.
+func task_targets(id: String, pid: int) -> Array:
+	var out: Array = []
+	match id:
+		"queue":
+			if not p_member[pid]:
+				out.append(_pos_at(5.5 * SP) + _open_side(5.5 * SP) * 1.1 * TS)
+		"food":
+			out.append(pts[0] if p_member[pid] else _pos_at(5.5 * SP) + _open_side(5.5 * SP) * 1.1 * TS)
+		"sit":
+			var only := -1   # the table where the other one already sits
+			if p_seat[1 - pid] >= 0:
+				only = seats[p_seat[1 - pid]]["table"]
+			for k in tables.size():
+				if (only < 0 and _free_at(k) >= 2) or k == only:
+					var r: Rect2 = tables[k]
+					out.append(Vector2(r.get_center().x, r.end.y + 0.5) * TS)
+	return out
+
+
 ## Goal markers for the HUD: [position in px, colour of whoever still needs it].
 func goal_positions(id: String, n0: bool, n1: bool) -> Array:
 	var out: Array = []
