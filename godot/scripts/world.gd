@@ -322,20 +322,20 @@ func _draw() -> void:
 	var white := Color(1, 1, 1, 0.35)
 	var xm := 0.0
 	while xm < 91.0:
-		if xm < 55.6 or xm > 62.5:
+		if xm < 50.0 or xm > 56.5:
 			draw_rect(Rect2(xm * s, 16 * s - 1.5, s * 0.8, 3), white)
 		xm += 1.6
 	xm = 34.5
 	while xm < 91.0:
-		draw_rect(Rect2(xm * s, 69.5 * s - 1.5, s * 0.8, 3), white)
+		draw_rect(Rect2(xm * s, 75.5 * s - 1.5, s * 0.8, 3), white)
 		xm += 1.6
 	var zebra := N("f1c232", 0.15)
-	var xz := 57.2
-	while xz < 61.8:
+	var xz := 51.2   # crossing in front of the north entrance
+	while xz < 55.8:
 		draw_rect(Rect2(xz * s, 14.1 * s, s * 0.32, s * 3.8), zebra)
 		xz += 0.6
-	var yz := 31.4
-	while yz < 35.6:
+	var yz := 43.9   # crossing in front of the forecourt gate
+	while yz < 48.1:
 		draw_rect(Rect2(92.1 * s, yz * s, s * 5.8, s * 0.32), zebra)
 		yz += 0.6
 	for cx in [93.6, 96.4]:
