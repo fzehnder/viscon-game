@@ -220,6 +220,7 @@ Offen:
 | `levels.gd` | findet die Levels, enthält Level 1 (Positionen in Tiles, 1 Tile = 32 px) |
 | `level<N>/` | je ein weiteres Level: `level.gd`, eigene Figuren, `README.md` |
 | `cutscene.gd` | Cutscene-Abspieler |
+| `loading_screen.gd`, `loading.tscn` | Ladebildschirm vor jedem Level: Die Polybahn fährt vom Central zur Polyterrasse und ist der Ladebalken, dazu Level-Nummer, Name, Zeitvorgabe, ein gezeichnetes Motiv pro Level (`_motif`, nach Level-Nummer) und ein Tipp. Aus dem Menü (Stufe `loading`), zwischen zwei Levels (`main._next_level`) und beim Start aus dem Leistungsüberblick. Ein Level kann in seiner `DEF` `"tips": [...]` (eigene Tipps) und `"sky": "abend"` (Dämmerung) angeben |
 | `level_done.gd` | Szene am Ende jedes gewonnenen Levels, vor dem Sieg-Dialog (`main._win_day`): Blatt «Leistungsnachweis», Note zählt hoch, Stempel. Eine eigene Schlussszene eines Levels (`finale`) kommt davor |
 | `main.gd` | Spielablauf, Split Screen, Interaktion, Aufgaben, Sieg/Niederlage, Level-Hooks |
 | `player.gd`, `student.gd`, `professor.gd` | Spieler, Studierende/Erstis, Guards |

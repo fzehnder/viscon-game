@@ -601,7 +601,7 @@ func on_overlay_button() -> void:
 
 func _next_level() -> void:
 	Game.set_level(LV.next_after(Game.level))
-	get_tree().reload_current_scene()
+	get_tree().change_scene_to_file("res://loading.tscn")   # the loading screen, then this scene again
 
 
 func on_overlay_menu() -> void:
@@ -645,7 +645,7 @@ func open_transcript() -> void:
 	tr.start_level.connect(func(n: int):
 		get_tree().paused = false
 		Game.set_level(n)
-		get_tree().reload_current_scene())
+		get_tree().change_scene_to_file("res://loading.tscn"))
 	get_tree().paused = true
 	UI.sfx("pop")
 

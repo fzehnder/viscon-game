@@ -11,6 +11,7 @@ const LV = preload("res://scripts/levels.gd")
 const LegiCard = preload("res://scripts/legi_card.gd")
 const Transcript = preload("res://scripts/transcript.gd")
 const EthFront = preload("res://scripts/eth_front.gd")
+const LoadingScreen = preload("res://scripts/loading_screen.gd")
 
 const HACK := [
 	["> verbinde mit bewerbung.ethz.ch ...", false],
@@ -927,23 +928,10 @@ func _refresh_swatches(i: int) -> void:
 
 # ------------------------------------------------------------------ 7 · into the level
 func _build_loading() -> void:
-	var lv: Dictionary = LV.level()
-	var v := _vbox(10)
-	_center().add_child(v)
-	v.add_child(_centered(UI.label(String(lv["tag"]), 24, UI.PINK, 6)))
-	var title := _centered(UI.label(String(lv["name"]), 96, UI.YELLOW, 18))
-	v.add_child(title)
-	var dots: Label = UI.label("lädt", 26, UI.WHITE, 6)
-	v.add_child(_centered(dots))
-	UI.pop_in(title, 0.0, 0.3)
-	UI.sfx("whoosh")
-	var tw := dots.create_tween()
-	for k in 4:
-		tw.tween_callback(func(): dots.text = "lädt" + ".".repeat(k))
-		tw.tween_interval(0.3)
-	tw.tween_callback(func():
-		Game._apply_level()
-		get_tree().change_scene_to_file("res://main.tscn"))
+	Game._apply_level()
+	var ls := LoadingScreen.new()      # the Polybahn rides up, then the level starts
+	stage_root.add_child(ls)
+	ls.finished.connect(func(): get_tree().change_scene_to_file("res://main.tscn"))
 
 
 # ------------------------------------------------------------------ loop + keys
