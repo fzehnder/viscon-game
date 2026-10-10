@@ -16,6 +16,7 @@
 - "Merge und push" heisst: `level-base` in die eigenen Level-Branches mergen, diese nach `main` mergen und alles pushen. Branches von anderen Teammitgliedern (`tracking`, `level4-labor`) mergt, wer sie gebaut hat, oder das Team per Pull Request, nicht nebenbei.
 - Vor der Arbeit `git fetch`: Die anderen pushen laufend, auch nach `main`.
 - Diese Datei nach jeder grösseren Änderung nachführen, damit neue Sessions den Stand kennen.
+- **Neue Texte immer auch auf Englisch** (siehe "Sprachen"): Das Spiel startet auf Englisch. Wer einen Text schreibt, trägt die englische Fassung in `scripts/i18n_en.gd` bzw. `scripts/level<N>/en.gd` ein. `python3 godot/tools/i18n_check.py` zeigt, was fehlt.
 - Wünsche zur Platzierung und zum Aussehen gelten so, wie das Team sie sagt. Bedenken kurz nennen und technisch absichern, nicht eigenmächtig anders platzieren.
 
 ## Branches: Levels gleichzeitig bauen
@@ -215,6 +216,16 @@ Offen:
 - Level 3 ist gegen den drehenden Split-Screen mit Startlauf und Bot geprüft (Tanzen allein und zu zweit, Badge, Buffet, Abschalten der verdeckten Ansichten), von Menschen nicht neu durchgespielt
 - Die Möblierung der neuen Büros und Hörsäle ist schlicht (Pult, Stuhl, Bankreihen); die Hörsäle sind rechteckig mit Bühnennische statt fächerförmig, die Höfe neben den Hörsälen fehlen
 - Der Pages-Deploy-Workflow auf `main` baut weiterhin nur den Phaser-Platzhalter, das Godot-Spiel wird nirgends automatisch gebaut oder veröffentlicht
+
+## Sprachen (Englisch und Deutsch, seit 10.10.2026)
+
+- Englisch ist Standard, Deutsch per Umschalter EN | DE oben rechts auf der Startseite (`menu.gd` `_add_lang_toggle`). Gespeichert als `Game.lang` in `user://save.cfg` (Abschnitt `settings`), ein neues Studium behält sie. Zum Testen: `-- --lang=de` bzw. `-- --lang=en`.
+- Geschrieben wird weiter auf **Deutsch im Code**. `scripts/i18n.gd` ist eine Godot-Translation, die zu jedem deutschen Text den englischen liefert. Das Englisch steht als `const EN := {"Deutsch": "English", ...}` in `scripts/i18n_en.gd` (alles ausserhalb der Level-Ordner) und in `scripts/level<N>/en.gd` (eine pro Level-Ordner, wird von selbst gefunden). Schlüssel = der deutsche Text genau wie im Code (gleiche Escapes). Doppelte Schlüssel sind ein Parse-Fehler.
+- Labels, Buttons, RichTextLabels und Platzhalter übersetzen sich selbst. Was mit `draw_string` gezeichnet oder Buchstabe für Buchstabe getippt wird, braucht `tr(text)` (ohne Node: `UI.T(text)`). Selbstgebaute Zeilenumbrüche erst nach dem Übersetzen.
+- Zusammengesetzte Texte: Ein Schlüssel mit `%s`, `%d`, `%.1f` deckt auch die fertigen Texte ab ("%s hat dich gesehen" passt auf "Lea hat dich gesehen"), und was für `%s` steht, wird mitübersetzt. Das Englisch hat dieselben Codes in derselben Reihenfolge oder `{1}`, `{2}` für eine andere Reihenfolge. Mehrzeilige Texte werden Zeile für Zeile übersetzt, darum braucht ein Schlüssel mit Zeilenumbrüchen ein Englisch mit gleich vielen Zeilen.
+- Was nicht gefunden wird, bleibt deutsch. `godot/tools/i18n_check.py [level3]` listet deutsche Texte ohne Englisch; kleingeschriebene Einzelwörter ("links", "nichts") übersieht es, die von Hand eintragen.
+- Freelancing (Level 19): Im englischen Modus hört die Spracherkennung auf Englisch (`speech.gd` schickt `Game.lang`, `tracker/speech.py` nimmt es als Whisper-Sprache), und die Antworten werden mit `keys_en` / `bad_en` und den `*_EN`-Listen in `jobs.gd` geprüft. Jeder englische Tipp muss als Antwort durchgehen, keine falsche Option.
+- Wortwahl: Ersti = fresher, Ersti-Tag = Freshers' Day, Legi bleibt Legi, Leistungsüberblick = Transcript, Wahlfach = elective, Basisprüfung = First-Year Exam, Streber = swot. Polyterrasse, Polybahn, Mensa, Rämistrasse bleiben.
 
 ## Code-Orientierung (`godot/scripts/`)
 

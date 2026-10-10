@@ -104,15 +104,15 @@ func _c(i: int) -> Color:
 
 func _text(pos: Vector2, s: String, size: int, col: Color, align := HORIZONTAL_ALIGNMENT_LEFT, outline := 0, out_col := Color("15162b")) -> void:
 	var font := ThemeDB.fallback_font
-	var w := font.get_string_size(s, HORIZONTAL_ALIGNMENT_LEFT, -1, size).x
+	var w := font.get_string_size(tr(s), HORIZONTAL_ALIGNMENT_LEFT, -1, size).x
 	var p := pos
 	if align == HORIZONTAL_ALIGNMENT_CENTER:
 		p.x -= w / 2.0
 	elif align == HORIZONTAL_ALIGNMENT_RIGHT:
 		p.x -= w
 	if outline > 0:
-		draw_string_outline(font, p, s, HORIZONTAL_ALIGNMENT_LEFT, -1, size, outline, out_col)
-	draw_string(font, p, s, HORIZONTAL_ALIGNMENT_LEFT, -1, size, col)
+		draw_string_outline(font, p, tr(s), HORIZONTAL_ALIGNMENT_LEFT, -1, size, outline, out_col)
+	draw_string(font, p, tr(s), HORIZONTAL_ALIGNMENT_LEFT, -1, size, col)
 
 
 func _hash(i: int) -> float:
@@ -151,7 +151,7 @@ func _draw() -> void:
 		_draw_zentrum(o, k, lit)
 	# which level: number, name, time
 	var tag := String(lv.get("tag", "LEVEL %d" % n))
-	var tagw := ThemeDB.fallback_font.get_string_size(tag, HORIZONTAL_ALIGNMENT_LEFT, -1, 20).x
+	var tagw := ThemeDB.fallback_font.get_string_size(tr(tag), HORIZONTAL_ALIGNMENT_LEFT, -1, 20).x
 	draw_rect(Rect2(66.0, 50.0, tagw + 28.0, 34.0), UI.ETH_BLUE)
 	_text(Vector2(80.0, 74.0), tag, 20, Color.WHITE)
 	var pop := 1.0 + 0.25 * maxf(0.0, 1.0 - t / 0.35)
@@ -165,10 +165,10 @@ func _draw() -> void:
 	draw_arc(mc, 92.0, 0.0, TAU, 64, UI.PAPER, 5.0, true)
 	_motif(mc + Vector2(0, sin(t * 2.2) * 4.0))
 	# tip and how far it is
-	var tipw := ThemeDB.fallback_font.get_string_size("Tipp: " + tip, HORIZONTAL_ALIGNMENT_LEFT, -1, 18).x
+	var tipw := ThemeDB.fallback_font.get_string_size(tr("Tipp: " + tip), HORIZONTAL_ALIGNMENT_LEFT, -1, 18).x
 	draw_style_box(UI.box(UI.PAPER, UI.ETH_BLUE, 10, 2, 0, false), Rect2(40.0, 662.0, tipw + 36.0, 40.0))
 	_text(Vector2(58.0, 689.0), "Tipp:", 18, UI.ETH_BLUE)
-	_text(Vector2(58.0 + ThemeDB.fallback_font.get_string_size("Tipp: ", HORIZONTAL_ALIGNMENT_LEFT, -1, 18).x, 689.0), tip, 18, UI.INK)
+	_text(Vector2(58.0 + ThemeDB.fallback_font.get_string_size(tr("Tipp: "), HORIZONTAL_ALIGNMENT_LEFT, -1, 18).x, 689.0), tip, 18, UI.INK)
 	_text(Vector2(W - 40.0, 690.0), "%d %%" % int(p * 100.0), 22, Color.WHITE, HORIZONTAL_ALIGNMENT_RIGHT, 6)
 	draw_set_transform(Vector2.ZERO, 0.0, Vector2.ONE)
 

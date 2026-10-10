@@ -36,6 +36,12 @@ const SKY := Color("8fb4f0")         # light ETH blue: titles and accents on gla
 const PARTY := ["ffc93c", "ff5d8f", "3ddc97", "4d8dff", "9b6bff", "ff8c42", "ffffff"]
 
 
+## A German text in the language of the game (see i18n.gd). For places without a node to call
+## tr() on; labels and buttons translate themselves.
+static func T(text: String) -> String:
+	return String(TranslationServer.translate(text))
+
+
 static func sfx(sound: String, volume_db: float = -6.0) -> void:
 	var tree := Engine.get_main_loop() as SceneTree
 	if tree == null:

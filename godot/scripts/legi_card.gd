@@ -59,11 +59,11 @@ func set_player(i: int) -> void:
 
 ## Text in the largest size up to `fs` that fits into `w`.
 func _fit(font: Font, s: String, pos: Vector2, w: float, fs: int, col: Color, bold: bool = false) -> void:
-	while fs > 8 and font.get_string_size(s, HORIZONTAL_ALIGNMENT_LEFT, -1, fs).x > w:
+	while fs > 8 and font.get_string_size(tr(s), HORIZONTAL_ALIGNMENT_LEFT, -1, fs).x > w:
 		fs -= 1
 	if bold:
-		draw_string_outline(font, pos, s, HORIZONTAL_ALIGNMENT_LEFT, -1, fs, 2, col)
-	draw_string(font, pos, s, HORIZONTAL_ALIGNMENT_LEFT, -1, fs, col)
+		draw_string_outline(font, pos, tr(s), HORIZONTAL_ALIGNMENT_LEFT, -1, fs, 2, col)
+	draw_string(font, pos, tr(s), HORIZONTAL_ALIGNMENT_LEFT, -1, fs, col)
 
 
 func _draw() -> void:
@@ -90,10 +90,10 @@ func _draw() -> void:
 	draw_rect(Rect2(0, 92, CARD.x, 94), BAND)
 	# logo, slanted: "ETH" heavy, "zürich" light
 	draw_set_transform_matrix(Transform2D(Vector2(k, 0), Vector2(-0.2 * k, k), o + Vector2(31, 50) * k))
-	draw_string_outline(font, Vector2.ZERO, "ETH", HORIZONTAL_ALIGNMENT_LEFT, -1, 38, 7, INK)
-	draw_string(font, Vector2.ZERO, "ETH", HORIZONTAL_ALIGNMENT_LEFT, -1, 38, INK)
-	var eth_w := font.get_string_size("ETH", HORIZONTAL_ALIGNMENT_LEFT, -1, 38).x
-	draw_string(font, Vector2(eth_w + 6, 0), "zürich", HORIZONTAL_ALIGNMENT_LEFT, -1, 36, INK)
+	draw_string_outline(font, Vector2.ZERO, tr("ETH"), HORIZONTAL_ALIGNMENT_LEFT, -1, 38, 7, INK)
+	draw_string(font, Vector2.ZERO, tr("ETH"), HORIZONTAL_ALIGNMENT_LEFT, -1, 38, INK)
+	var eth_w := font.get_string_size(tr("ETH"), HORIZONTAL_ALIGNMENT_LEFT, -1, 38).x
+	draw_string(font, Vector2(eth_w + 6, 0), tr("zürich"), HORIZONTAL_ALIGNMENT_LEFT, -1, 36, INK)
 	draw_set_transform(o, 0.0, Vector2(k, k))
 	# photo top right; its white frame reaches into the band and is deeper below the photo
 	var frame := Rect2(287, 34, 111, 124)
@@ -120,14 +120,14 @@ func _draw() -> void:
 		draw_rect(Rect2(frame.position.x, pr.position.y, pr.position.x - frame.position.x, pr.size.y), Color.WHITE)
 		draw_rect(Rect2(pr.end.x, pr.position.y, frame.end.x - pr.end.x, pr.size.y), Color.WHITE)
 		draw_rect(Rect2(frame.position.x - 10, frame.end.y, frame.size.x + 20, 186 - frame.end.y), BAND)
-	draw_string(font, Vector2(200, 178), "Gültig bis / valid through", HORIZONTAL_ALIGNMENT_RIGHT, 197, 11, INK)
+	draw_string(font, Vector2(200, 178), tr("Gültig bis / valid through"), HORIZONTAL_ALIGNMENT_RIGHT, 197, 11, INK)
 	# surname (if there is one), first name and, after a gap, the birthday in the band
 	if surname != "":
 		_fit(font, surname, Vector2(34, 116), 230, 17, INK)
 		_fit(font, pname, Vector2(34, 134), 230, 17, INK)
 	else:
 		_fit(font, pname, Vector2(34, 116), 230, 17, INK)
-	draw_string(font, Vector2(34, 168), birthday, HORIZONTAL_ALIGNMENT_LEFT, -1, 18, INK)
+	draw_string(font, Vector2(34, 168), tr(birthday), HORIZONTAL_ALIGNMENT_LEFT, -1, 18, INK)
 	# programme and Legi number, printed onto the strip
 	_fit(font, "Studies", Vector2(40, 204), 190, 14, PRINT, true)
 	_fit(font, programme, Vector2(40, 230), 190, 14, PRINT, true)
@@ -143,11 +143,11 @@ func _draw() -> void:
 		var sc := 1.0 + (1.0 - ease(e, 0.4)) * 0.6
 		var c := Vector2(322, 222)
 		draw_set_transform(o + c * k, 0.0, Vector2(k * sc, k * sc))
-		draw_string_outline(font, Vector2(-76, 23), "S", HORIZONTAL_ALIGNMENT_LEFT, -1, 64, 5, col)
-		draw_string(font, Vector2(-76, 23), "S", HORIZONTAL_ALIGNMENT_LEFT, -1, 64, col)
-		draw_string_outline(font, Vector2(-33, -10), VALID, HORIZONTAL_ALIGNMENT_LEFT, -1, 19, 2, col)
-		draw_string(font, Vector2(-33, -10), VALID, HORIZONTAL_ALIGNMENT_LEFT, -1, 19, col)
+		draw_string_outline(font, Vector2(-76, 23), tr("S"), HORIZONTAL_ALIGNMENT_LEFT, -1, 64, 5, col)
+		draw_string(font, Vector2(-76, 23), tr("S"), HORIZONTAL_ALIGNMENT_LEFT, -1, 64, col)
+		draw_string_outline(font, Vector2(-33, -10), tr(VALID), HORIZONTAL_ALIGNMENT_LEFT, -1, 19, 2, col)
+		draw_string(font, Vector2(-33, -10), tr(VALID), HORIZONTAL_ALIGNMENT_LEFT, -1, 19, col)
 		draw_rect(Rect2(10, -6, 70, 24), col, false, 2.5)
-		draw_string_outline(font, Vector2(10, 13), "ASVZ", HORIZONTAL_ALIGNMENT_CENTER, 70, 17, 2, col)
-		draw_string(font, Vector2(10, 13), "ASVZ", HORIZONTAL_ALIGNMENT_CENTER, 70, 17, col)
+		draw_string_outline(font, Vector2(10, 13), tr("ASVZ"), HORIZONTAL_ALIGNMENT_CENTER, 70, 17, 2, col)
+		draw_string(font, Vector2(10, 13), tr("ASVZ"), HORIZONTAL_ALIGNMENT_CENTER, 70, 17, col)
 	draw_set_transform(Vector2.ZERO, 0.0, Vector2.ONE)

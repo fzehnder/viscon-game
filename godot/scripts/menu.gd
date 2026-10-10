@@ -298,6 +298,36 @@ func _build_title() -> void:
 	var tw := title.create_tween().set_loops()
 	tw.tween_property(title, "rotation", 0.015, 1.6).set_trans(Tween.TRANS_SINE)
 	tw.tween_property(title, "rotation", -0.015, 1.6).set_trans(Tween.TRANS_SINE)
+	_add_lang_toggle()
+
+
+## Language toggle top right of the start page: EN | DE. Everything shown switches at once.
+func _add_lang_toggle() -> void:
+	var box := PanelContainer.new()
+	box.add_theme_stylebox_override("panel", UI.box(UI.PAPER, UI.LINE, 12, 2, 4))
+	stage_root.add_child(box)
+	box.anchor_left = 1.0
+	box.anchor_right = 1.0
+	box.offset_top = 18
+	box.offset_right = -18
+	box.grow_horizontal = Control.GROW_DIRECTION_BEGIN
+	var row := HBoxContainer.new()
+	row.add_theme_constant_override("separation", 4)
+	box.add_child(row)
+	for l in ["en", "de"]:
+		var on: bool = Game.lang == l
+		var b := UI.button(l.to_upper(), UI.ETH_BLUE if on else UI.PAPER2, 16)
+		b.auto_translate_mode = Node.AUTO_TRANSLATE_MODE_DISABLED
+		b.custom_minimum_size = Vector2(58, 40)
+		if not on:
+			for k in ["font_color", "font_hover_color", "font_pressed_color", "font_focus_color"]:
+				b.add_theme_color_override(k, UI.INK2)
+		var lang: String = l
+		b.pressed.connect(func():
+			if Game.lang != lang:
+				Game.set_lang(lang)
+				_go("title"))
+		row.add_child(b)
 
 
 func _new_game() -> void:
@@ -428,6 +458,7 @@ func _build_hack() -> void:
 	term_l = UI.label("", 17, Color("39ff88"))
 	term_l.label_settings.font = mono
 	term_l.vertical_alignment = VERTICAL_ALIGNMENT_BOTTOM
+	term_l.auto_translate_mode = Node.AUTO_TRANSLATE_MODE_DISABLED   # its lines come translated (_process_hack)
 	term_panel.add_child(term_l)
 	term_panel.visible = false
 	glitch = Glitch.new()
@@ -462,7 +493,7 @@ func _process_hack(delta: float) -> void:
 		hack_pause -= delta
 	else:
 		var line: Array = HACK[hack_line]
-		var txt: String = line[0]
+		var txt: String = tr(line[0])   # translated before it is typed letter by letter
 		if hack_char < txt.length():
 			var before := int(hack_char)
 			hack_char += delta * 58.0
@@ -520,7 +551,7 @@ func _build_names() -> void:
 		row.add_theme_constant_override("separation", 14)
 		content.add_child(row)
 		var tag := UI.label("Spieler*in %d  (%s)" % [i + 1, "WASD · E" if i == 0 else "Pfeile · Enter"], 18, Color(KEYS.TAG_COLORS[i]).darkened(0.15))
-		tag.custom_minimum_size = Vector2(250, 0)
+		tag.custom_minimum_size = Vector2(240, 0)
 		row.add_child(tag)
 		var e := _name_edit("Vorname", String(Game.names[i]), 14)
 		row.add_child(e)
@@ -545,8 +576,8 @@ func _name_edit(placeholder: String, text: String, max_len: int) -> LineEdit:
 	e.max_length = max_len
 	e.placeholder_text = placeholder
 	e.text = text
-	e.custom_minimum_size = Vector2(250, 52)
-	e.add_theme_font_size_override("font_size", 24)
+	e.custom_minimum_size = Vector2(272, 52)   # room for "Surname (optional)" and "Nachname (optional)"
+	e.add_theme_font_size_override("font_size", 22)
 	e.add_theme_color_override("font_color", Color("1c1d33"))
 	e.add_theme_color_override("caret_color", UI.ETH_BLUE)
 	e.add_theme_color_override("font_placeholder_color", Color("9aa3b5"))

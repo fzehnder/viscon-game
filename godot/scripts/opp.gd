@@ -539,8 +539,8 @@ func _bubble(c: Vector2, mark: String, col: Color) -> void:
 	draw_circle(c, 10.0, Color(0.08, 0.09, 0.17, 0.92))
 	draw_arc(c, 10.0, 0.0, TAU, 24, col, 2.0)
 	var font := ThemeDB.fallback_font
-	var w := font.get_string_size(mark, HORIZONTAL_ALIGNMENT_LEFT, -1, 16).x
-	draw_string(font, c + Vector2(-w / 2.0, 6), mark, HORIZONTAL_ALIGNMENT_LEFT, -1, 16, col)
+	var w := font.get_string_size(tr(mark), HORIZONTAL_ALIGNMENT_LEFT, -1, 16).x
+	draw_string(font, c + Vector2(-w / 2.0, 6), tr(mark), HORIZONTAL_ALIGNMENT_LEFT, -1, 16, col)
 
 
 func _draw() -> void:
@@ -556,9 +556,9 @@ func _draw() -> void:
 	var top := -58.0
 	if angry:
 		# red name tag, like the tags of the players
-		var w := font.get_string_size(pname, HORIZONTAL_ALIGNMENT_LEFT, -1, 11).x
+		var w := font.get_string_size(tr(pname), HORIZONTAL_ALIGNMENT_LEFT, -1, 11).x
 		draw_rect(Rect2(-w / 2.0 - 4.0, -71.0, w + 8.0, 14.0), Color(0.08, 0.09, 0.17, 0.75))
-		draw_string(font, Vector2(-w / 2.0, -60.0), pname, HORIZONTAL_ALIGNMENT_LEFT, -1, 11, UI.RED)
+		draw_string(font, Vector2(-w / 2.0, -60.0), tr(pname), HORIZONTAL_ALIGNMENT_LEFT, -1, 11, UI.RED)
 		top = -84.0
 	# suspicion bar: fills while they can see you, the chase starts when it is full
 	if meter > 0.02 and state != JAGD:

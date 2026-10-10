@@ -4,6 +4,13 @@ extends Node
 
 const CH = preload("res://scripts/characters.gd")
 const LV = preload("res://scripts/levels.gd")
+const I18n = preload("res://scripts/i18n.gd")
+
+# language of everything shown: "en" (default) or "de". The game is written in German; i18n.gd
+# supplies the English. Saved with the game (section "settings"), kept by a new game.
+var lang := "en"
+var english: Translation = null
+var english_on := false
 
 var level := 1
 var story_level := 1       # last story level that was started (electives do not count): "Weiterspielen"
@@ -46,13 +53,48 @@ func _ready() -> void:
 	randomize()
 	player_looks = [_default_look(0), _default_look(1)]
 	# dev shortcut, straight into a level: godot --path godot res://main.tscn -- --level=2
+	var forced_lang := ""
 	for a in OS.get_cmdline_user_args():
 		if a.begins_with("--level="):
 			level = int(a.trim_prefix("--level="))
 		elif a == "--nosave":
 			persist = false
+		elif a.begins_with("--lang="):
+			forced_lang = a.trim_prefix("--lang=")   # for testing: --lang=de or --lang=en
 	load_game()
+	if forced_lang != "":
+		lang = forced_lang
+	english = I18n.new()
+	english.load_all()
+	apply_lang()
 	_apply_level()
+
+
+## The English is a script; Godot must let go of it before the scripts are freed at the end.
+func _exit_tree() -> void:
+	if english_on:
+		TranslationServer.remove_translation(english)
+		english_on = false
+
+
+## Shows everything in `l` ("en" or "de") from now on and remembers it.
+func set_lang(l: String) -> void:
+	lang = "de" if l == "de" else "en"
+	apply_lang()
+	save_game()
+
+
+func apply_lang() -> void:
+	if lang == "en" and not english_on:
+		TranslationServer.add_translation(english)
+		english_on = true
+	elif lang != "en" and english_on:
+		TranslationServer.remove_translation(english)
+		english_on = false
+	# a change of locale makes every label translate itself again
+	var other := "de" if lang == "en" else "en"
+	TranslationServer.set_locale(other)
+	TranslationServer.set_locale(lang)
 
 
 func _default_look(i: int) -> Dictionary:
@@ -176,6 +218,7 @@ func save_game() -> void:
 		cfg.set_value("items", id, items[id])
 	for key in electives:
 		cfg.set_value("electives", key, electives[key])
+	cfg.set_value("settings", "lang", lang)
 	cfg.save(save_path)
 
 
@@ -189,6 +232,7 @@ func load_game() -> void:
 	var cfg := ConfigFile.new()
 	if cfg.load(save_path) != OK:
 		return
+	lang = String(cfg.get_value("settings", "lang", lang))
 	if cfg.has_section("opps"):
 		for id in cfg.get_section_keys("opps"):
 			var d = cfg.get_value("opps", id)

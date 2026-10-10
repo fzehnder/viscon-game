@@ -101,7 +101,8 @@ func finish(prompt: String = "") -> int:
 		_emit_later(id, "")
 		return id
 	_pending[id] = _now
-	_out.put_packet(JSON.stringify({"wav": path, "id": id, "prompt": prompt}).to_utf8_buffer())
+	# the language of the game: German or English is what the players will speak
+	_out.put_packet(JSON.stringify({"wav": path, "id": id, "prompt": prompt, "lang": Game.lang}).to_utf8_buffer())
 	return id
 
 
