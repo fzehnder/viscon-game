@@ -31,7 +31,7 @@ var labels: Dictionary = {}
 var keys2: Dictionary = {}
 var labels2: Dictionary = {}
 var accent := Color("ffc93c")   # border colour: the player's colour (yellow for co-op)
-var legi_card: Control
+var legi_card = null
 
 var root: Control
 var panel: PanelContainer

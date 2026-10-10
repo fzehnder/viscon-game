@@ -18,13 +18,13 @@ const ETH_BLUE := Color("215caf")
 const PARTY := ["ffc93c", "ff5d8f", "3ddc97", "4d8dff", "9b6bff", "ff8c42", "ffffff"]
 
 
-static func sfx(sound: String) -> void:
+static func sfx(sound: String, volume_db: float = -6.0) -> void:
 	var tree := Engine.get_main_loop() as SceneTree
 	if tree == null:
 		return
-	var n := tree.root.get_node_or_null("Sfx")
+	var n = tree.root.get_node_or_null("Sfx")
 	if n:
-		n.play(sound)
+		n.play(sound, volume_db)
 
 
 static func box(bg: Color, border: Color, radius: int = 18, bw: int = 4, pad: float = 14.0, shadow: bool = true) -> StyleBoxFlat:
