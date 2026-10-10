@@ -108,7 +108,7 @@ const DEF := {
 	"time": 480.0,
 	"start": Vector2(27.0, 51.0),   # on the Polyterrasse, between the west entrance and the Mensa
 	"timer_title": "GARDEROBE SCHLIESST IN",
-	"sky": "abend",                 # loading screen: dusk
+	"sky": "night",                 # loading screen: the Polybahn rides up at night
 	"tips": [
 		"In Abendgarderobe übersehen euch die Aufpasser im Hauptgebäude, in der Küchenschürze die Köche.",
 		"Umziehen geht nur draussen und nur, wo niemand zuschaut.",
