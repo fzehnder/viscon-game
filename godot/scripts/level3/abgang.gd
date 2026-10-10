@@ -308,5 +308,5 @@ func _draw_scene() -> void:
 
 func _text(center: Vector2, s: String, size: int, col: Color) -> void:
 	var font := ThemeDB.fallback_font
-	var w := font.get_string_size(s, HORIZONTAL_ALIGNMENT_LEFT, -1, size).x
-	canvas.draw_string(font, center - Vector2(w / 2.0, 0), s, HORIZONTAL_ALIGNMENT_LEFT, -1, size, col)
+	var w := font.get_string_size(tr(s), HORIZONTAL_ALIGNMENT_LEFT, -1, size).x
+	canvas.draw_string(font, center - Vector2(w / 2.0, 0), tr(s), HORIZONTAL_ALIGNMENT_LEFT, -1, size, col)

@@ -952,9 +952,9 @@ func _draw() -> void:
 	draw_rect(carpet, Color("8c1c2c"))
 	draw_line(carpet.position, carpet.position + Vector2(carpet.size.x, 0), gold, 1.5)
 	draw_line(carpet.position + Vector2(0, carpet.size.y), carpet.end, gold, 1.5)
-	draw_string(font, Vector2(30.4, 43.6) * TS, "POLYBALL", HORIZONTAL_ALIGNMENT_LEFT, -1, 26, gold)
-	draw_string(font, Vector2(30.4, 44.2) * TS, "Abendgarderobe", HORIZONTAL_ALIGNMENT_LEFT, -1, 11, Color(gold, 0.8))
-	draw_string(font, Vector2(18.6, 63.7) * TS, "Küche · nur Personal", HORIZONTAL_ALIGNMENT_LEFT, -1, 10, Color(1, 1, 1, 0.75))
+	draw_string(font, Vector2(30.4, 43.6) * TS, tr("POLYBALL"), HORIZONTAL_ALIGNMENT_LEFT, -1, 26, gold)
+	draw_string(font, Vector2(30.4, 44.2) * TS, tr("Abendgarderobe"), HORIZONTAL_ALIGNMENT_LEFT, -1, 11, Color(gold, 0.8))
+	draw_string(font, Vector2(18.6, 63.7) * TS, tr("Küche · nur Personal"), HORIZONTAL_ALIGNMENT_LEFT, -1, 10, Color(1, 1, 1, 0.75))
 	# strings of lights along the Haupthalle
 	var cols := [UI.YELLOW, UI.PINK, UI.GREEN, UI.BLUE, UI.ORANGE]
 	var i := 0
@@ -1073,6 +1073,6 @@ func _draw_marks(ci: CanvasItem) -> void:
 		var col := UI.GREEN if ok else UI.RED
 		if not ok and fmod(t, 0.6) > 0.42:
 			continue   # blinks
-		var w := font.get_string_size(text, HORIZONTAL_ALIGNMENT_LEFT, -1, 9).x
+		var w := font.get_string_size(tr(text), HORIZONTAL_ALIGNMENT_LEFT, -1, 9).x
 		ci.draw_rect(Rect2(at.x - w / 2.0 - 4.0, at.y - 8.0, w + 8.0, 12.0), Color(0.08, 0.09, 0.17, 0.8))
-		ci.draw_string(font, Vector2(at.x - w / 2.0, at.y + 1.5), text, HORIZONTAL_ALIGNMENT_LEFT, -1, 9, col)
+		ci.draw_string(font, Vector2(at.x - w / 2.0, at.y + 1.5), tr(text), HORIZONTAL_ALIGNMENT_LEFT, -1, 9, col)

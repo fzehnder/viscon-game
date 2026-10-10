@@ -330,8 +330,8 @@ func _cable_end(i: int) -> Vector2:
 
 func _text(pos: Vector2, s: String, fs: int, col: Color, width: float = -1.0, align := HORIZONTAL_ALIGNMENT_LEFT) -> void:
 	var font := ThemeDB.fallback_font
-	view.draw_string_outline(font, pos, s, align, width, fs, 6, Color("15162b"))
-	view.draw_string(font, pos, s, align, width, fs, col)
+	view.draw_string_outline(font, pos, tr(s), align, width, fs, 6, Color("15162b"))
+	view.draw_string(font, pos, tr(s), align, width, fs, col)
 
 
 func _draw_view() -> void:

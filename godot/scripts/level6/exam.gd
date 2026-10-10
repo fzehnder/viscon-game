@@ -389,7 +389,7 @@ func _draw_half(ci: Control, pid: int) -> void:
 		ci.draw_circle(mc, 42, Color(1, 1, 1, 0.94))
 		ci.draw_circle(mc + Vector2(dir * 52, 44), 10, Color(1, 1, 1, 0.94))
 		ci.draw_arc(mc, 36, -PI / 2.0, -PI / 2.0 + TAU * memory[pid], 32, Color(KEYS.TAG_COLORS[pid]), 7.0)
-		ci.draw_string(font, mc + Vector2(-40, 7), "f'(x)=", HORIZONTAL_ALIGNMENT_CENTER, 80, 18, INK)
+		ci.draw_string(font, mc + Vector2(-40, 7), tr("f'(x)="), HORIZONTAL_ALIGNMENT_CENTER, 80, 18, INK)
 	for i in 6:
 		var k := float(i) / 6.0
 		ci.draw_rect(Rect2(-i * 6, -i * 6, w + i * 12, h + i * 12), Color(0, 0, 0, 0.05 * (1.0 - k)), false, 40.0)
@@ -495,7 +495,7 @@ func _draw_streber(ci: Control, pid: int, foot: Vector2) -> void:
 	ci.draw_rect(scr.grow(6), SCREEN)
 	ci.draw_rect(scr, SCREEN_ON)
 	ci.draw_rect(Rect2(scr.position.x, scr.position.y, scr.size.x, 14), Color("1f407a"))
-	ci.draw_string(font, scr.position + Vector2(6, 11), "Safe Exam · Aufgabe 3", HORIZONTAL_ALIGNMENT_LEFT, -1, 10, Color.WHITE)
+	ci.draw_string(font, scr.position + Vector2(6, 11), tr("Safe Exam · Aufgabe 3"), HORIZONTAL_ALIGNMENT_LEFT, -1, 10, Color.WHITE)
 	ci.draw_rect(Rect2(foot.x - dir * 20.0 - 8, scr.end.y + 6, 16, 10), SCREEN)
 	var reading: bool = view[pid] >= READ_FROM and s_state != "glance" and phase == "exam"
 	for i in 6:
@@ -523,17 +523,17 @@ func _draw_own_screen(ci: Control, pid: int, w: float, h: float, off: float) -> 
 	ci.draw_rect(scr.grow(8), SCREEN)
 	ci.draw_rect(scr, SCREEN_ON)
 	ci.draw_rect(Rect2(scr.position.x, scr.position.y, scr.size.x, 22), Color("1f407a"))
-	ci.draw_string(font, scr.position + Vector2(8, 16), "Safe Exam Browser · Basisprüfung · %s" % Game.name_of(pid), HORIZONTAL_ALIGNMENT_LEFT, scr.size.x - 16, 13, Color.WHITE)
+	ci.draw_string(font, scr.position + Vector2(8, 16), tr("Safe Exam Browser · Basisprüfung · %s" % Game.name_of(pid)), HORIZONTAL_ALIGNMENT_LEFT, scr.size.x - 16, 13, Color.WHITE)
 	var col := Color(KEYS.TAG_COLORS[pid]).darkened(0.25)
 	for i in ANSWERS:
 		var yy := scr.position.y + 36 + i * 23
-		ci.draw_string(font, Vector2(scr.position.x + 10, yy + 12), "%d)" % (i + 1), HORIZONTAL_ALIGNMENT_LEFT, -1, 13, INK)
+		ci.draw_string(font, Vector2(scr.position.x + 10, yy + 12), tr("%d)" % (i + 1)), HORIZONTAL_ALIGNMENT_LEFT, -1, 13, INK)
 		ci.draw_rect(Rect2(scr.position.x + 36, yy, scr.size.x - 50, 17), Color("eef1f6"))
 		var fill := clampf(answers[pid] - i, 0.0, 1.0)
 		if fill > 0.0:
 			ci.draw_rect(Rect2(scr.position.x + 38, yy + 2, (scr.size.x - 54) * fill, 13), Color(col, 0.25))
 			var chars := int(28 * fill)
-			ci.draw_string(font, Vector2(scr.position.x + 42, yy + 13), "x = 2 · e^(-t) + C ..........".substr(0, chars), HORIZONTAL_ALIGNMENT_LEFT, -1, 12, col)
+			ci.draw_string(font, Vector2(scr.position.x + 42, yy + 13), tr("x = 2 · e^(-t) + C ..........".substr(0, chars)), HORIZONTAL_ALIGNMENT_LEFT, -1, 12, col)
 	ci.draw_rect(Rect2(w / 2.0 - 20 + off, scr.end.y + 8, 40, 14), SCREEN)
 	# keyboard
 	ci.draw_rect(Rect2(w / 2.0 - 150 + off, h - 52, 300, 40), Color("3a3f4c"))
@@ -551,15 +551,15 @@ func _draw_cam(ci: Control, pid: int) -> void:
 		ci.draw_texture_rect_region(Track.preview, r, Rect2(tw / 2.0 * pid, 0, tw / 2.0, th))
 	else:
 		ci.draw_rect(r, Color("2a2e38"))
-		ci.draw_string(font, r.position + Vector2(0, 64), "keine Kamera", HORIZONTAL_ALIGNMENT_CENTER, r.size.x, 13, UI.MUTED)
+		ci.draw_string(font, r.position + Vector2(0, 64), tr("keine Kamera"), HORIZONTAL_ALIGNMENT_CENTER, r.size.x, 13, UI.MUTED)
 	if lost_t[pid] > LOST_WARN and phase != "calib":
 		ci.draw_rect(r, Color(1, 0.2, 0.25, 0.35))
-		ci.draw_string(font, r.position + Vector2(0, 112), "Nicht im Bild!", HORIZONTAL_ALIGNMENT_CENTER, r.size.x, 13, Color.WHITE)
+		ci.draw_string(font, r.position + Vector2(0, 112), tr("Nicht im Bild!"), HORIZONTAL_ALIGNMENT_CENTER, r.size.x, 13, Color.WHITE)
 
 
 func _text(ci: CanvasItem, pos: Vector2, s: String, fs: int, col: Color, width: float = -1.0, al := HORIZONTAL_ALIGNMENT_LEFT) -> void:
-	ci.draw_string_outline(font, pos, s, al, width, fs, 6, INK)
-	ci.draw_string(font, pos, s, al, width, fs, col)
+	ci.draw_string_outline(font, pos, tr(s), al, width, fs, 6, INK)
+	ci.draw_string(font, pos, tr(s), al, width, fs, col)
 
 
 func _draw_hud(ci: Control, pid: int) -> void:

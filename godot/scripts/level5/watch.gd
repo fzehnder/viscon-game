@@ -158,15 +158,15 @@ class Overlay:
 		var col := UI.RED.lerp(Color.WHITE, 0.4 * beat) if left < 20.0 else UI.YELLOW.lerp(UI.RED, k)
 		var txt := "%d" % int(ceilf(left))
 		var y := vs.y * 0.42 + fs * 0.3
-		draw_string_outline(font, Vector2(0, y) + off, txt, HORIZONTAL_ALIGNMENT_CENTER, vs.x, fs, 20, Color("15162b"))
-		draw_string(font, Vector2(0, y) + off, txt, HORIZONTAL_ALIGNMENT_CENTER, vs.x, fs, col)
+		draw_string_outline(font, Vector2(0, y) + off, tr(txt), HORIZONTAL_ALIGNMENT_CENTER, vs.x, fs, 20, Color("15162b"))
+		draw_string(font, Vector2(0, y) + off, tr(txt), HORIZONTAL_ALIGNMENT_CENTER, vs.x, fs, col)
 		var sub := "SICHERHEITSDIENST BEMERKT DEN AUSFALL IN"
-		draw_string_outline(font, Vector2(0, y - fs * 0.85) + off * 0.5, sub, HORIZONTAL_ALIGNMENT_CENTER, vs.x, 24, 8, Color("15162b"))
-		draw_string(font, Vector2(0, y - fs * 0.85) + off * 0.5, sub, HORIZONTAL_ALIGNMENT_CENTER, vs.x, 24, col)
+		draw_string_outline(font, Vector2(0, y - fs * 0.85) + off * 0.5, tr(sub), HORIZONTAL_ALIGNMENT_CENTER, vs.x, 24, 8, Color("15162b"))
+		draw_string(font, Vector2(0, y - fs * 0.85) + off * 0.5, tr(sub), HORIZONTAL_ALIGNMENT_CENTER, vs.x, 24, col)
 		if urgent:
 			var go := "RAUS!" if fmod(t, 0.5) < 0.25 else "SCHNELL!"
-			draw_string_outline(font, Vector2(0, y + 60.0) + off, go, HORIZONTAL_ALIGNMENT_CENTER, vs.x, 40, 10, Color("15162b"))
-			draw_string(font, Vector2(0, y + 60.0) + off, go, HORIZONTAL_ALIGNMENT_CENTER, vs.x, 40, Color.WHITE)
+			draw_string_outline(font, Vector2(0, y + 60.0) + off, tr(go), HORIZONTAL_ALIGNMENT_CENTER, vs.x, 40, 10, Color("15162b"))
+			draw_string(font, Vector2(0, y + 60.0) + off, tr(go), HORIZONTAL_ALIGNMENT_CENTER, vs.x, 40, Color.WHITE)
 
 
 	## Where the player is on the screen (the view that follows them).
@@ -204,8 +204,8 @@ class Overlay:
 		var check: float = level.check_t[pid]
 		if check > 0.05:
 			var tp := Vector2(box.position.x - 60.0, box.position.y + 52.0)
-			draw_string_outline(font, tp, "Er macht den Schrank auf!", HORIZONTAL_ALIGNMENT_CENTER, box.size.x + 120.0, 30, 8, Color("15162b"))
-			draw_string(font, tp, "Er macht den Schrank auf!", HORIZONTAL_ALIGNMENT_CENTER, box.size.x + 120.0, 30, UI.RED)
+			draw_string_outline(font, tp, tr("Er macht den Schrank auf!"), HORIZONTAL_ALIGNMENT_CENTER, box.size.x + 120.0, 30, 8, Color("15162b"))
+			draw_string(font, tp, tr("Er macht den Schrank auf!"), HORIZONTAL_ALIGNMENT_CENTER, box.size.x + 120.0, 30, UI.RED)
 		var key := "E" if pid == 0 else "Enter"
-		draw_string_outline(font, Vector2(box.position.x, box.end.y - 22.0), "Versteckt · %s: raus" % key, HORIZONTAL_ALIGNMENT_CENTER, box.size.x, 17, 6, Color("15162b"))
-		draw_string(font, Vector2(box.position.x, box.end.y - 22.0), "Versteckt · %s: raus" % key, HORIZONTAL_ALIGNMENT_CENTER, box.size.x, 17, Color(KEYS.TAG_COLORS[pid]))
+		draw_string_outline(font, Vector2(box.position.x, box.end.y - 22.0), tr("Versteckt · %s: raus" % key), HORIZONTAL_ALIGNMENT_CENTER, box.size.x, 17, 6, Color("15162b"))
+		draw_string(font, Vector2(box.position.x, box.end.y - 22.0), tr("Versteckt · %s: raus" % key), HORIZONTAL_ALIGNMENT_CENTER, box.size.x, 17, Color(KEYS.TAG_COLORS[pid]))

@@ -137,10 +137,10 @@ func _draw_pc(ci: Control) -> void:
 	ci.draw_rect(Rect2(-14, -14, w + 28, h + 28), Color("1c1d22"))
 	ci.draw_rect(Rect2(0, 0, w, h), Color("eef1f6"))
 	ci.draw_rect(Rect2(0, 0, w, 30), Color("1f407a"))
-	ci.draw_string(font, Vector2(10, 21), "Notenverwaltung D-ARCH · Entwurf HS26 · Prof. Dr. Kuster", HORIZONTAL_ALIGNMENT_LEFT, w - 20, 14, Color.WHITE)
-	ci.draw_string(font, Vector2(14, 56), "Name", HORIZONTAL_ALIGNMENT_LEFT, -1, 13, Color("5b6170"))
-	ci.draw_string(font, Vector2(w * 0.42, 56), "Abgabe", HORIZONTAL_ALIGNMENT_LEFT, -1, 13, Color("5b6170"))
-	ci.draw_string(font, Vector2(w - 70, 56), "Note", HORIZONTAL_ALIGNMENT_LEFT, -1, 13, Color("5b6170"))
+	ci.draw_string(font, Vector2(10, 21), tr("Notenverwaltung D-ARCH · Entwurf HS26 · Prof. Dr. Kuster"), HORIZONTAL_ALIGNMENT_LEFT, w - 20, 14, Color.WHITE)
+	ci.draw_string(font, Vector2(14, 56), tr("Name"), HORIZONTAL_ALIGNMENT_LEFT, -1, 13, Color("5b6170"))
+	ci.draw_string(font, Vector2(w * 0.42, 56), tr("Abgabe"), HORIZONTAL_ALIGNMENT_LEFT, -1, 13, Color("5b6170"))
+	ci.draw_string(font, Vector2(w - 70, 56), tr("Note"), HORIZONTAL_ALIGNMENT_LEFT, -1, 13, Color("5b6170"))
 	var row_h := minf(40.0, (h - 150) / rows.size())
 	for i in rows.size():
 		var r: Dictionary = rows[i]
@@ -159,10 +159,10 @@ func _draw_pc(ci: Control) -> void:
 			name_col = Color(KEYS.TAG_COLORS[todo[0]]).darkened(0.2)
 		elif mine >= 0:
 			name_col = Color(KEYS.TAG_COLORS[mine]).darkened(0.2)
-		ci.draw_string(font, Vector2(14, y + row_h * 0.68), name_txt, HORIZONTAL_ALIGNMENT_LEFT, w * 0.4 - 20, 16, name_col)
-		ci.draw_string(font, Vector2(w * 0.42, y + row_h * 0.68), r["project"], HORIZONTAL_ALIGNMENT_LEFT, w * 0.4, 15, Color("33383d"))
+		ci.draw_string(font, Vector2(14, y + row_h * 0.68), tr(name_txt), HORIZONTAL_ALIGNMENT_LEFT, w * 0.4 - 20, 16, name_col)
+		ci.draw_string(font, Vector2(w * 0.42, y + row_h * 0.68), tr(r["project"]), HORIZONTAL_ALIGNMENT_LEFT, w * 0.4, 15, Color("33383d"))
 		var g: float = r["grade"]
-		ci.draw_string(font, Vector2(w - 70, y + row_h * 0.68), ("%.2f" % g).trim_suffix("0").trim_suffix("0").trim_suffix("."), HORIZONTAL_ALIGNMENT_LEFT, -1, 16,
+		ci.draw_string(font, Vector2(w - 70, y + row_h * 0.68), tr(("%.2f" % g).trim_suffix("0").trim_suffix("0").trim_suffix(".")), HORIZONTAL_ALIGNMENT_LEFT, -1, 16,
 			Color("1e8f5a") if g >= 6.0 else Color("1c2033"))
 	# help line
 	var hint := "%s: hoch / runter wählen · %s: Abgabe öffnen · %s: weg vom PC" % [
@@ -174,6 +174,6 @@ func _draw_pc(ci: Control) -> void:
 	elif not todo.is_empty() and todo[0] != pid:
 		hint = "Jetzt die zweite 6 für %s." % Game.name_of(todo[0])
 	ci.draw_rect(Rect2(0, h - 40, w, 40), Color("dfe5ee"))
-	ci.draw_string(font, Vector2(12, h - 14), hint, HORIZONTAL_ALIGNMENT_LEFT, w - 24, 14, Color("1c2033"))
+	ci.draw_string(font, Vector2(12, h - 14), tr(hint), HORIZONTAL_ALIGNMENT_LEFT, w - 24, 14, Color("1c2033"))
 	if mistakes > 0:
-		ci.draw_string(font, Vector2(w - 200, 21), "Piep! (%d)" % mistakes, HORIZONTAL_ALIGNMENT_RIGHT, 190, 13, UI.YELLOW)
+		ci.draw_string(font, Vector2(w - 200, 21), tr("Piep! (%d)" % mistakes), HORIZONTAL_ALIGNMENT_RIGHT, 190, 13, UI.YELLOW)

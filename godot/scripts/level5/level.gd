@@ -674,7 +674,7 @@ func _draw_bus() -> void:
 			var p := r.position + Vector2((5.5 + pid * 3.5) * TS, 1.3 * TS)
 			ART.draw_character(self, main.players[pid].look, ART.FRONT, 0.0, false, p, 0.7)
 			draw_set_transform(Vector2.ZERO, 0.0, Vector2.ONE)
-	draw_string(ThemeDB.fallback_font, r.position + Vector2(12, r.size.y - 18), "ETH-Link  ·  Zentrum", HORIZONTAL_ALIGNMENT_LEFT, -1, 14, Color("1f407a"))
+	draw_string(ThemeDB.fallback_font, r.position + Vector2(12, r.size.y - 18), tr("ETH-Link  ·  Zentrum"), HORIZONTAL_ALIGNMENT_LEFT, -1, 14, Color("1f407a"))
 	draw_circle(r.position + Vector2(r.size.x - 6, 10), 6.0, Color(1.0, 0.95, 0.7, 0.9))
 
 
@@ -760,7 +760,7 @@ func _draw_obj(o: Dictionary) -> void:
 					draw_line(Vector2(x + 8 + i * 12, y + 4), Vector2(x + 4 + i * 12, y + h + 8), Color(["e74c3c", "f1c40f", "3498db"][i]).darkened(0.3), 3.0)
 				if fmod(t * 5.0, 1.0) < 0.25:
 					draw_circle(Vector2(x + w / 2.0, y + h / 2.0), 3.0, UI.YELLOW)
-			draw_string(ThemeDB.fallback_font, Vector2(x - 6, y - 4), "LÜFTUNG", HORIZONTAL_ALIGNMENT_LEFT, -1, 9, Color(0.8, 0.85, 0.9))
+			draw_string(ThemeDB.fallback_font, Vector2(x - 6, y - 4), tr("LÜFTUNG"), HORIZONTAL_ALIGNMENT_LEFT, -1, 9, Color(0.8, 0.85, 0.9))
 		"l5_secdesk":
 			draw_rect(Rect2(x + 3, y + 4, w, h), Color(0, 0, 0, 0.35))
 			draw_rect(R2, Color("3b3f45"))

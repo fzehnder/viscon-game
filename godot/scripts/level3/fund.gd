@@ -47,7 +47,7 @@ static func draw_card(ci: CanvasItem, r: Rect2) -> void:
 	ci.draw_rect(Rect2(r.position + Vector2(40, 12) * k, Vector2(26, 5) * k), UI.ETH_BLUE)
 	ci.draw_rect(Rect2(r.position + Vector2(40, 24) * k, Vector2(22, 4) * k), soft)
 	ci.draw_rect(Rect2(r.position + Vector2(8, 52) * k, Vector2(58, 6) * k), soft)
-	ci.draw_string(ThemeDB.fallback_font, r.position + Vector2(8, 82) * k, "PROF", HORIZONTAL_ALIGNMENT_LEFT, -1, int(13.0 * k), ink)
+	ci.draw_string(ThemeDB.fallback_font, r.position + Vector2(8, 82) * k, UI.T("PROF"), HORIZONTAL_ALIGNMENT_LEFT, -1, int(13.0 * k), ink)
 
 
 func _ready() -> void:

@@ -22,6 +22,7 @@ const DEF := {
 	"start_toast": ["Bewerbung läuft", "Gleich geht's los."],
 	"win_title": "Wahlfach Freelancing\nbestanden!",
 	"lose_title": "Wahlfach Freelancing\nnicht bestanden",
+	"denied_title": "Bewerbung\nabgelehnt",
 	"win_text": "%s & %s haben sich auf dem Freelance-Markt behauptet.",
 	"tasks": [
 		{"id": "job", "name": "Bewerbungsgespräch führen", "where": "ETH Freelance-Börse, per Video-Call", "type": "level"},
@@ -100,7 +101,16 @@ func finale(_done: Callable) -> void:
 	var verdict := "Hervorragend!" if grade >= 5.5 else ("Gut gemacht." if grade >= 4.5 else ("Bestanden." if passed else "Knapp daneben."))
 	var story := String(DEF["win_text"]) % [Game.name_of(0), Game.name_of(1)] if passed \
 		else "%s & %s haben es versucht. Diesmal hat es mit dem Job nicht geklappt." % [Game.name_of(0), Game.name_of(1)]
-	main.hud.show_overlay(String(DEF["win_title"]) if passed else String(DEF["lose_title"]),
+	var title := String(DEF["win_title"]) if passed else String(DEF["lose_title"])
+	# no job: the end screen says so, whatever the grade (4 of 6 right is a pass, but no job)
+	var denied: bool = not a.is_empty() and a["outcome"] != "hired"
+	if denied:
+		passed = false
+		title = String(DEF["denied_title"])
+		verdict = "Diesmal kein Job."
+		story = "%s & %s haben den Job bei %s nicht bekommen." % [Game.name_of(0), Game.name_of(1),
+			String(JOBS.job(String(a["id"])).get("name", a["id"]))]
+	main.hud.show_overlay(title,
 		"%s\n\nEure Bewerbung:%s\n\nNote %s · %s\n\nIn der Schweiz ist 6 die Bestnote, ab 4 ist bestanden." % [
 			story, jobs, String.num(grade, 2), verdict],
 		"R neu starten · L Leistungsüberblick · M zum Startbildschirm",

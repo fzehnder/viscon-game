@@ -375,7 +375,7 @@ func _process(delta: float) -> void:
 	if typing:
 		var before := int(shown)
 		shown += delta * type_speed
-		if int(shown) >= text_l.text.length():
+		if int(shown) >= tr(text_l.text).length():   # the length of what is shown (it may be translated)
 			typing = false
 			text_l.visible_characters = -1
 			hold = 0.9 + text_l.text.length() * 0.03
@@ -444,10 +444,10 @@ func _text(c: Control, pos: Vector2, text: String, size: int, col: Color, align_
 	var font := ThemeDB.fallback_font
 	var p := pos
 	if align_right:
-		p.x -= font.get_string_size(text, HORIZONTAL_ALIGNMENT_LEFT, -1, size).x
+		p.x -= font.get_string_size(tr(text), HORIZONTAL_ALIGNMENT_LEFT, -1, size).x
 	if outline > 0:
-		c.draw_string_outline(font, p, text, HORIZONTAL_ALIGNMENT_LEFT, -1, size, outline, UI.DARK)
-	c.draw_string(font, p, text, HORIZONTAL_ALIGNMENT_LEFT, -1, size, col)
+		c.draw_string_outline(font, p, tr(text), HORIZONTAL_ALIGNMENT_LEFT, -1, size, outline, UI.DARK)
+	c.draw_string(font, p, tr(text), HORIZONTAL_ALIGNMENT_LEFT, -1, size, col)
 
 
 func _draw_back() -> void:
@@ -508,7 +508,7 @@ func _draw_thermo() -> void:
 	if bursted:
 		read = "ÜBER 100 °C"
 	var rs := 28 if not bursted else 24
-	var rw := ThemeDB.fallback_font.get_string_size(read, HORIZONTAL_ALIGNMENT_LEFT, -1, rs).x
+	var rw := ThemeDB.fallback_font.get_string_size(tr(read), HORIZONTAL_ALIGNMENT_LEFT, -1, rs).x
 	_text(back, Vector2(x - rw / 2.0, bulb + 68.0), read, rs, UI.WHITE.lerp(HOT.lightened(0.2), heat), false, 6)
 
 
