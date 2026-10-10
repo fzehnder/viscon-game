@@ -18,22 +18,31 @@ const PcScript = preload("res://scripts/level5/grade_pc.gd")
 const ART = preload("res://scripts/character_art.gd")
 const UI = preload("res://scripts/ui.gd")
 const Cutscene = preload("res://scripts/cutscene.gd")
+const WATCH = preload("res://scripts/level5/watch.gd")
 
 const BADGE_ITEM := "prof_badge"
 const GUARD_SPEED_UP := 1.25        # guards once both grades are changed: this much faster ...
 const GUARD_RANGE_UP := 1.0         # ... and they see this many tiles further
+const ALARM_TIME := 18.0            # seconds the alarm of a camera lasts
+const ALARM_SPEED := 1.3            # guards are this much faster during the alarm
+const ALARM_GUARDS := 3             # this many guards run to where the camera saw you
+const CHECK_TIME := 1.2             # a suspicious guard next to your cupboard opens it after this long
+const CHECK_NEAR := 1.7             # ... when he is this close (tiles)
+const SAW_YOU := 0.35               # hiding while a guard's suspicion is above this: he saw it
+const DANGER_NEAR := 5.0            # heartbeat and red edges from this distance (tiles)
 const BUS := Rect2(38.0, 76.3, 16.0, 2.5)        # where the ETH-Link stands (tiles)
 const BUS_DOOR := Rect2(44.5, 73.4, 3.0, 1.4)    # step in here
 
 const DEF := {
 	"name": "Nacht im HIL",
-	"sky": "night",      # the loading screen: the ETH-Link drives up at night
+	"sky": "night",      # the loading screen: the ETH-Link drives up at night ...
+	"ride": "ethlink",   # ... to Hönggerberg instead of the Polybahn
 	"tag": "LEVEL 5 · NACHT",
 	"mode": "day",       # tasks and hooks like a day level; the map is drawn at night (build_map)
-	"time": 480.0,
+	"time": 420.0,
 	"course": "052-0005-00 L", "ects": 6, "block": "B",
 	"start": Vector2(46.0, 72.4),
-	"intro": "Mitternacht am Hönggerberg. Mit der Karte, die ihr dem Prof am Polyball abgenommen habt, kommt ihr ins HIL. Im Büro des Profs ganz im Westen des Nordflügels liegen die bewerteten Abgaben, und auf seinem Computer die Notenliste. Jede*r von euch ändert den Namen auf einer Abgabe mit der 6 in den eigenen. Dann verschwindet ihr und steigt in den letzten ETH-Link.\n\nDer Sicherheitsdienst patrouilliert mit Taschenlampen, im schmalen Gang des Nordflügels gleich zu zweit. Wer gesehen wird, fliegt. Duckt euch in die Büros. Schleichen ist leise, Rennen hört man weit. In Schränken und Modellkisten sieht euch niemand.",
+	"intro": "Mitternacht am Hönggerberg. Mit der Karte, die ihr dem Prof am Polyball abgenommen habt, kommt ihr ins HIL. Im Büro des Profs ganz im Westen des Nordflügels liegen die bewerteten Abgaben, und auf seinem Computer die Notenliste. Jede*r von euch ändert den Namen auf einer Abgabe mit der 6 in den eigenen. Dann verschwindet ihr und steigt in den letzten ETH-Link.\n\nDer Sicherheitsdienst patrouilliert mit Taschenlampen, im schmalen Gang des Nordflügels gleich zu dritt, und Kameras lösen Alarm aus. Wer gesehen wird, fliegt. Versteckt euch in den Schränken, aber nicht vor den Augen einer Wache: Wer misstrauisch ist, macht den Schrank auf. Schleichen ist leise, Rennen hört man weit. In Schränken und Modellkisten sieht euch niemand.",
 	"hint": "Schleichen: C bzw. -. Verstecken und wieder raus: E bzw. Enter.",
 	"start_toast": ["Hönggerberg, 00:12", "Neben dem Haupteingang ist eine Tür mit Kartenleser. Haltet euch vom Licht der Taschenlampen fern."],
 	"timer_title": "BIS ZUM LETZTEN ETH-LINK",
@@ -57,21 +66,43 @@ const DEF := {
 
 # Security staff (made up): patrol points in tiles. Uniform look, flashlight.
 const GUARDS := [
-	{"name": "Wachmann Gerber", "speed": 48.0, "range": 6.5, "pmin": 1.0, "pmax": 2.5,
+	{"name": "Wachmann Gerber", "speed": 54.0, "range": 7.0, "pmin": 1.0, "pmax": 2.5,
 		"quote": "Halt! Der Campus ist um diese Zeit geschlossen.",
 		"pts": [Vector2(32.5, 65.5), Vector2(60.5, 65.5), Vector2(60.5, 58.5), Vector2(32.5, 58.5)]},
-	{"name": "Wachfrau Brühlmann", "speed": 50.0, "range": 6.0,
+	{"name": "Wachmann Baumann", "speed": 52.0, "range": 7.0, "pmin": 1.5, "pmax": 3.0,
+		"quote": "Die Campus Info ist zu. Was suchen Sie hier?",
+		"pts": [Vector2(60.5, 70.5), Vector2(76.5, 70.5), Vector2(76.5, 58.5), Vector2(60.5, 58.5)]},
+	{"name": "Wachfrau Brühlmann", "speed": 56.0, "range": 7.0,
 		"quote": "Was machen Sie im HIL? Ausweis, bitte!",
-		"pts": [Vector2(42.5, 53.5), Vector2(42.5, 26.5), Vector2(42.5, 53.5), Vector2(52.5, 50.5), Vector2(61.5, 50.5), Vector2(61.5, 27.0), Vector2(61.5, 50.5), Vector2(52.5, 50.5)]},
-	{"name": "Wachmann Lüthi", "speed": 52.0, "range": 6.0, "pmin": 1.2, "pmax": 3.0,
+		"pts": [Vector2(42.5, 53.5), Vector2(42.5, 26.5), Vector2(42.5, 53.5), Vector2(52.5, 50.5), Vector2(61.5, 50.5), Vector2(52.5, 50.5)]},
+	{"name": "Wachmann Frei", "speed": 50.0, "range": 7.0, "pmin": 1.5, "pmax": 3.5,
+		"quote": "Die Ausstellung ist nachts geschlossen!",
+		"pts": [Vector2(39.0, 26.5), Vector2(39.0, 43.5), Vector2(30.5, 43.5), Vector2(39.0, 43.5)]},
+	{"name": "Wachfrau Roth", "speed": 54.0, "range": 7.0,
+		"quote": "Stehen bleiben! Hände, wo ich sie sehen kann.",
+		"pts": [Vector2(61.5, 41.5), Vector2(61.5, 20.5), Vector2(72.5, 16.5), Vector2(61.5, 20.5)]},
+	{"name": "Wachmann Lüthi", "speed": 58.0, "range": 7.0, "pmin": 1.0, "pmax": 2.5,
 		"quote": "Hier ist nachts niemand. Ausser Ihnen, offenbar.",
 		"pts": [Vector2(18.5, 16.5), Vector2(97.5, 16.5)]},
-	{"name": "Wachfrau Keller", "speed": 46.0, "range": 6.0, "pmin": 2.0, "pmax": 4.0,
+	{"name": "Wachfrau Keller", "speed": 52.0, "range": 7.0, "pmin": 1.5, "pmax": 3.0,
 		"quote": "Finger weg von den Unterlagen der Professur!",
 		"pts": [Vector2(60.5, 16.5), Vector2(20.5, 16.5), Vector2(60.5, 16.5), Vector2(96.5, 16.5)]},
-	{"name": "Nachtwächter Ammann", "speed": 48.0, "range": 6.0,
+	{"name": "Wachmann Huber", "speed": 48.0, "range": 7.5, "pmin": 3.0, "pmax": 5.5,
+		"quote": "Ins Büro des Profs? Ganz sicher nicht.",
+		"pts": [Vector2(18.5, 16.5), Vector2(33.5, 16.5)]},
+	{"name": "Nachtwächter Ammann", "speed": 54.0, "range": 7.0,
 		"quote": "Auch Architekturstudis müssen irgendwann schlafen. Raus hier!",
 		"pts": [Vector2(66.5, 39.5), Vector2(89.5, 39.5), Vector2(95.9, 44.9), Vector2(95.9, 34.9), Vector2(89.5, 39.5)]},
+]
+
+# Security cameras: [position (tiles), looking at (rad), sweep (rad), range (tiles)]
+const CAMS := [
+	[Vector2(19.6, 15.45), 0.0, 0.45, 9.0],          # north corridor, in front of the office
+	[Vector2(52.5, 15.45), PI / 2.0, 1.1, 5.0],      # north corridor, middle
+	[Vector2(88.5, 15.45), PI, 0.45, 9.0],           # north corridor, east end
+	[Vector2(52.5, 43.45), PI / 2.0, 1.0, 9.0],      # foyer
+	[Vector2(29.45, 25.45), PI / 4.0, 0.6, 10.0],    # gta exhibition
+	[Vector2(65.45, 39.5), 0.0, 0.4, 10.0],          # east block corridor
 ]
 const GUARD_LOOK := {"skin": "d9a37e", "hair": "2b2018", "hair_style": "cap", "top": "1f2a3a", "top_style": "jacket",
 	"accent": "f2c14e", "pants": "1f2a3a", "shoes": "111111", "acc": ["flashlight"]}
@@ -82,7 +113,14 @@ var rows: Array = PcScript.make_rows()   # the grade list on the professor's com
 var restless := false
 var boarded: Array = [false, false]
 var guards: Array = []
+var base_speed: Array = []
+var cams: Array = []
 var t := 0.0
+var alarm_t := 0.0
+var check_t: Array = [0.0, 0.0]
+var danger: Array = [0.0, 0.0]
+var beat_t: Array = [0.0, 0.0]
+var was_hidden: Array = [false, false]
 
 
 ## The campus Hönggerberg instead of the Zentrum, the HIL after its real ground floor, simplified
@@ -194,7 +232,7 @@ static func build_map(md) -> void:
 	# --- gta exhibition: tall display walls, a crate ---
 	for y: float in [27.0, 32.0, 37.0]:
 		md.R("l5_panel", 31.0, y, 6.0, 0.6, {"tall": true})
-	md.R("l5_crate", 38.6, 42.6, 1.8, 1.2, {"use": "hide", "label": "In die Transportkiste kriechen"})
+	md.R("l5_crate", 33.0, 41.6, 1.8, 1.2, {"use": "hide", "label": "In die Transportkiste kriechen"})
 	# --- alumni lounge ---
 	md.R("sofa", 30.0, 47.5, 3.0, 1.0)
 	md.R("sofa", 30.0, 52.5, 3.0, 1.0)
@@ -268,6 +306,26 @@ func _ready() -> void:
 		main.actors.add_child(pr)
 		main.profs.append(pr)
 		guards.append(pr)
+		base_speed.append(pr.speed)
+	for c in CAMS:
+		var cam = WATCH.Cam.new()
+		cam.main = main
+		cam.level = self
+		cam.position = (c[0] as Vector2) * TS
+		cam.base = c[1]
+		cam.sweep = c[2]
+		cam.range_px = float(c[3]) * TS
+		add_child(cam)
+		cams.append(cam)
+	var cl := CanvasLayer.new()
+	cl.layer = 9   # under the HUD
+	main.add_child.call_deferred(cl)
+	var ov = WATCH.Overlay.new()
+	ov.level = self
+	ov.main = main
+	ov.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	cl.add_child(ov)
+	ov.set_anchors_and_offsets_preset(Control.PRESET_FULL_RECT)
 
 
 func _process(delta: float) -> void:
@@ -282,6 +340,65 @@ func _process(delta: float) -> void:
 			main.hud.toast("Die Prof-Karte vom Polyball", "Sie öffnet die Tür neben dem Haupteingang und das Büro des Profs.", 5.0)
 		else:
 			main.hud.toast("Keine Prof-Karte", "Ohne die Karte vom Polyball bleibt nur die Ersatzkarte in der Campus Info neben der Haltestelle.", 6.0)
+	alarm_t = maxf(0.0, alarm_t - delta)
+	for i in guards.size():
+		guards[i].speed = base_speed[i] * (GUARD_SPEED_UP if restless else 1.0) * (ALARM_SPEED if alarm_t > 0.0 else 1.0)
+	for pid in 2:
+		_watch_hidden(pid, delta)
+
+
+## Somebody in a cupboard: heartbeat when a guard comes close; a suspicious guard next to it
+## opens it. Hiding right in front of a guard who already has you half in sight is no use.
+func _watch_hidden(pid: int, delta: float) -> void:
+	var pl = main.players[pid]
+	var hidden: bool = pl.hidden_mode and not boarded[pid]
+	if not hidden:
+		was_hidden[pid] = false
+		check_t[pid] = 0.0
+		danger[pid] = 0.0
+		return
+	if not was_hidden[pid]:
+		was_hidden[pid] = true
+		for g in guards:
+			if g.meter > SAW_YOU and g.global_position.distance_to(pl.global_position) < g.range_px:
+				g._investigate(pl.global_position)   # saw you get in
+				g.meter = maxf(g.meter, 0.6)
+	var nearest = null
+	var best := INF
+	for g in guards:
+		var d: float = g.global_position.distance_to(pl.global_position)
+		if d < best:
+			best = d
+			nearest = g
+	danger[pid] = clampf(1.0 - best / (DANGER_NEAR * TS), 0.0, 1.0)
+	beat_t[pid] -= delta
+	if danger[pid] > 0.0 and beat_t[pid] <= 0.0:
+		beat_t[pid] = lerpf(1.0, 0.28, danger[pid])
+		UI.sfx("tick", -14.0 + danger[pid] * 10.0)
+	var suspicious: bool = nearest != null and (nearest.state in ["investigate", "look"] or nearest.meter > 0.25)
+	if suspicious and best < CHECK_NEAR * TS:
+		check_t[pid] += delta
+		if check_t[pid] >= CHECK_TIME:
+			nearest.quote = "Hab ich's mir doch gedacht. Raus aus dem Schrank!"
+			pl.hidden_mode = false
+			pl.queue_redraw()
+			main.caught(nearest)
+	else:
+		check_t[pid] = maxf(0.0, check_t[pid] - delta * 2.0)
+
+
+## A camera saw somebody: alarm, the nearest guards run there, everybody is faster for a while.
+func alarm(at: Vector2) -> void:
+	alarm_t = ALARM_TIME
+	var order := guards.duplicate()
+	order.sort_custom(func(a, b): return a.global_position.distance_to(at) < b.global_position.distance_to(at))
+	for i in mini(ALARM_GUARDS, order.size()):
+		order[i]._investigate(at)
+		order[i].meter = maxf(order[i].meter, 0.3)
+	main.fx.sound(at, 9.0 * TS, Color(1.0, 0.2, 0.2, 0.8), 1.2)
+	UI.sfx("buzz", -2.0)
+	UI.sfx("doom", -10.0)
+	main.hud.toast("ALARM!", "Eine Kamera hat euch gesehen. Der Sicherheitsdienst rennt hin. Versteckt euch!", 4.0)
 
 
 # ------------------------------------------------------------------ interaction
@@ -346,7 +463,6 @@ func _check_restless() -> void:
 		return
 	restless = true
 	for g in guards:
-		g.speed *= GUARD_SPEED_UP
 		g.range_px += GUARD_RANGE_UP * TS
 	main.hud.toast("Beide Sechser gespeichert", "Irgendwo knallt eine Tür. Der Sicherheitsdienst ist jetzt wacher. Raus und ab in den ETH-Link!", 5.0)
 
