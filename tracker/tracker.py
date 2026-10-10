@@ -54,7 +54,7 @@ CHILD_EXIT = 20.0       # started by the game (--child) and no command for this 
 PREVIEW_HEIGHT = 240    # the preview keeps the shape of the camera picture (320 x 240 for 4:3)
 # cameras that are not the computer's own: phones and tablets nearby, virtual cameras
 NOT_BUILT_IN = ("iphone", "ipad", "desk view", "schreibtischansicht", "continuity", "obs", "virtual", "snap camera")
-PREVIEW_FPS = 15.0
+PREVIEW_FPS = 30.0      # every picture: the preview and what is drawn on it stay together
 PREVIEW_QUALITY = 55
 MAX_PACKET = 60000
 
@@ -80,13 +80,13 @@ def make(kind: str):
     mode = vision.RunningMode.VIDEO
     if kind == "face":
         return vision.FaceLandmarker.create_from_options(vision.FaceLandmarkerOptions(
-            base_options=base, running_mode=mode, num_faces=2,
+            base_options=base, running_mode=mode, num_faces=4,
             output_face_blendshapes=True, output_facial_transformation_matrixes=True))
     if kind == "hand":
         return vision.HandLandmarker.create_from_options(vision.HandLandmarkerOptions(
             base_options=base, running_mode=mode, num_hands=4))
     return vision.PoseLandmarker.create_from_options(vision.PoseLandmarkerOptions(
-        base_options=base, running_mode=mode, num_poses=2))
+        base_options=base, running_mode=mode, num_poses=4))   # with fewer, a group around the laptop is reported as a changing few
 
 
 def r(v: float, n: int = 4) -> float:
@@ -424,7 +424,7 @@ def main() -> int:
         data["cam"] = cam.name
         send(data)
 
-        if (want_preview and silent < GAME_SILENT) and now - last_preview >= 1.0 / PREVIEW_FPS:
+        if (want_preview and silent < GAME_SILENT) and now - last_preview >= 0.9 / PREVIEW_FPS:
             last_preview = now
             pw = int(round(PREVIEW_HEIGHT * frame.shape[1] / frame.shape[0] / 2.0)) * 2
             small = cv2.flip(cv2.resize(frame, (pw, PREVIEW_HEIGHT)), 1)
