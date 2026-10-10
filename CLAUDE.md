@@ -32,6 +32,7 @@ Jedes Level bekommt einen eigenen Branch. Kein Level-Branch hängt von einem and
 | `level3-polyball` | Deniz Acar | `level-base` plus Ordner `godot/scripts/level3/` (Level 3 "Polyball"). Seit dem 10.10.2026 auf `main` |
 | `level5-ski` | Tim | Wahlfach Skifahren in `godot/scripts/level20/` (freiwillig, nicht in der Story, Start über den Leistungsüberblick), dazu Wahlfächer in `levels.gd`/`transcript.gd`, Leistungsüberblick im Spiel (`L`), Ladebildschirm und Startseite mit dem ETH-Hauptgebäude (`eth_front.gd`, `tools/make_splash.gd`) |
 | `level19-freelancing` | Tim | Wahlfach Freelancing (D-MAVT) in `godot/scripts/level19/`: eine Bewerbung pro Spiel, Jobbörse (AMZ, ARIS, Swissloop Tunneling, MedTech-Startup), Bewerbungsgespräch als Video-Call, Antworten laut ins Mikrofon. Dazu Spracherkennung für alle: `scripts/speech.gd` und `tracker/speech.py` (Whisper offline, siehe `tracker/README.md`) |
+| `level5-hil` | Tim | Level 5 «Nacht am Hönggerberg» in `godot/scripts/level5/`: eigene Karte (Campus Hönggerberg, das HIL eng nach dem echten Grundriss, nachts gezeichnet), Zugang mit der Prof-Karte aus Level 3, Sicherheitsdienst mit Taschenlampen, Verstecke, am Computer des Profs die Namen bei der 6 ändern, mit dem ETH-Link verschwinden. Die Basisprüfung ist dafür Level 6. Der Ladebildschirm zeigt seither den ETH-Link am Hönggerberg statt der Polybahn |
 | `level1-coop`, `godot-eth-tag-nacht` | Finn | alte Stände vor dem Level-Gerüst, nicht mehr weiterführen |
 
 Auf `main` spielt das Spiel 1 → 2 → 3 → 4. Fehlt auf einem Branch eine Nummer, wird sie übersprungen.
