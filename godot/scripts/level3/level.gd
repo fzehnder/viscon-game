@@ -164,7 +164,7 @@ var builder := -1                     # who is rebuilding the wristband right no
 var buffet_mg: Array = [null, null]   # the timing minigame at the buffet, while the mouth can snap
 var mouth_open: Array = [false, false]
 var covers: Array = [0, 0]            # how many opaque minigames lie over each half of the screen
-var view_mode: Array = [0, 0]         # how each view was drawn before it was covered
+var view_mode: Array = [-1, -1]       # how each view was drawn before it was switched off (-1 = it is on)
 var marks: Node2D
 
 
@@ -424,6 +424,8 @@ func _process(delta: float) -> void:
 	if panel != null:
 		panel.side = main.screen_side(viewer)
 		_view_info()
+	if covers[0] > 0 or covers[1] > 0:
+		_apply_covers()
 	queue_redraw()
 	marks.queue_redraw()
 
@@ -642,15 +644,34 @@ func _open_cam(kind: String, pid: int, on_ok: Callable, on_fallback: Callable = 
 ## smoothly; with it, they stutter along at the pace of the map.
 func _cover(mg: Node, sides: Array) -> void:
 	for sd in sides:
-		if covers[sd] == 0:
-			view_mode[sd] = main.vps[sd].render_target_update_mode
-			main.vps[sd].render_target_update_mode = SubViewport.UPDATE_DISABLED
 		covers[sd] += 1
 	mg.tree_exited.connect(func():
 		for sd in sides:
 			covers[sd] -= 1
-			if covers[sd] == 0 and is_instance_valid(main) and is_instance_valid(main.vps[sd]):
-				main.vps[sd].render_target_update_mode = view_mode[sd])
+		_apply_covers())
+	_apply_covers()
+
+
+## Switches the views off and on as the covers ask for it. View 0 is the left half and view 1 the
+## right one only while the split stands upright. If main turns the split line with the players
+## (it has `force_k` then, and sets the line upright when a minigame for one player opens), a
+## single view is switched off only once the line stands; before that, part of it can still show
+## on the other player's side.
+func _apply_covers() -> void:
+	if not is_instance_valid(main):
+		return
+	var upright: bool = (covers[0] > 0 and covers[1] > 0) or not ("force_k" in main) or main.force_k >= 0.99
+	for sd in 2:
+		var vp = main.vps[sd]
+		if not is_instance_valid(vp):
+			continue
+		var off: bool = covers[sd] > 0 and upright
+		if off and view_mode[sd] < 0:
+			view_mode[sd] = vp.render_target_update_mode
+			vp.render_target_update_mode = SubViewport.UPDATE_DISABLED
+		elif not off and view_mode[sd] >= 0:
+			vp.render_target_update_mode = view_mode[sd]
+			view_mode[sd] = -1
 
 
 ## The badge: with two fingers in front of the camera, or with the sequence minigame.
