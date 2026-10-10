@@ -1,6 +1,6 @@
 extends Control
-## The loading screen before a level: the Polybahn rides up from Central to the Polyterrasse and
-## is the loading bar. With it the number and the name of the level, how much time there will
+## The loading screen before a level: the ETH-Link bus drives up from the Zentrum to the campus
+## Hönggerberg and is the loading bar. With it the number and the name of the level, how much time there will
 ## be, a drawn motif of the level and a tip.
 ##
 ## Used in two ways: the menu adds it as a child and waits for `finished`; between two levels it
@@ -20,8 +20,8 @@ const ART = preload("res://scripts/character_art.gd")
 const W := 1280.0                 # laid out for this size, scaled to the screen
 const H := 720.0
 const RIDE := 2.6                 # seconds the ride up takes
-const FROM := Vector2(176.0, 603.0)    # the track: lower end at Central ...
-const TO := Vector2(1004.0, 356.0)     # ... upper end at the Polyterrasse
+const FROM := Vector2(176.0, 603.0)    # the road: lower end at ETH Zentrum ...
+const TO := Vector2(1004.0, 380.0)     # ... upper end at ETH Hönggerberg
 const RED := Color("d5202a")
 const SKIES := {                  # top, bottom, hill, hill in the light, houses in the distance, stone
 	"day": ["6fb6ee", "fde9c9", "3f7d49", "56995a", "c3cfe0", "e2d6b8"],
@@ -72,7 +72,7 @@ func _process(delta: float) -> void:
 	clack -= delta
 	if clack <= 0.0 and t < RIDE:
 		clack = 0.19
-		UI.sfx("tick", -26.0)          # the wheels on the rail joints
+		UI.sfx("tick", -30.0)          # the engine
 	if t >= RIDE + 0.3:
 		done = true
 		UI.sfx("pop", -8.0)
@@ -140,108 +140,117 @@ func _draw() -> void:
 		if sky == "night":
 			draw_circle(Vector2(660.0, 96.0), 34.0, Color("f4f1d8"))
 			draw_circle(Vector2(674.0, 88.0), 30.0, _c(0))
-	# the town below: roofs, and the two towers of the Grossmünster
-	var town := _c(4)
-	for i in 16:
-		var hx := -260.0 + i * 62.0
-		var hh := 46.0 + _hash(i + 40) * 58.0
-		draw_rect(Rect2(hx, 606.0 - hh, 56.0, hh + 140.0), town)
-		draw_colored_polygon(PackedVector2Array([Vector2(hx - 3.0, 606.0 - hh), Vector2(hx + 28.0, 606.0 - hh - 20.0), Vector2(hx + 59.0, 606.0 - hh)]), town.darkened(0.08))
-		if lit:
-			for wy in 2:
-				for wx in 3:
-					if _hash(i * 7 + wx + wy * 3) > 0.45:
-						draw_rect(Rect2(hx + 8.0 + wx * 15.0, 618.0 - hh + wy * 18.0, 7.0, 9.0), Color("ffd98a"))
-	for tx in [372.0, 412.0]:
-		draw_rect(Rect2(tx, 446.0, 26.0, 200.0), town.darkened(0.05))
-		draw_circle(Vector2(tx + 13.0, 446.0), 13.0, town.darkened(0.12))
-		draw_rect(Rect2(tx + 11.0, 420.0, 4.0, 18.0), town.darkened(0.12))
-	# the hill, the terrace and the main building on top
-	var hill := PackedVector2Array([Vector2(-600, 640), Vector2(120, 632), Vector2(TO.x + 10.0, 372), Vector2(2200, 372), Vector2(2200, 1200), Vector2(-600, 1200)])
+	# far away: the Alps and the lake, the town in between
+	var far := _c(4)
+	var alps := PackedVector2Array([Vector2(-300, 360)])
+	for i in 23:
+		var ax := -300.0 + i * 85.0
+		alps.append(Vector2(ax, 300.0 - _hash(i + 90) * 70.0))
+		alps.append(Vector2(ax + 42.0, 345.0 - _hash(i + 95) * 25.0))
+	alps.append(Vector2(1700, 360))
+	draw_colored_polygon(alps, far.lightened(0.25))
+	for i in 23:
+		var ax := -300.0 + i * 85.0
+		var top := Vector2(ax, 300.0 - _hash(i + 90) * 70.0)
+		draw_colored_polygon(PackedVector2Array([top, top + Vector2(-16, 22), top + Vector2(18, 20)]), Color(1, 1, 1, 0.85 if sky == "day" else 0.35))
+	draw_rect(Rect2(-300, 356, 2000, 16), Color("7fb3d9") if sky == "day" else Color("2a3a62"))   # the lake
+	for i in 40:
+		var hx := -300.0 + i * 50.0 + _hash(i + 40) * 20.0
+		var hh := 10.0 + _hash(i + 41) * 22.0
+		draw_rect(Rect2(hx, 380.0 - hh, 32.0, hh + 30.0), far.darkened(0.1))
+		if lit and _hash(i * 3) > 0.5:
+			draw_rect(Rect2(hx + 6.0, 384.0 - hh, 5.0, 5.0), Color("ffd98a"))
+	# the hill with forest, the campus on top
+	var hill := PackedVector2Array([Vector2(-600, 650), Vector2(80, 640), Vector2(TO.x - 60.0, 380), Vector2(2200, 372), Vector2(2200, 1200), Vector2(-600, 1200)])
 	draw_colored_polygon(hill, _c(2))
-	draw_colored_polygon(PackedVector2Array([Vector2(120, 632), Vector2(TO.x + 10.0, 372), Vector2(TO.x + 10.0, 392), Vector2(190, 650)]), _c(3))
-	for i in 9:
-		var px := 250.0 + i * 92.0 + _hash(i + 60) * 30.0
-		var py := FROM.y + (TO.y - FROM.y) * (px - FROM.x) / (TO.x - FROM.x) + 66.0 + _hash(i + 70) * 60.0
-		var ph := 34.0 + _hash(i + 80) * 22.0
-		draw_rect(Rect2(px - 2.5, py - 6.0, 5.0, 12.0), Color("4a3524"))
-		draw_colored_polygon(PackedVector2Array([Vector2(px - ph * 0.36, py - 4.0), Vector2(px, py - ph), Vector2(px + ph * 0.36, py - 4.0)]), _c(2).darkened(0.25))
+	draw_colored_polygon(PackedVector2Array([Vector2(80, 640), Vector2(TO.x - 60.0, 380), Vector2(TO.x - 60.0, 400), Vector2(150, 656)]), _c(3))
+	for i in 34:   # forest along the slope
+		var fx := -40.0 + i * 30.0
+		var fy := FROM.y + (TO.y - FROM.y) * clampf((fx - FROM.x) / (TO.x - FROM.x), 0.0, 1.0) + 26.0 + _hash(i + 60) * 26.0
+		draw_circle(Vector2(fx, fy), 16.0 + _hash(i + 61) * 8.0, _c(2).darkened(0.28 + _hash(i + 62) * 0.1))
+	for i in 12:   # fields
+		draw_rect(Rect2(TO.x - 40.0 + i * 70.0, 404.0 + (i % 3) * 30.0, 60.0, 22.0), _c(3).lightened(0.08 * (i % 2)))
+	# campus buildings: flat blocks, solar roofs, the HPH tower, cranes
+	var bld := Color("dfe2e6") if sky == "day" else Color("4a5266")
+	var win := Color("ffd98a") if lit else Color("3a4152")
+	for b: Array in [[TO.x + 10.0, 300.0, 180.0, 70.0], [TO.x + 210.0, 316.0, 140.0, 56.0], [TO.x + 120.0, 250.0, 120.0, 46.0], [TO.x + 260.0, 262.0, 90.0, 50.0]]:
+		draw_rect(Rect2(b[0], b[1], b[2], b[3]), bld)
+		draw_rect(Rect2(b[0], b[1], b[2], 8.0), bld.darkened(0.2))
+		var rows := int(b[3] / 18.0)
+		for ry in rows:
+			for rx in int(b[2] / 16.0):
+				if not lit or _hash(int(b[0]) + rx * 7 + ry * 13) > 0.55:
+					draw_rect(Rect2(b[0] + 5.0 + rx * 16.0, b[1] + 14.0 + ry * 16.0, 9.0, 7.0), win)
+	draw_rect(Rect2(TO.x + 210.0, 308.0, 140.0, 8.0), Color("2c3e6b"))                 # solar panels
+	draw_rect(Rect2(TO.x + 10.0, 292.0, 180.0, 8.0), Color("2c3e6b"))
+	draw_rect(Rect2(TO.x + 130.0, 170.0, 34.0, 132.0), bld.darkened(0.06))            # the HPH tower
+	for ry in 7:
+		draw_rect(Rect2(TO.x + 136.0, 178.0 + ry * 17.0, 22.0, 9.0), win if (not lit or ry % 2 == 0) else Color("3a4152"))
+	for cx2: float in [TO.x + 70.0, TO.x + 300.0]:                                     # red cranes
+		draw_line(Vector2(cx2, 300.0), Vector2(cx2, 196.0), RED, 4.0)
+		draw_line(Vector2(cx2 - 40.0, 200.0), Vector2(cx2 + 70.0, 200.0), RED, 3.0)
+		draw_line(Vector2(cx2 + 60.0, 200.0), Vector2(cx2 + 60.0, 236.0), Color("15162b"), 1.0)
+	# the stops: ETH Zentrum at the bottom, ETH Hönggerberg at the top
 	var stone := _c(5)
-	draw_rect(Rect2(TO.x + 6.0, 366.0, 1400.0, 30.0), stone.darkened(0.18))                 # terrace wall
-	var bx := TO.x + 62.0                                                                    # the Hauptgebäude
-	draw_rect(Rect2(bx, 262.0, 1300.0, 106.0), stone)
-	draw_rect(Rect2(bx, 262.0, 1300.0, 12.0), stone.darkened(0.14))
-	for i in 9:
-		var wx2 := bx + 18.0 + i * 27.0
-		draw_rect(Rect2(wx2, 286.0, 12.0, 34.0), Color("ffd98a") if lit else Color("3a4152"))
-		draw_circle(Vector2(wx2 + 6.0, 286.0), 6.0, Color("ffd98a") if lit else Color("3a4152"))
-		draw_rect(Rect2(wx2, 332.0, 12.0, 26.0), Color("ffd98a") if lit and i % 3 != 1 else Color("3a4152"))
-	var dc := Vector2(bx + 128.0, 232.0)
-	draw_rect(Rect2(dc.x - 52.0, 232.0, 104.0, 32.0), stone.darkened(0.06))                 # drum
-	for i in 6:
-		draw_rect(Rect2(dc.x - 46.0 + i * 16.5, 238.0, 6.0, 22.0), stone.darkened(0.3))
-	var dome := PackedVector2Array()
-	for i in 21:
-		var a := PI + PI * i / 20.0
-		dome.append(dc + Vector2(cos(a) * 56.0, sin(a) * 60.0))
-	draw_colored_polygon(dome, Color("5f9e86") if sky == "day" else Color("3f6f66"))
-	draw_rect(Rect2(dc.x - 6.0, dc.y - 76.0, 12.0, 18.0), stone.darkened(0.1))              # lantern
-	draw_line(Vector2(dc.x, dc.y - 76.0), Vector2(dc.x, dc.y - 98.0), stone.darkened(0.3), 2.0)
-	# Central: the little station house at the bottom
-	draw_rect(Rect2(40.0, 566.0, 132.0, 74.0), stone.darkened(0.05))
-	draw_colored_polygon(PackedVector2Array([Vector2(30.0, 566.0), Vector2(106.0, 536.0), Vector2(182.0, 566.0)]), RED.darkened(0.25))
-	draw_rect(Rect2(86.0, 596.0, 40.0, 44.0), Color("ffd98a") if lit else Color("3a4152"))
-	draw_rect(Rect2(56.0, 574.0, 100.0, 18.0), Color("15162b"))
-	_text(Vector2(106.0, 588.0), "CENTRAL", 13, Color.WHITE, HORIZONTAL_ALIGNMENT_CENTER)
-	draw_rect(Rect2(TO.x + 20.0, 318.0, 150.0, 20.0), Color("15162b"))
-	_text(Vector2(TO.x + 95.0, 333.0), "POLYTERRASSE", 13, Color.WHITE, HORIZONTAL_ALIGNMENT_CENTER)
-	draw_rect(Rect2(TO.x + 26.0, 338.0, 4.0, 30.0), Color("15162b"))
-	draw_rect(Rect2(TO.x + 160.0, 338.0, 4.0, 30.0), Color("15162b"))
-	# the track: bed, sleepers, two rails, and lamps that go on behind the car
+	for st: Array in [[FROM + Vector2(-70, -60), "ETH ZENTRUM"], [TO + Vector2(-10, -64), "ETH HÖNGGERBERG"]]:
+		var sp: Vector2 = st[0]
+		draw_rect(Rect2(sp.x, sp.y, 120.0, 6.0), Color("2f6fd6"))
+		draw_rect(Rect2(sp.x + 4.0, sp.y + 6.0, 4.0, 40.0), Color("15162b"))
+		draw_rect(Rect2(sp.x + 112.0, sp.y + 6.0, 4.0, 40.0), Color("15162b"))
+		draw_rect(Rect2(sp.x + 8.0, sp.y + 8.0, 104.0, 30.0), Color(0.75, 0.88, 1.0, 0.35))
+		draw_rect(Rect2(sp.x - 22.0, sp.y - 24.0, 164.0, 20.0), Color("15162b"))
+		_text(Vector2(sp.x + 60.0, sp.y - 9.0), String(st[1]), 12, Color.WHITE, HORIZONTAL_ALIGNMENT_CENTER)
+	# the road up the hill, street lamps that light up behind the bus
 	var p := progress()
 	var dirv := (TO - FROM).normalized()
 	var nrm := Vector2(-dirv.y, dirv.x)
 	var length := FROM.distance_to(TO)
-	draw_line(FROM - dirv * 12.0, TO + dirv * 12.0, Color("2a2c38"), 15.0, true)
-	var d := 6.0
-	while d < length:
-		var sp := FROM + dirv * d
-		draw_line(sp - nrm * 8.0, sp + nrm * 8.0, Color("6b5440"), 3.0)
-		d += 17.0
-	draw_line(FROM - dirv * 12.0 - nrm * 4.5, TO + dirv * 12.0 - nrm * 4.5, Color("c9ced8"), 2.0, true)
-	draw_line(FROM - dirv * 12.0 + nrm * 4.5, TO + dirv * 12.0 + nrm * 4.5, Color("c9ced8"), 2.0, true)
-	var lamps := 12
-	for i in lamps:
-		var u2 := (i + 0.5) / lamps
-		var lp := FROM + dirv * length * u2 + nrm * 22.0
+	draw_line(FROM - dirv * 40.0, TO + dirv * 60.0, Color("4b4f5c"), 30.0, true)
+	draw_line(FROM - dirv * 40.0 - nrm * 13.0, TO + dirv * 60.0 - nrm * 13.0, Color("c9ced8"), 1.5, true)
+	draw_line(FROM - dirv * 40.0 + nrm * 13.0, TO + dirv * 60.0 + nrm * 13.0, Color("c9ced8"), 1.5, true)
+	var dash := 0.0
+	while dash < length + 60.0:   # the dashed middle line
+		var a1 := FROM - dirv * 40.0 + dirv * dash
+		draw_line(a1, a1 + dirv * 14.0, Color("e9e2c8"), 2.0)
+		dash += 30.0
+	var poles := 10
+	for i in poles:
+		var u2 := (i + 0.5) / poles
+		var bp := FROM + dirv * length * u2 - nrm * 24.0
 		var on := u2 <= p + 0.02
-		draw_line(lp, lp - Vector2(0, 26.0), Color("15162b"), 3.0)
+		draw_line(bp, bp - Vector2(0, 46.0), Color("15162b"), 3.0)
+		draw_line(bp - Vector2(0, 46.0), bp - Vector2(0, 46.0) + nrm * 12.0, Color("15162b"), 2.0)
+		var lampp := bp - Vector2(0, 44.0) + nrm * 12.0
 		if on:
-			draw_circle(lp - Vector2(0, 28.0), 13.0, Color(UI.YELLOW, 0.22))
-		draw_circle(lp - Vector2(0, 28.0), 5.0, UI.YELLOW if on else Color("596070"))
-	# the car, tilted like the track, with the two at the windows
-	var car := FROM + dirv * length * p - nrm * (22.0 + sin(t * 31.0) * 0.5)
+			draw_circle(lampp, 13.0, Color(UI.YELLOW, 0.22))
+		draw_circle(lampp, 4.5, UI.YELLOW if on else Color("596070"))
+	# the ETH-Link bus, dark blue with the white band, the two at the windows
+	var car := FROM + dirv * length * p - nrm * (6.0 + sin(t * 25.0) * 0.6)
 	draw_set_transform(o + car * k, dirv.angle(), Vector2(k, k) * 1.3)
-	draw_rect(Rect2(-66.0, -27.0, 132.0, 46.0), Color(0, 0, 0, 0.2))
-	draw_rect(Rect2(-64.0, -30.0, 128.0, 44.0), RED)
-	draw_rect(Rect2(-64.0, -30.0, 128.0, 7.0), Color("f4f1ea"))
-	draw_rect(Rect2(-64.0, 4.0, 128.0, 10.0), RED.darkened(0.28))
-	for i in 4:
-		var wr := Rect2(-56.0 + i * 29.0, -19.0, 23.0, 19.0)
+	var bus := Color("1f407a")
+	draw_rect(Rect2(-80.0, -26.0, 160.0, 44.0), Color(0, 0, 0, 0.2))
+	draw_rect(Rect2(-78.0, -32.0, 156.0, 44.0), bus)
+	draw_rect(Rect2(-78.0, -32.0, 156.0, 5.0), bus.lightened(0.2))
+	draw_rect(Rect2(-78.0, 2.0, 156.0, 6.0), Color("f4f6fa"))
+	for i in 5:
+		var wr := Rect2(-70.0 + i * 28.0, -24.0, 22.0, 20.0)
 		draw_rect(wr, Color("ffe7a8") if lit else Color("cfeaf7"))
-		if i == 1 or i == 2:
-			var look: Dictionary = Game.player_looks[i - 1]
-			var hc := wr.position + Vector2(11.5, 12.0)
-			draw_rect(Rect2(hc.x - 8.0, hc.y + 4.0, 16.0, 4.0), Color(String(KEYS.TAG_COLORS[i - 1])))
+		if i == 2 or i == 3:
+			var look: Dictionary = Game.player_looks[i - 2]
+			var hc := wr.position + Vector2(11.0, 13.0)
+			draw_rect(Rect2(hc.x - 8.0, hc.y + 4.0, 16.0, 4.0), Color(String(KEYS.TAG_COLORS[i - 2])))
 			draw_circle(hc, 6.2, ART.col(look, "skin", "f1c9a5"))
 			draw_rect(Rect2(hc.x - 6.4, hc.y - 7.0, 12.8, 5.0), ART.col(look, "hair", "3b2a1e"))
 		draw_rect(wr, Color("15162b"), false, 1.5)
-	_text(Vector2(0.0, 13.0), "POLYBAHN", 9, Color.WHITE, HORIZONTAL_ALIGNMENT_CENTER)
-	draw_circle(Vector2(-40.0, 16.0), 6.0, Color("15162b"))
-	draw_circle(Vector2(40.0, 16.0), 6.0, Color("15162b"))
+	draw_rect(Rect2(70.0, -24.0, 8.0, 22.0), Color("ffe7a8") if lit else Color("cfeaf7"))   # windscreen
+	draw_rect(Rect2(46.0, -30.0, 30.0, 5.0), Color("15162b"))
+	_text(Vector2(-6.0, 11.0), "ETH-LINK", 8, bus, HORIZONTAL_ALIGNMENT_CENTER)
+	for wx3: float in [-52.0, 50.0]:
+		draw_circle(Vector2(wx3, 13.0), 8.0, Color("15162b"))
+		draw_circle(Vector2(wx3, 13.0), 3.0, Color("9aa1ad"))
 	if lit:
-		draw_circle(Vector2(66.0, -6.0), 15.0, Color(1.0, 0.95, 0.7, 0.25))
-	draw_circle(Vector2(64.0, -6.0), 3.5, Color("fff3c0"))
+		draw_circle(Vector2(80.0, 4.0), 16.0, Color(1.0, 0.95, 0.7, 0.25))
+	draw_circle(Vector2(78.0, 4.0), 3.5, Color("fff3c0"))
 	draw_set_transform(o, 0.0, Vector2(k, k))
 	# which level: number, name, time
 	var tag := String(lv.get("tag", "LEVEL %d" % n))
@@ -317,6 +326,24 @@ func _motif(c: Vector2) -> void:
 				draw_circle(c + Vector2(-18.0 + i * 9.0 + sin(t * 3.0 + i) * 2.0, 34.0 - by), 3.0 + (i % 2) * 1.5, Color(1, 1, 1, 0.75 * (1.0 - by / 60.0)))
 			draw_polyline(glass + PackedVector2Array([glass[0]]), Color("e9f4ff"), 3.0, true)
 			draw_rect(Rect2(c.x - 15.0, c.y - 57.0, 30.0, 7.0), Color("e9f4ff"))
+		5:   # the professor's screen with the grade 6, a flashlight in the dark
+			draw_rect(Rect2(c.x - 56.0, c.y - 44.0, 112.0, 72.0), ink)
+			draw_rect(Rect2(c.x - 50.0, c.y - 38.0, 100.0, 60.0), Color("eef1f6"))
+			draw_rect(Rect2(c.x - 50.0, c.y - 38.0, 100.0, 10.0), UI.ETH_BLUE)
+			for i in 3:
+				draw_rect(Rect2(c.x - 44.0, c.y - 22.0 + i * 14.0, 60.0, 8.0), Color("c8ccd6"))
+			_text(c + Vector2(32, 6), "6", 28, Color("1e8f5a"), HORIZONTAL_ALIGNMENT_CENTER)
+			draw_rect(Rect2(c.x - 8.0, c.y + 28.0, 16.0, 12.0), ink)
+			draw_rect(Rect2(c.x - 30.0, c.y + 40.0, 60.0, 6.0), ink)
+			draw_circle(c + Vector2(-58, -48), 12.0 + sin(t * 4.0) * 2.0, Color(1.0, 0.93, 0.6, 0.55))
+		6:   # the exam screen
+			draw_rect(Rect2(c.x - 50.0, c.y - 40.0, 100.0, 64.0), ink)
+			draw_rect(Rect2(c.x - 44.0, c.y - 34.0, 88.0, 52.0), Color("eef1f6"))
+			_text(c + Vector2(0, -6), "PRÜFUNG", 14, UI.ETH_BLUE, HORIZONTAL_ALIGNMENT_CENTER)
+			_text(c + Vector2(0, 12), "Analysis I", 12, UI.INK, HORIZONTAL_ALIGNMENT_CENTER)
+			draw_rect(Rect2(c.x - 8.0, c.y + 24.0, 16.0, 12.0), ink)
+			draw_circle(c + Vector2(58, 30), 16.0, Color("f1c9a5"))
+			draw_circle(c + Vector2(48.0 + sin(t * 2.0) * 4.0, 28), 3.0, ink)
 		20:  # skis in the snow
 			for sgn in [-1.0, 1.0]:
 				draw_set_transform_matrix(get_transform_for(c, sgn * 0.5, Vector2.ONE))
