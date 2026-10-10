@@ -19,6 +19,9 @@ var grades: Dictionary = {}
 # Things the players carry from level to level (e.g. "prof_badge" from the Polyball).
 # item id -> level in which they got it
 var items: Dictionary = {}
+# What happened in the electives of this game (one study), e.g. the freelance application:
+# key -> any value. Kept across levels, cleared only by new_game().
+var electives: Dictionary = {}
 var save_path := "user://save.cfg"
 var persist := true                   # --nosave on the command line: keep everything in memory
 
@@ -142,10 +145,21 @@ func grade_of(n: int) -> float:
 	return float(grades[n]["grade"]) if grades.has(n) else 0.0
 
 
+## State of an elective in this game (default if it has none yet).
+func elective(key: String, default = null):
+	return electives.get(key, default)
+
+
+func set_elective(key: String, value) -> void:
+	electives[key] = value
+	save_game()
+
+
 func new_game() -> void:
 	opps.clear()
 	grades.clear()
 	items.clear()
+	electives.clear()
 	save_game()
 	set_level(1)
 
@@ -160,6 +174,8 @@ func save_game() -> void:
 		cfg.set_value("grades", str(n), grades[n])
 	for id in items:
 		cfg.set_value("items", id, items[id])
+	for key in electives:
+		cfg.set_value("electives", key, electives[key])
 	cfg.save(save_path)
 
 
@@ -167,6 +183,7 @@ func load_game() -> void:
 	opps.clear()
 	grades.clear()
 	items.clear()
+	electives.clear()
 	if not persist:
 		return
 	var cfg := ConfigFile.new()
@@ -186,6 +203,9 @@ func load_game() -> void:
 	if cfg.has_section("items"):
 		for id in cfg.get_section_keys("items"):
 			items[id] = int(cfg.get_value("items", id))
+	if cfg.has_section("electives"):
+		for key in cfg.get_section_keys("electives"):
+			electives[key] = cfg.get_value("electives", key)
 
 
 func reset_look(i: int) -> void:
