@@ -1,6 +1,6 @@
 extends Node
 ## Level 4: sounds that only this level needs, synthesised like sfx.gd (no audio files).
-##   play("boom" | "glass" | "stamp" | "blah" | "drip")   one-shots
+##   play("boom" | "glass" | "stamp" | "blah" | "drip" | "alarm" | "hiss")   one-shots
 ##   kettle(heat)                                          the professor coming to the boil: a whistle
 ##                                                         that gets higher and louder with heat 0..1
 ##   kettle_off()
@@ -108,6 +108,23 @@ func _make(sound: String) -> AudioStreamWAV:
 				ph += lerpf(190.0, 150.0, u) / RATE
 				var sq := 1.0 if fmod(ph, 1.0) < 0.42 else -1.0
 				buf[i] = (sq * 0.3 + sin(TAU * ph * 2.0) * 0.15) * minf(1.0, i / (0.004 * RATE)) * pow(1.0 - u, 1.2)
+		"alarm":   # smoke detector: two short beeps
+			var n := int(0.3 * RATE)
+			buf.resize(n)
+			for i in n:
+				var u := float(i) / n
+				var on := u < 0.4 or (u > 0.55 and u < 0.95)
+				ph += 2350.0 / RATE
+				buf[i] = (0.28 if fmod(ph, 1.0) < 0.5 else -0.28) if on else 0.0
+		"hiss":   # water on something hot: the emergency shower, a flame going out
+			var n := int(1.1 * RATE)
+			buf.resize(n)
+			var lp := 0.0
+			for i in n:
+				var u := float(i) / n
+				var w := randf_range(-1.0, 1.0)
+				lp += (w - lp) * 0.35
+				buf[i] = (w - lp) * 0.5 * minf(1.0, u * 12.0) * pow(1.0 - u, 1.4)
 		"drip":
 			var n := int(0.12 * RATE)
 			buf.resize(n)

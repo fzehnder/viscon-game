@@ -5,7 +5,13 @@ extends CanvasLayer
 ## The other one holds the glass: a flat hand held level into the camera, without shaking.
 ## The liquid only runs while both are right at the same time. When the glass is full, it is done.
 ##
-## Player 1 sits on the left of the camera picture, player 2 on the right (Track.hand(pid)).
+## Of the two hands closest to the camera, the left one in the picture is player 1's and the right
+## one player 2's (TM.pair). What the camera reports is restless, so nothing of it is used raw:
+## the values are smoothed, a hand that is lost for a moment stays where it was (HOLD), and
+## shaking only counts when it lasts (SHAKE_TIME). Pipette and glass are drawn at a fixed place
+## in the picture, not on the hands; the pipette has the colour of how good the pinch is.
+## While the game is open, the level stops the map behind it from being drawn (see level.gd),
+## otherwise the camera picture stutters at the speed of the map.
 ## Without a camera or tracker the same game is played with keys (the team's rule for every camera
 ## minigame): the pipette player holds and lets go of the interact key, the glass player steers the
 ## bubble of the spirit level with left and right. K switches by hand.
@@ -21,15 +27,17 @@ const TM = preload("res://scripts/track_math.gd")
 
 # ---- tuning. The camera values are starting points: check them with res://track_debug.tscn
 const PINCH_TARGET := 0.45     # TM.pinch01 the pipette wants: 0 = fingers together, 1 = spread wide
-const PINCH_OK := 0.13         # this far off is still green
-const LEVEL_TOL := 18.0        # degrees the hand may tilt
-const SHAKE_LIMIT := 5.0       # TM.Jitter of the palm; a calm hand measures about 1 to 2
-const HOLD_TIME := 3.0         # seconds both have to be right, in total
+const PINCH_OK := 0.135        # this far off is still green
+const LEVEL_TOL := 15.0        # degrees the hand may tilt
+const SHAKE_LIMIT := 11.0      # TM.Jitter of the palm above this is shaking (the badge in level 3 uses 12)
+const SHAKE_TIME := 0.35       # ... but only if it lasts this long: single jumps of the camera do not count
+const HOLD_TIME := 3.5         # seconds both have to be right, in total
 const DRAIN := 0.35            # the glass loses this share of the fill speed while somebody is off
-const SPILL_AT := 2.2          # shaking this many times over the limit spills
-const STICKY := 1.15           # once in the green, the limits are this much wider (no flicker at the edge)
+const SPILL_AT := 2.0          # shaking this many times over the limit spills
+const STICKY := 1.2            # once in the green, the limits are this much wider (no flicker at the edge)
 const CAM_WAIT := 6.0          # seconds to wait for the camera before the keys take over
-const SMOOTH := 12.0           # smoothing of the camera values
+const SMOOTH := 0.1            # seconds over which the camera values are smoothed (smaller = quicker but shakier)
+const HOLD := 0.5              # seconds a hand the camera lost for a moment stays where it was
 const GOAL_ML := 10.0
 # keys variant
 const KEY_SQUEEZE := 0.95      # pinch per second while the key is held
@@ -58,6 +66,9 @@ var pinch := 1.0               # 0 = pressed together, 1 = open
 var tilt := 0.0                # degrees, + = the right side hangs down
 var shake := 0.0
 var jitter := TM.Jitter.new()
+var shaky_t := 0.0             # how long the glass hand has been over the limit
+var hand_age: Array = [99.0, 99.0]   # per player: seconds since the camera last saw the hand
+var hand_pts: Array = [[], []]       # per player: the 21 points of the hand, smoothed, for drawing
 var spill_t := 0.0
 var drip_t := 0.0
 var drops: Array = []          # [position in the camera panel, age]
@@ -169,12 +180,13 @@ func _set_texts() -> void:
 		var why := "Tasten-Variante gewählt." if Track.alive else "Keine Kamera, deshalb mit Tasten. Tracker: %s." % Track.status
 		info_l.text = "%s Beide gleichzeitig im grünen Bereich halten, bis das Glas voll ist.   K = Kamera versuchen" % why
 	else:
-		how_l[p].text = "Drück Daumen und Zeigefinger vor der Kamera zusammen wie an einer Pipette. Nicht zu fest, nicht zu locker: Der Zeiger muss im grünen Bereich stehen."
+		how_l[p].text = "Drück Daumen und Zeigefinger vor der Kamera zusammen wie an einer Pipette. Nicht zu fest, nicht zu locker: Die Pipette im Bild wird grün, wenn es stimmt."
 		how_l[h].text = "Halte die Hand flach und waagrecht in die Kamera, als stünde das Glas darauf. Nicht zittern!"
 		if mode == "cam":
-			info_l.text = "Kamera läuft: %s sitzt links im Bild, %s rechts. Beide gleichzeitig im grünen Bereich halten, bis das Glas voll ist.   K = mit Tasten spielen" % [Game.name_of(0), Game.name_of(1)]
+			info_l.text = "Kamera läuft%s: die linke Hand im Bild gehört %s, die rechte %s. Beide gleichzeitig im Grünen halten, bis das Glas voll ist.   K = mit Tasten spielen" % [
+				" (%s)" % Track.camera if Track.camera != "" else "", Game.name_of(0), Game.name_of(1)]
 		else:
-			info_l.text = "Kamera startet … %s sitzt links im Bild, %s rechts.   K = gleich mit Tasten spielen" % [Game.name_of(0), Game.name_of(1)]
+			info_l.text = "Kamera startet … Die linke Hand im Bild gehört %s, die rechte %s.   K = gleich mit Tasten spielen" % [Game.name_of(0), Game.name_of(1)]
 
 
 func _set_mode(m: String) -> void:
@@ -187,6 +199,8 @@ func _set_mode(m: String) -> void:
 		pinch = 1.0
 		tilt = 0.0
 		shake = 1.0
+	hand_age = [99.0, 99.0]
+	shaky_t = 0.0
 	_set_texts()
 
 
@@ -242,16 +256,38 @@ func _update_mode(delta: float) -> void:
 
 
 func _read_camera(delta: float) -> void:
-	var k := 1.0 - exp(-SMOOTH * delta)
-	var hp := Track.hand(pipetter)
-	var hh := Track.hand(holder())
-	seen[pipetter] = not hp.is_empty()
-	seen[holder()] = not hh.is_empty()
-	if not hp.is_empty():
-		pinch = lerpf(pinch, TM.pinch01(hp), k)
-	if not hh.is_empty():
-		tilt = lerpf(tilt, hand_tilt(hh), k)
-		shake = lerpf(shake, jitter.push(Vector2(hh["palm"][0], hh["palm"][1]), delta), k)
+	var pair: Array = TM.pair(Track.hands)   # the two hands in front: the left one is P1's, the right one P2's
+	for pid in 2:
+		var h: Dictionary = pair[pid]
+		if h.is_empty():
+			hand_age[pid] += delta
+		else:
+			# back after a while: take it as it is, no gliding in from where the hand was before
+			var fresh: bool = hand_age[pid] > HOLD or (hand_pts[pid] as Array).is_empty()
+			var k := 1.0 if fresh else 1.0 - exp(-(delta + float(hand_age[pid])) / SMOOTH)
+			_take_hand(pid, h, k, fresh, delta)
+			hand_age[pid] = 0.0
+		seen[pid] = hand_age[pid] <= HOLD
+
+
+func _take_hand(pid: int, h: Dictionary, k: float, fresh: bool, delta: float) -> void:
+	var src: Array = h["pts"]
+	var pts: Array = hand_pts[pid]
+	if fresh or pts.size() != src.size():
+		pts = []
+		for p in src:
+			pts.append(Vector2(p[0], p[1]))
+	else:
+		for i in src.size():
+			pts[i] = (pts[i] as Vector2).lerp(Vector2(src[i][0], src[i][1]), k)
+	hand_pts[pid] = pts
+	if pid == pipetter:
+		pinch = lerpf(pinch, TM.pinch01(h), k)
+		return
+	if fresh:
+		jitter = TM.Jitter.new()   # the jump back into the picture is not shaking
+	tilt = lerpf(tilt, hand_tilt(h), k)
+	shake = lerpf(shake, jitter.push(Vector2(h["palm"][0], h["palm"][1]), delta), k)
 
 
 ## How far the hand is from level, in degrees: 0 = wrist and knuckles side by side,
@@ -284,7 +320,8 @@ func _judge() -> void:
 	var mp := STICKY if ok[p] else 1.0
 	ok[p] = seen[p] and absf(pinch - PINCH_TARGET) <= PINCH_OK * mp
 	var mh := STICKY if ok[h] else 1.0
-	ok[h] = seen[h] and absf(tilt) <= LEVEL_TOL * mh and shake <= SHAKE_LIMIT * mh
+	shaky_t = shaky_t + get_process_delta_time() if (seen[h] and shake > SHAKE_LIMIT * mh) else 0.0
+	ok[h] = seen[h] and absf(tilt) <= LEVEL_TOL * mh and shaky_t < SHAKE_TIME
 
 
 func _update_fill(delta: float) -> void:
@@ -298,7 +335,7 @@ func _update_fill(delta: float) -> void:
 				sfx.play("drip", -12.0, 0.9 + fill * 0.5)
 	else:
 		var loss := DRAIN
-		if seen[holder()] and shake > SHAKE_LIMIT * SPILL_AT and fill > 0.0:
+		if seen[holder()] and shaky_t >= SHAKE_TIME and shake > SHAKE_LIMIT * SPILL_AT and fill > 0.0:
 			loss = 2.0   # shaken out of the glass
 			if spill_t <= 0.0:
 				UI.shake(panel, 5.0)
@@ -330,7 +367,7 @@ func _show_state() -> void:
 			texts[h] = "Hand ins Bild halten"
 		elif ok[h]:
 			texts[h] = "Ruhig und waagrecht!"
-		elif absf(tilt) > LEVEL_TOL:
+		elif shaky_t < SHAKE_TIME:
 			texts[h] = "Schief! Waagrecht halten"
 		else:
 			texts[h] = "Zittert! Ruhig halten"
@@ -423,17 +460,97 @@ func _draw_gauge(pid: int) -> void:
 		_needle(c, clampf(shake / (SHAKE_LIMIT * 2.0), 0.0, 1.0) * w, sb.position.y - 2.0, sb.end.y + 3.0)
 
 
+## The part of the camera panel that belongs to player `pid`.
+func _half(pid: int) -> Rect2:
+	return Rect2(CAM_SIZE.x / 2.0 * pid, 0, CAM_SIZE.x / 2.0, CAM_SIZE.y)
+
+
+## Where the fixed pipette stands: in the pipette player's part, at the outer edge.
+func _pipette_at() -> Vector2:
+	var hf := _half(pipetter)
+	return Vector2(hf.position.x + 34.0 if pipetter == 0 else hf.end.x - 34.0, 44.0)
+
+
+## Where the fixed glass stands: in the other part, at the outer edge.
+func _glass_at() -> Vector2:
+	var hf := _half(holder())
+	return Vector2(hf.position.x + 38.0 if holder() == 0 else hf.end.x - 38.0, 96.0)
+
+
 ## Where the drops leave the pipette, in the camera panel.
 func _pipette_tip() -> Vector2:
 	if mode == "cam":
-		var h := Track.hand(pipetter)
-		if not h.is_empty():
-			var pts: Array = h["pts"]
-			return Vector2((float(pts[4][0]) + float(pts[8][0])) / 2.0, (float(pts[4][1]) + float(pts[8][1])) / 2.0) * CAM_SIZE + Vector2(0, 46)
+		return _pipette_at() + Vector2(0, 104.0)
 	return Vector2(CAM_SIZE.x * (0.25 + 0.5 * pipetter), CAM_SIZE.y * 0.42 + 50.0)
 
 
-## A pipette at `at`: the bulb between the fingers (flatter the harder it is pressed), the tube below.
+## Colour for how good the pinch is right now: green on the mark, over yellow to red away from it.
+func _pinch_col() -> Color:
+	if not seen[pipetter]:
+		return Color(0.55, 0.58, 0.7)
+	return _zone_col(absf(pinch - PINCH_TARGET) / PINCH_OK)
+
+
+## The pipette that does not move: a plate at a fixed place in the picture. Its colour says how
+## good the pinch is, the bulb is pressed as flat as the fingers are together.
+func _draw_fixed_pipette() -> void:
+	var at := _pipette_at()
+	var col := _pinch_col()
+	var plate := Rect2(at.x - 28.0, at.y - 34.0, 56.0, 152.0)
+	cam_c.draw_rect(plate, Color(UI.DARK, 0.78))
+	cam_c.draw_rect(plate, col, false, 3.0)
+	# the tube with what is still in it, and the tip
+	var tube := Rect2(at.x - 5.0, at.y + 12.0, 10.0, 78.0)
+	cam_c.draw_rect(tube.grow(2.0), UI.DARK)
+	cam_c.draw_rect(tube, Color(0.86, 0.95, 1.0, 0.95))
+	var left := (tube.size.y - 4.0) * (1.0 - fill)
+	if left > 0.5:
+		cam_c.draw_rect(Rect2(tube.position.x + 2.0, tube.end.y - 2.0 - left, tube.size.x - 4.0, left), LIQUID)
+	for i in 4:
+		cam_c.draw_line(Vector2(tube.position.x, tube.position.y + 12.0 + i * 16.0), Vector2(tube.position.x + 4.0, tube.position.y + 12.0 + i * 16.0), UI.DARK, 1.0)
+	cam_c.draw_colored_polygon(PackedVector2Array([Vector2(at.x - 5.0, tube.end.y), Vector2(at.x + 5.0, tube.end.y), Vector2(at.x, tube.end.y + 12.0)]), Color(0.86, 0.95, 1.0, 0.95))
+	# the bulb: round when the fingers are open, flat when they press
+	var open := clampf(pinch, 0.0, 1.0) if seen[pipetter] else 1.0
+	var half_w := lerpf(7.0, 19.0, open)
+	cam_c.draw_set_transform(at, 0.0, Vector2(half_w / 19.0, 1.0))
+	cam_c.draw_circle(Vector2.ZERO, 21.0, UI.DARK)
+	cam_c.draw_circle(Vector2.ZERO, 18.0, col)
+	cam_c.draw_circle(Vector2(-5.0, -6.0), 4.5, Color(1, 1, 1, 0.35))
+	cam_c.draw_set_transform(Vector2.ZERO, 0.0, Vector2.ONE)
+	# two finger tips that press it
+	for sx in [-1.0, 1.0]:
+		var fx: float = at.x + sx * (half_w + 6.0)
+		cam_c.draw_circle(Vector2(fx, at.y), 6.5, UI.DARK)
+		cam_c.draw_circle(Vector2(fx, at.y), 5.0, Color("e0ac85"))
+
+
+## The glass that does not move: it only tilts as the hand tilts and fills as the liquid runs.
+func _draw_fixed_glass() -> void:
+	var at := _glass_at()
+	var h := holder()
+	var col := Color(0.55, 0.58, 0.7)
+	if seen[h]:
+		col = UI.GREEN if ok[h] else (UI.RED if shaky_t >= SHAKE_TIME else UI.ORANGE)
+	var plate := Rect2(at.x - 32.0, at.y - 86.0, 64.0, 124.0)
+	cam_c.draw_rect(plate, Color(UI.DARK, 0.78))
+	cam_c.draw_rect(plate, col, false, 3.0)
+	var lean := clampf(tilt, -26.0, 26.0) if seen[h] else 0.0   # further would tip it out of its plate
+	var wobble := sin(t * 34.0) * 2.5 if shaky_t >= SHAKE_TIME else 0.0
+	cam_c.draw_set_transform(at + Vector2(wobble, 0), deg_to_rad(lean), Vector2.ONE)
+	# the hand it stands on
+	cam_c.draw_rect(Rect2(-27.0, 0.0, 54.0, 9.0), UI.DARK)
+	cam_c.draw_rect(Rect2(-25.0, 1.5, 50.0, 6.0), Color("e0ac85"))
+	var g := Rect2(-17.0, -58.0, 34.0, 56.0)
+	cam_c.draw_rect(g, Color(0.86, 0.95, 1.0, 0.6))
+	var lh := (g.size.y - 3.0) * fill
+	if lh > 0.5:
+		cam_c.draw_rect(Rect2(g.position.x + 2.0, g.end.y - 1.5 - lh, g.size.x - 4.0, lh), LIQUID)
+	cam_c.draw_rect(g, col, false, 2.5)
+	cam_c.draw_line(Vector2(g.position.x - 3.0, g.position.y + 5.0), Vector2(g.end.x + 3.0, g.position.y + 5.0), UI.RED, 1.2)   # the 10 mL mark
+	cam_c.draw_set_transform(Vector2.ZERO, 0.0, Vector2.ONE)
+
+
+## A pipette at `at` for the drawing of the keys variant: the bulb between the fingers.
 func _draw_pipette(at: Vector2, gap: float, good: bool) -> void:
 	var col := UI.GREEN if good else UI.ORANGE
 	cam_c.draw_rect(Rect2(at.x - 3.0, at.y, 6.0, 40.0), Color(0.86, 0.95, 1.0, 0.9))
@@ -445,10 +562,9 @@ func _draw_pipette(at: Vector2, gap: float, good: bool) -> void:
 	cam_c.draw_set_transform(Vector2.ZERO, 0.0, Vector2.ONE)
 
 
-## The glass standing on the hand at `at`, tilted with it, sloshing when the hand shakes.
+## The glass on the hand for the drawing of the keys variant, tilted with it.
 func _draw_glass(at: Vector2, deg: float, good: bool) -> void:
-	var slosh := sin(t * 31.0) * clampf(shake / SHAKE_LIMIT - 0.6, 0.0, 2.0) * 3.0
-	cam_c.draw_set_transform(at + Vector2(slosh, 0), deg_to_rad(deg), Vector2.ONE)
+	cam_c.draw_set_transform(at, deg_to_rad(deg), Vector2.ONE)
 	var g := Rect2(-17.0, -52.0, 34.0, 44.0)
 	cam_c.draw_rect(g, Color(0.86, 0.95, 1.0, 0.55))
 	var lh := (g.size.y - 3.0) * fill
@@ -459,12 +575,21 @@ func _draw_glass(at: Vector2, deg: float, good: bool) -> void:
 	cam_c.draw_set_transform(Vector2.ZERO, 0.0, Vector2.ONE)
 
 
+## Where the camera picture lies in the panel: as big as it fits, in its own shape.
+func _picture_rect() -> Rect2:
+	var a: float = maxf(Track.aspect, 0.2)
+	var size := Vector2(CAM_SIZE.x, CAM_SIZE.x / a)
+	if size.y > CAM_SIZE.y:
+		size = Vector2(CAM_SIZE.y * a, CAM_SIZE.y)
+	return Rect2((CAM_SIZE - size) / 2.0, size)
+
+
 func _draw_cam() -> void:
 	var size := CAM_SIZE
 	cam_c.draw_rect(Rect2(Vector2.ZERO, size), UI.DARK)
-	var picture: bool = mode == "cam" and Track.preview.get_width() > 0
-	if picture:
-		cam_c.draw_texture_rect(Track.preview, Rect2(Vector2.ZERO, size), false)
+	var pic := _picture_rect()
+	if mode == "cam" and Track.preview.get_width() > 0:
+		cam_c.draw_texture_rect(Track.preview, pic, false)
 	cam_c.draw_line(Vector2(size.x / 2.0, 0), Vector2(size.x / 2.0, size.y), Color(1, 1, 1, 0.3), 1.0)
 	for pid in 2:
 		var pc := Color(KEYS.TAG_COLORS[pid])
@@ -474,24 +599,22 @@ func _draw_cam() -> void:
 		cam_c.draw_rect(Rect2(x0 + 6.0, size.y - 26.0, 104.0, 20.0), Color(UI.DARK, 0.8))
 		_text(cam_c, Vector2(x0 + 11.0, size.y - 11.0), tag, 14, pc)
 	if mode == "cam":
-		# what the camera sees: the hands with their joints, pipette and glass painted onto them
+		# what the camera sees: the hands with their joints, smoothed and fading when they are lost
 		for pid in 2:
-			var h := Track.hand(pid)
-			if h.is_empty():
+			var pts: Array = hand_pts[pid]
+			if pts.size() < 21 or hand_age[pid] > HOLD:
 				continue
+			var fade := 1.0 - clampf(float(hand_age[pid]) / HOLD, 0.0, 1.0) * 0.7
 			var pc2 := Color(KEYS.TAG_COLORS[pid])
-			var pts: Array = h["pts"]
 			for b in BONES:
-				cam_c.draw_line(Vector2(pts[b[0]][0], pts[b[0]][1]) * size, Vector2(pts[b[1]][0], pts[b[1]][1]) * size, Color(pc2, 0.75), 2.0)
+				cam_c.draw_line(pic.position + (pts[b[0]] as Vector2) * pic.size, pic.position + (pts[b[1]] as Vector2) * pic.size, Color(pc2, 0.75 * fade), 2.0)
 			for p in pts:
-				cam_c.draw_circle(Vector2(p[0], p[1]) * size, 2.5, pc2)
+				cam_c.draw_circle(pic.position + (p as Vector2) * pic.size, 2.5, Color(pc2, fade))
 			if pid == pipetter:
-				var a := Vector2(pts[4][0], pts[4][1]) * size
-				var b2 := Vector2(pts[8][0], pts[8][1]) * size
-				cam_c.draw_line(a, b2, UI.GREEN if ok[pid] else UI.YELLOW, 3.0)
-				_draw_pipette((a + b2) / 2.0, a.distance_to(b2), ok[pid])
-			else:
-				_draw_glass(Vector2(h["palm"][0], h["palm"][1]) * size, tilt, ok[pid])
+				# the gap that counts, in the colour of the pipette
+				cam_c.draw_line(pic.position + (pts[4] as Vector2) * pic.size, pic.position + (pts[8] as Vector2) * pic.size, Color(_pinch_col(), fade), 4.0)
+		_draw_fixed_pipette()
+		_draw_fixed_glass()
 	else:
 		# no picture: the same thing as a drawing
 		var dim := 0.35 if mode == "wait" else 1.0
