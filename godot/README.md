@@ -40,6 +40,23 @@ Ein 2D-Spiel für **Godot 4.3 oder neuer**. Du wählst dein Departement, gestalt
 | Esc | Minigame abbrechen |
 | R / M | Nach Spielende: neue Runde / Menü |
 
+## Zu zweit (Co-op)
+
+Zwei Spieler*innen an einer Tastatur. Sind beide nah beieinander, gibt es eine gemeinsame Kamera. Laufen sie auseinander oder ist jemand in einem Minigame, teilt sich der Bildschirm (P1 links, P2 rechts). Das Minigame öffnet sich auf der Hälfte von dem, der es gestartet hat.
+
+| | P1 | P2 |
+|---|---|---|
+| Gehen | WASD | Pfeiltasten |
+| Interagieren / Minigame | E | Enter |
+| Sprinten (2 s, lädt in ca. 3 s auf) | Shift | . |
+| Schleichen | Ctrl | - (US-Layout: /) |
+| Minigame abbrechen | Esc | Backspace |
+| Antworten | 1 2 3 | 8 9 0 |
+
+Jeder Schritt sendet einen Geräusch-Kreis aus: schleichen fast lautlos, gehen normal, sprinten laut. Fehler in Minigames machen ebenfalls einen Kreis.
+
+**Level 1 (Tag):** Ersti-Bag klauen (anschleichen, sonst schauen die Helfer*innen her), Legi validieren, Moodle & Code Expert einrichten, High Five zu zweit. Inhalte und Positionen in `scripts/levels.gd`, Tasten in `scripts/controls.gd`.
+
 ## Charakter-Design
 
 Im Menü änderst du Frisur, Haarfarbe, Hautton, Oberteil und Hose. Tiefer geht es in den Dateien:

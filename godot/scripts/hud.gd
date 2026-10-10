@@ -3,6 +3,7 @@ extends CanvasLayer
 ## ping arrows, blackout tint and the start/end screens.
 
 const CH = preload("res://scripts/characters.gd")
+const KEYS = preload("res://scripts/controls.gd")
 const INK := Color("eef1ea")
 const MUTED := Color("a6b5c0")
 const SIGNAL := Color("f2c14e")
@@ -20,8 +21,7 @@ var meter_l: Label
 var status_l: Label
 var ab_name: Label
 var ab_fill: ColorRect
-var prompt_p: PanelContainer
-var prompt_l: Label
+var prompts: Array = []   # [panel, label] per player
 var toast_p: PanelContainer
 var toast_h: Label
 var toast_b: Label
@@ -184,27 +184,30 @@ func _ready() -> void:
 	av.add_child(abb[0])
 	ab_fill = abb[1]
 
-	# bottom-centre: prompt
-	prompt_p = _panel(6)
-	root.add_child(prompt_p)
-	prompt_p.anchor_left = 0.5
-	prompt_p.anchor_right = 0.5
-	prompt_p.anchor_top = 1.0
-	prompt_p.anchor_bottom = 1.0
-	prompt_p.offset_top = -60
-	prompt_p.offset_bottom = -22
-	prompt_p.grow_horizontal = Control.GROW_DIRECTION_BOTH
-	prompt_p.grow_vertical = Control.GROW_DIRECTION_BEGIN
-	var hb := HBoxContainer.new()
-	hb.add_theme_constant_override("separation", 10)
-	prompt_p.add_child(hb)
-	var ek := PanelContainer.new()
-	ek.add_theme_stylebox_override("panel", _style(SIGNAL, Color("b38b2c"), 2))
-	ek.add_child(_label("E", 15, Color("2a2410")))
-	hb.add_child(ek)
-	prompt_l = _label("", 17, INK)
-	hb.add_child(prompt_l)
-	prompt_p.visible = false
+	# bottom: one interaction prompt per player (P1 left quarter, P2 right quarter)
+	for i in 2:
+		var pp := _panel(6)
+		root.add_child(pp)
+		pp.anchor_left = 0.25 + 0.5 * i
+		pp.anchor_right = 0.25 + 0.5 * i
+		pp.anchor_top = 1.0
+		pp.anchor_bottom = 1.0
+		pp.offset_top = -60
+		pp.offset_bottom = -22
+		pp.grow_horizontal = Control.GROW_DIRECTION_BOTH
+		pp.grow_vertical = Control.GROW_DIRECTION_BEGIN
+		var hb := HBoxContainer.new()
+		hb.add_theme_constant_override("separation", 10)
+		pp.add_child(hb)
+		var kc := Color(KEYS.TAG_COLORS[i])
+		var ek := PanelContainer.new()
+		ek.add_theme_stylebox_override("panel", _style(kc, kc.darkened(0.3), 2))
+		ek.add_child(_label("%s · %s" % [KEYS.TAGS[i], KEYS.KEY_NAMES[i]], 15, Color("1a1a1a")))
+		hb.add_child(ek)
+		var pl_l := _label("", 17, INK)
+		hb.add_child(pl_l)
+		pp.visible = false
+		prompts.append([pp, pl_l])
 
 	# toast
 	toast_p = _panel(10)
@@ -330,11 +333,11 @@ func refresh(delta: float) -> void:
 		if pl.hidden_mode:
 			status_l.text = "Versteckt · E zum Verlassen"
 		elif pl.sneaking:
-			status_l.text = "Schleichen · lautlos"
+			status_l.text = "Schleichen · leise"
 		elif pl.moving:
 			status_l.text = "Gehen · man hört dich"
 		else:
-			status_l.text = "Shift halten zum Schleichen"
+			status_l.text = "Schleichen: P1 Ctrl, P2 -"
 	else:
 		var left: float = main.time_left()
 		var frac: float = left / main.day_total()
@@ -355,14 +358,19 @@ func refresh(delta: float) -> void:
 	else:
 		ab_name.text = main.ability["name"] + " · bereit"
 
-	if main.state == "play" and pl.hidden_mode:
-		prompt_p.visible = true
-		prompt_l.text = "Versteck verlassen"
-	elif main.state == "play" and main.near != null:
-		prompt_p.visible = true
-		prompt_l.text = main.near["label"]
-	else:
-		prompt_p.visible = false
+	for i in prompts.size():
+		var pp: PanelContainer = prompts[i][0]
+		var pl_l: Label = prompts[i][1]
+		var who = main.players[i]
+		pp.visible = false
+		if main.state != "play" or main.busy(i):
+			continue
+		if who.hidden_mode:
+			pp.visible = true
+			pl_l.text = "Versteck verlassen"
+		elif main.nears[i] != null:
+			pp.visible = true
+			pl_l.text = main.nears[i]["label"]
 	if toast_t > 0.0:
 		toast_t -= delta
 		if toast_t <= 0.0:
@@ -374,12 +382,11 @@ func refresh(delta: float) -> void:
 func _draw_arrows() -> void:
 	if main.ping_t <= 0.0:
 		return
-	var xf: Transform2D = get_viewport().get_canvas_transform()
 	var vs: Vector2 = arrows.size
 	var font := ThemeDB.fallback_font
 	var centre := vs / 2.0
 	for p in main.profs:
-		var sp: Vector2 = xf * (p.global_position as Vector2)
+		var sp: Vector2 = main.world_to_screen(p.global_position)
 		var on_screen := Rect2(Vector2(40, 40), vs - Vector2(80, 80)).has_point(sp)
 		var d_tiles := int((p.global_position as Vector2).distance_to(main.player.global_position) / 32.0)
 		var label: String = "%s · %d m" % [String(p.pname).replace("Prof. Dr. ", ""), d_tiles * 2]

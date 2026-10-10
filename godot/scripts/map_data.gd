@@ -19,6 +19,7 @@ var mode := "night"
 var dept := "MAVT"
 var student_zones: Array = []
 const CH = preload("res://scripts/characters.gd")
+const LV = preload("res://scripts/levels.gd")
 
 
 func gett(x: int, y: int) -> int:
@@ -227,10 +228,11 @@ func _dept_objects() -> void:
 					o["use"] = "fusebox"
 					o["label"] = "Sicherungskasten verdrahten"
 	else:
-		for tk in CH.DAY_TASKS[dept]:
-			R("station", tk["rect"].position.x, tk["rect"].position.y, tk["rect"].size.x, tk["rect"].size.y,
+		# Level 1 (day, co-op): stations come from levels.gd
+		for tk in LV.level(1)["tasks"]:
+			var r: Rect2 = tk["rect"]
+			R("station", r.position.x, r.position.y, r.size.x, r.size.y,
 				{"solid": false, "use": "station", "task": tk["id"], "label": tk["label"]})
-		R("profspot", 54.9, 35.0, 1.2, 1.1, {"solid": false, "use": "turnin", "label": "Mit %s sprechen" % CH.DEPTS[dept]["prof"]})
 
 
 func _trees_labels_zones() -> void:

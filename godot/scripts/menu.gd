@@ -225,7 +225,7 @@ func _ready() -> void:
 	var mr := HBoxContainer.new()
 	mr.add_theme_constant_override("separation", 8)
 	right.add_child(mr)
-	for m in [["day", "TAG · Aufgaben unter Zeitdruck"], ["night", "NACHT · Einbruch ins Labor"]]:
+	for m in [["day", "TAG · Level 1 zu zweit"], ["night", "NACHT · Einbruch ins Labor"]]:
 		var mb := _button(m[1], 15)
 		mb.custom_minimum_size = Vector2(0, 42)
 		mb.size_flags_horizontal = Control.SIZE_EXPAND_FILL
@@ -276,7 +276,7 @@ func _refresh() -> void:
 	full_l.text = "Departement %s" % d["full"]
 	var ab: Dictionary = d["ability"]
 	ability_l.text = "Fähigkeit (Nacht, Taste Q): %s – %s" % [ab["name"], ab["desc"]]
-	mission_l.text = ("Nacht-Mission: " + d["night_text"]) if Game.mode == "night" else ("Tagesaufgaben: " + d["day_text"])
+	mission_l.text = ("Nacht-Mission: " + d["night_text"]) if Game.mode == "night" else "Level 1 (zu zweit): Ersti-Bag klauen, Legi validieren, Moodle & Code Expert einrichten, High Five."
 	for k in dept_btns:
 		var on: bool = k == Game.dept
 		dept_btns[k].add_theme_stylebox_override("normal", _style(Color(accent.r, accent.g, accent.b, 0.35) if on else Color(0.13, 0.17, 0.22), accent if on else LINE))

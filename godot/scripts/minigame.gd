@@ -1,11 +1,15 @@
 extends CanvasLayer
-## Minigame overlay. Kinds: timing, wiring, sequence, quiz, moodle.
+## Minigame overlay. Kinds: timing, wiring, sequence, quiz, moodle, setup, highfive.
 ## Emits `mistake` on every error (at night that makes noise) and `finished(success, mistakes)` at the end.
+## Co-op: set `screen_side` (0 = left half, 1 = right half, -1 = full screen) and `keys` / `labels` for the
+## player who opened it before calling open(). "highfive" also uses `keys2` / `labels2` for the second player.
 
 signal finished(success: bool, mistakes: int)
 signal mistake
 
 const CH = preload("res://scripts/characters.gd")
+const KEYS = preload("res://scripts/controls.gd")
+const LV = preload("res://scripts/levels.gd")
 const INK := Color("eef1ea")
 const MUTED := Color("a6b5c0")
 const SIGNAL := Color("f2c14e")
@@ -19,7 +23,13 @@ var dept := "MAVT"
 var mistakes := 0
 var closing := -1.0
 var t := 0.0
+var screen_side := -1
+var keys: Dictionary = {}
+var labels: Dictionary = {}
+var keys2: Dictionary = {}
+var labels2: Dictionary = {}
 
+var root: Control
 var panel: PanelContainer
 var canvas: Control
 var title_l: Label
@@ -77,6 +87,22 @@ var m_feedback: Label
 var m_hint: Label
 var m_skip: Button
 
+# setup (Moodle + Code Expert): pick the right option per step, no typing
+var s_steps: Array = []
+var s_i := 0
+var s_cur := 0
+var s_opts: Array = []
+var s_lock := 0.0
+var s_label: Label
+var s_progress: Label
+var s_buttons: Array = []
+
+# highfive (co-op): both players press inside the green zone within HF_WINDOW of each other
+const HF_WINDOW := 0.3
+var hf_press: Array = [-1.0, -1.0]
+var hf_in: Array = [false, false]
+var hf_msg := ""
+
 
 func _style(bg: Color, border: Color, pad: float = 8.0) -> StyleBoxFlat:
 	var sb := StyleBoxFlat.new()
@@ -121,9 +147,16 @@ func open(k: String, p: Dictionary, d: String) -> void:
 	params = p
 	dept = d
 	layer = 20
-	var root := Control.new()
+	if keys.is_empty():
+		keys = KEYS.SOLO_KEYS
+	if labels.is_empty():
+		labels = KEYS.SOLO_LABELS
+	root = Control.new()
 	add_child(root)
-	root.set_anchors_and_offsets_preset(Control.PRESET_FULL_RECT)
+	if screen_side < 0:
+		root.set_anchors_and_offsets_preset(Control.PRESET_FULL_RECT)
+	else:
+		_place_half()
 	var dim := ColorRect.new()
 	dim.color = Color(0.02, 0.04, 0.07, 0.55)
 	root.add_child(dim)
@@ -142,17 +175,33 @@ func open(k: String, p: Dictionary, d: String) -> void:
 	title_l = _label(p.get("title", "Minigame"), 24, INK)
 	title_l.size_flags_horizontal = Control.SIZE_EXPAND_FILL
 	head.add_child(title_l)
-	head.add_child(_label("Esc · abbrechen", 13, MUTED))
+	var abort_txt: String = labels["abort"]
+	if kind == "highfive" and not labels2.is_empty():
+		abort_txt = "%s / %s" % [labels["abort"], labels2["abort"]]
+	head.add_child(_label("%s · abbrechen" % abort_txt, 13, MUTED))
 	match kind:
 		"timing": _setup_timing()
 		"wiring": _setup_wiring()
 		"sequence": _setup_sequence()
 		"quiz": _setup_quiz()
 		"moodle": _setup_moodle()
+		"setup": _setup_setup()
+		"highfive": _setup_highfive()
 	info_l = _label("", 15, MUTED, true)
 	info_l.custom_minimum_size = Vector2(640, 0)
 	body.add_child(info_l)
 	_update_info()
+
+
+## Fit the panel into the left or right half of the screen (split screen), scaled down if needed.
+func _place_half() -> void:
+	var vs: Vector2 = get_viewport().get_visible_rect().size
+	var half := vs.x / 2.0
+	var k := clampf((half - 24.0) / 740.0, 0.5, 1.0)
+	scale = Vector2(k, k)
+	offset = Vector2(screen_side * half, 0.0)
+	root.position = Vector2.ZERO
+	root.size = Vector2(half, vs.y) / k
 
 
 func _add_canvas(h: float) -> void:
@@ -169,15 +218,22 @@ func _update_info() -> void:
 		return
 	match kind:
 		"timing":
-			info_l.text = "E oder Leertaste drücken, wenn der Zeiger im grünen Bereich ist. %s %d von %d." % [params.get("verb", "Treffer"), hits, need]
+			info_l.text = "%s drücken, wenn der Zeiger im grünen Bereich ist. %s %d von %d." % [labels["ok"], params.get("verb", "Treffer"), hits, need]
 		"wiring":
-			info_l.text = "Verbinde jedes Kabel mit der Buchse in derselben Farbe. Links ein Kabel wählen, dann rechts die Buchse (Maus, oder W/S + E)."
+			info_l.text = "Verbinde jedes Kabel mit der Buchse in derselben Farbe. Links ein Kabel wählen, dann rechts die Buchse (Maus, oder %s + %s)." % [labels["dirs"], labels["ok"]]
 		"sequence":
-			info_l.text = "Merk dir die Reihenfolge …" if seq_phase == "show" else "Jetzt du: Pfeiltasten oder WASD. %d / %d" % [input_i, seq.size()]
+			info_l.text = "Merk dir die Reihenfolge …" if seq_phase == "show" else "Jetzt du: %s. %d / %d" % [labels["dirs"], input_i, seq.size()]
 		"quiz":
-			info_l.text = "Frage %d von %d · Tasten 1, 2, 3 oder klicken" % [mini(q_i + 1, questions.size()), questions.size()]
+			info_l.text = "Frage %d von %d · Tasten %s oder klicken" % [mini(q_i + 1, questions.size()), questions.size(), labels["nums"]]
 		"moodle":
 			info_l.text = "Enter oder «Prüfen» zum Abgeben."
+		"setup":
+			info_l.text = "Auswählen mit %s, bestätigen mit %s (oder Tasten %s)." % [labels["dirs"], labels["ok"], labels["nums"]]
+		"highfive":
+			var l2: String = labels2.get("ok", "?")
+			info_l.text = "Beide gleichzeitig drücken, wenn der Zeiger im grünen Bereich ist: P1 %s, P2 %s. High Fives %d von %d." % [labels["ok"], l2, hits, need]
+			if hf_msg != "":
+				info_l.text += "   " + hf_msg
 	if mistakes > 0:
 		info_l.text += "   Fehler: %d" % mistakes
 
@@ -350,7 +406,7 @@ func _show_question() -> void:
 	opts.shuffle()
 	q_options = opts
 	for i in 3:
-		q_buttons[i].text = "%d   %s" % [i + 1, opts[i][0]]
+		q_buttons[i].text = "%s   %s" % [_num_name(i), opts[i][0]]
 		q_buttons[i].add_theme_stylebox_override("normal", _style(Color(0.15, 0.2, 0.26), Color(0.3, 0.38, 0.46)))
 		if opts[i][1]:
 			q_right = i
@@ -530,9 +586,131 @@ func _same(a, b) -> bool:
 	return a == b
 
 
+# ------------------------------------------------------------------ setup (Moodle + Code Expert)
+func _num_name(i: int) -> String:
+	var names: PackedStringArray = String(labels.get("nums", "1 2 3")).split(" ")
+	return names[i] if i < names.size() else str(i + 1)
+
+
+func _setup_setup() -> void:
+	var course: String = CH.MOODLE[dept]["course"]
+	for st in LV.SETUP_STEPS:
+		var answers: Array = []
+		for a in (st[1] as Array):
+			answers.append(String(a).replace("%COURSE%", course))
+		s_steps.append([String(st[0]), answers, int(st[2])])
+	s_progress = _label("", 13, MUTED)
+	body.add_child(s_progress)
+	s_label = _label("", 20, INK, true)
+	s_label.custom_minimum_size = Vector2(640, 60)
+	body.add_child(s_label)
+	for i in 3:
+		var b := _button("", 17)
+		b.custom_minimum_size = Vector2(640, 44)
+		b.alignment = HORIZONTAL_ALIGNMENT_LEFT
+		var idx := i
+		b.pressed.connect(func(): _setup_pick(idx))
+		body.add_child(b)
+		s_buttons.append(b)
+	_setup_show()
+
+
+func _setup_show() -> void:
+	var st: Array = s_steps[s_i]
+	s_progress.text = "Schritt %d von %d" % [s_i + 1, s_steps.size()]
+	s_label.text = st[0]
+	var opts: Array = []
+	var answers: Array = st[1]
+	for i in answers.size():
+		opts.append([answers[i], i == int(st[2])])
+	opts.shuffle()
+	s_opts = opts
+	s_cur = 0
+	_setup_paint(-1)
+
+
+func _setup_paint(wrong: int) -> void:
+	for i in s_buttons.size():
+		var b: Button = s_buttons[i]
+		b.text = "%s   %s" % [_num_name(i), s_opts[i][0]]
+		var bg := Color(0.15, 0.2, 0.26)
+		var br := Color(0.3, 0.38, 0.46)
+		if i == s_cur:
+			bg = Color(0.2, 0.26, 0.34)
+			br = SIGNAL
+		if i == wrong:
+			bg = Color(0.5, 0.18, 0.15)
+			br = BAD
+		b.add_theme_stylebox_override("normal", _style(bg, br))
+
+
+func _setup_pick(i: int) -> void:
+	if s_lock > 0.0 or closing >= 0.0:
+		return
+	s_cur = i
+	if s_opts[i][1]:
+		s_buttons[i].add_theme_stylebox_override("normal", _style(Color(0.2, 0.45, 0.25), OKC))
+		s_lock = 0.6
+	else:
+		_setup_paint(i)
+		_err()
+
+
+# ------------------------------------------------------------------ highfive (co-op timing)
+func _setup_highfive() -> void:
+	need = int(params.get("hits", 3))
+	vel = float(params.get("speed", 230.0))
+	_add_canvas(190)
+	_hf_zone()
+
+
+func _hf_zone() -> void:
+	var w := maxf(70.0, 150.0 - hits * 25.0)
+	var x := randf_range(40.0, BAR_W - w - 20.0)
+	zone = Vector2(x, x + w)
+
+
+func _hf_press(j: int) -> void:
+	if hf_press[j] >= 0.0:
+		return
+	hf_press[j] = t
+	hf_in[j] = pos >= zone.x and pos <= zone.y
+	if hf_press[1 - j] >= 0.0:
+		_hf_resolve("")
+
+
+func _hf_resolve(late: String) -> void:
+	var ok: bool = late == "" and hf_in[0] and hf_in[1]
+	if ok:
+		hits += 1
+		flash_ok = true
+		hf_msg = "Klatsch!"
+		vel *= 1.12
+		if hits >= need:
+			_succeed("Up top! Perfekter High Five.")
+		else:
+			_hf_zone()
+	else:
+		flash_ok = false
+		if late != "":
+			hf_msg = "%s war zu spät." % late
+		elif not hf_in[0] and not hf_in[1]:
+			hf_msg = "Beide daneben."
+		else:
+			hf_msg = "%s daneben." % ("P1" if not hf_in[0] else "P2")
+		_err()
+	flash = 0.35
+	hf_press = [-1.0, -1.0]
+	hf_in = [false, false]
+	if closing < 0.0:
+		_update_info()
+
+
 # ------------------------------------------------------------------ loop + input
 func _process(delta: float) -> void:
 	t += delta
+	if screen_side >= 0 and root:
+		_place_half()
 	if closing >= 0.0:
 		closing -= delta
 		if closing < 0.0:
@@ -540,7 +718,7 @@ func _process(delta: float) -> void:
 			queue_free()
 			return
 	match kind:
-		"timing":
+		"timing", "highfive":
 			if closing < 0.0:
 				pos += vel * delta
 				if pos > BAR_W:
@@ -550,6 +728,21 @@ func _process(delta: float) -> void:
 					pos = 0.0
 					vel = absf(vel)
 			flash = maxf(0.0, flash - delta)
+			if kind == "highfive" and closing < 0.0:
+				for j in 2:
+					if hf_press[j] >= 0.0 and hf_press[1 - j] < 0.0 and t - hf_press[j] > HF_WINDOW:
+						_hf_resolve("P2" if j == 0 else "P1")
+						break
+		"setup":
+			if s_lock > 0.0:
+				s_lock -= delta
+				if s_lock <= 0.0:
+					s_i += 1
+					if s_i >= s_steps.size():
+						s_label.text = "Moodle und Code Expert sind bereit."
+						_succeed("Alles eingerichtet!")
+					else:
+						_setup_show()
 		"wiring":
 			wrong_t = maxf(0.0, wrong_t - delta)
 		"sequence":
@@ -584,40 +777,82 @@ func _process(delta: float) -> void:
 		canvas.queue_redraw()
 
 
+func _has(d: Dictionary, what: String, k: int) -> bool:
+	return k in (d.get(what, []) as Array)
+
+
 func _input(event: InputEvent) -> void:
 	if not (event is InputEventKey) or not event.pressed or event.echo:
 		return
 	var k: int = event.physical_keycode
-	if k == KEY_ESCAPE:
+	if _has(keys, "abort", k) or (kind == "highfive" and _has(keys2, "abort", k)):
 		get_viewport().set_input_as_handled()
 		finished.emit(false, mistakes)
 		queue_free()
 		return
 	if closing >= 0.0 or kind == "moodle":
 		return
+	var used := true
 	match kind:
 		"timing":
-			if k in [KEY_E, KEY_SPACE, KEY_ENTER]:
+			if _has(keys, "interact", k):
 				_timing_press()
+			else:
+				used = false
 		"wiring":
-			if k in [KEY_W, KEY_UP]:
+			if _has(keys, "up", k):
 				cur = (cur - 1 + n_wires) % n_wires
-			elif k in [KEY_S, KEY_DOWN]:
+			elif _has(keys, "down", k):
 				cur = (cur + 1) % n_wires
-			elif k in [KEY_A, KEY_LEFT]:
+			elif _has(keys, "left", k):
 				side = 0
-			elif k in [KEY_D, KEY_RIGHT]:
+			elif _has(keys, "right", k):
 				side = 1
-			elif k in [KEY_E, KEY_SPACE, KEY_ENTER]:
+			elif _has(keys, "interact", k):
 				_wire_select()
+			else:
+				used = false
 		"sequence":
-			var map := {KEY_UP: 0, KEY_W: 0, KEY_DOWN: 1, KEY_S: 1, KEY_LEFT: 2, KEY_A: 2, KEY_RIGHT: 3, KEY_D: 3}
-			if map.has(k):
-				_seq_press(map[k])
+			var dirs := ["up", "down", "left", "right"]
+			used = false
+			for i in 4:
+				if _has(keys, dirs[i], k):
+					_seq_press(i)
+					used = true
+					break
 		"quiz":
-			if k in [KEY_1, KEY_2, KEY_3]:
-				_quiz_answer(k - KEY_1)
-	get_viewport().set_input_as_handled()
+			var qi: int = (keys.get("nums", []) as Array).find(k)
+			if qi >= 0:
+				_quiz_answer(qi)
+			else:
+				used = false
+		"setup":
+			var si: int = (keys.get("nums", []) as Array).find(k)
+			if si >= 0:
+				_setup_pick(si)
+			elif _has(keys, "up", k):
+				if s_lock <= 0.0:
+					s_cur = (s_cur + 2) % 3
+					_setup_paint(-1)
+			elif _has(keys, "down", k):
+				if s_lock <= 0.0:
+					s_cur = (s_cur + 1) % 3
+					_setup_paint(-1)
+			elif _has(keys, "interact", k):
+				_setup_pick(s_cur)
+			else:
+				used = false
+		"highfive":
+			if _has(keys, "interact", k):
+				_hf_press(0)
+			elif _has(keys2, "interact", k):
+				_hf_press(1)
+			else:
+				used = false
+		_:
+			used = false
+	if used:
+		get_viewport().set_input_as_handled()
 
 
 func _on_canvas_input(event: InputEvent) -> void:
@@ -665,6 +900,31 @@ func _on_draw() -> void:
 			if flash > 0.0:
 				var fc := OKC if flash_ok else BAD
 				c.draw_rect(Rect2(BAR_X - 4, 76, BAR_W + 8, 44), Color(fc.r, fc.g, fc.b, flash * 1.6), false, 3.0)
+		"highfive":
+			for i in need:
+				var hc := Vector2(BAR_X + 20 + i * 34, 30)
+				c.draw_circle(hc, 11, Color(0.2, 0.25, 0.3))
+				if i < hits:
+					c.draw_circle(hc, 8, SIGNAL)
+			c.draw_rect(Rect2(BAR_X, 80, BAR_W, 36), Color(0.15, 0.19, 0.24))
+			c.draw_rect(Rect2(BAR_X + zone.x, 80, zone.y - zone.x, 36), Color(0.3, 0.75, 0.4, 0.85))
+			c.draw_rect(Rect2(BAR_X, 80, BAR_W, 36), Color(0.4, 0.48, 0.56), false, 1.5)
+			var hx := BAR_X + pos
+			c.draw_rect(Rect2(hx - 3, 70, 6, 56), INK)
+			c.draw_colored_polygon(PackedVector2Array([Vector2(hx - 8, 62), Vector2(hx + 8, 62), Vector2(hx, 72)]), SIGNAL)
+			if flash > 0.0:
+				var hfc := OKC if flash_ok else BAD
+				c.draw_rect(Rect2(BAR_X - 4, 76, BAR_W + 8, 44), Color(hfc.r, hfc.g, hfc.b, flash * 1.6), false, 3.0)
+			# one hand per player, lights up when that player pressed in this round
+			for j in 2:
+				var hp := Vector2(BAR_X + 60 + j * (BAR_W - 120), 160)
+				var col := Color(KEYS.TAG_COLORS[j])
+				var pressed: bool = hf_press[j] >= 0.0
+				c.draw_circle(hp, 18, col if pressed else Color(0.2, 0.25, 0.3))
+				c.draw_arc(hp, 18, 0, TAU, 28, col, 2.0)
+				var tag: String = KEYS.TAGS[j]
+				var tsz := font.get_string_size(tag, HORIZONTAL_ALIGNMENT_LEFT, -1, 14)
+				c.draw_string(font, hp + Vector2(-tsz.x / 2.0, 5), tag, HORIZONTAL_ALIGNMENT_LEFT, -1, 14, Color("1a1a1a") if pressed else INK)
 		"wiring":
 			for i in n_wires:
 				var lp := _node_pos(0, i)

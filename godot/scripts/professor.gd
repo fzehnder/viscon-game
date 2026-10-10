@@ -162,28 +162,34 @@ func _investigate(at: Vector2) -> void:
 
 
 func _detect(delta: float) -> void:
-	var pl = main.player
+	# watches both players and reacts to the most visible one
 	sees = false
-	var d: float = global_position.distance_to(pl.global_position)
-	if not pl.hidden_mode:
+	var target = null
+	var best_d := INF
+	for pl in main.players:
+		if pl.hidden_mode:
+			continue
+		var d: float = global_position.distance_to(pl.global_position)
 		if d < 0.75 * TS:
 			main.caught(self)
 			return
 		var to: Vector2 = pl.global_position - global_position
 		var ang := absf(wrapf(to.angle() - dir, -PI, PI))
 		if (d < _range() and ang < half) or d < 1.5 * TS:
-			if world.line_clear(global_position, pl.global_position):
-				sees = true
-	if sees:
-		var rate := 0.7 + (1.0 - minf(d / _range(), 1.0)) * 2.0
-		if pl.sneaking:
+			if world.line_clear(global_position, pl.global_position) and d < best_d:
+				target = pl
+				best_d = d
+	if target != null:
+		sees = true
+		var rate := 0.7 + (1.0 - minf(best_d / _range(), 1.0)) * 2.0
+		if target.sneaking:
 			rate *= 0.8
 		meter = minf(1.0, meter + rate * delta)
 		if meter >= 1.0:
 			main.caught(self)
 			return
 		if meter > 0.2 and (state != "investigate" or repath_t <= 0.0):
-			_investigate(pl.global_position)
+			_investigate(target.global_position)
 		if meter > 0.5 and not flagged:
 			flagged = true
 			main.spotted()
@@ -191,13 +197,17 @@ func _detect(delta: float) -> void:
 		meter = maxf(0.0, meter - 0.25 * delta)
 		if meter < 0.1:
 			flagged = false
-		if pl.noise_radius > 0.0 and (state == "patrol" or state == "pause"):
-			var r: float = pl.noise_radius
-			if not world.line_clear(global_position, pl.global_position):
-				r *= 0.45
-			if d < r:
-				meter = maxf(meter, 0.15)
-				_investigate(pl.global_position)
+		if state == "patrol" or state == "pause":
+			for pl in main.players:
+				if pl.noise_radius <= 0.0:
+					continue
+				var r: float = pl.noise_radius
+				if not world.line_clear(global_position, pl.global_position):
+					r *= 0.45
+				if global_position.distance_to(pl.global_position) < r:
+					meter = maxf(meter, 0.15)
+					_investigate(pl.global_position)
+					break
 
 
 func _update_cone() -> void:
