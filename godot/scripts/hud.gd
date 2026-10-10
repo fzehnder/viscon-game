@@ -1,5 +1,5 @@
 extends CanvasLayer
-## Screen overlay in the cream / ETH blue look (ui.gd): one task card per player on that player's side
+## Screen overlay as dark blue glass over the game (UI.GLASS, ui.gd): one task card per player on that player's side
 ## of the screen (P1 left, P2 right) with that player's popups (toasts) right below it, level and timer
 ## top centre, mini map bottom centre, interaction prompts, big "done!" celebrations with confetti,
 ## and the start / win / lose screens.
@@ -162,14 +162,7 @@ class MiniMap:
 					var po := _at(op.global_position)
 					draw_circle(po, 4.5 + sin(t * 12.0), UI2.RED)
 					draw_arc(po, 6.5, 0.0, TAU, 16, UI2.RED, 1.0)
-			# the way to a picked task: one line (the way has many short pieces, dashes per piece would run together)
-			for i in main.players.size():
-				var route: Array = main.routes[i]
-				if route.size() >= 2:
-					var way := PackedVector2Array()
-					for q in route:
-						way.append(_at(q))
-					draw_polyline(way, Color(KEYS2.TAG_COLORS[i]), 1.6, true)
+			# the way to a picked task is not drawn here: the arrow around the player (fx.gd) shows it
 		# the two players, always on top
 		for i in main.players.size():
 			var pl = main.players[i]
@@ -184,7 +177,7 @@ func _bar(w: float, fill_col: Color) -> Array:
 	var bar := Control.new()
 	bar.custom_minimum_size = Vector2(w, 12)
 	var bg := ColorRect.new()
-	bg.color = Color(0, 0, 0, 0.1)
+	bg.color = Color(1, 1, 1, 0.12)
 	bg.size = Vector2(w, 12)
 	bar.add_child(bg)
 	var f := ColorRect.new()
@@ -248,18 +241,18 @@ func _ready() -> void:
 			colm.offset_left = -252
 			colm.offset_right = -16
 			colm.grow_horizontal = Control.GROW_DIRECTION_BEGIN
-		var card := UI.panel(UI.PAPER, pc, 14, 12)
+		var card := UI.panel(UI.GLASS, pc, 14, 12)
 		colm.add_child(card)
-		var tp_ := UI.panel(UI.PAPER, UI.ETH_BLUE, 14, 12)
+		var tp_ := UI.panel(UI.GLASS, UI.GLASS_LINE, 14, 12)
 		colm.add_child(tp_)
 		var tv := VBoxContainer.new()
 		tv.add_theme_constant_override("separation", 2)
 		tp_.add_child(tv)
-		var th := UI.label("", 17, UI.ETH_BLUE)
+		var th := UI.label("", 17, UI.SKY)
 		th.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
 		th.custom_minimum_size = Vector2(200, 0)
 		tv.add_child(th)
-		var tb := UI.label("", 14, UI.INK, 0, true)
+		var tb := UI.label("", 14, UI.ON_GLASS, 0, true)
 		tb.custom_minimum_size = Vector2(200, 0)
 		tv.add_child(tb)
 		tp_.visible = false
@@ -271,22 +264,22 @@ func _ready() -> void:
 		head.add_theme_constant_override("separation", 8)
 		v.add_child(head)
 		head.add_child(_pill(Game.name_of(i), pc, 14)[0])
-		var zl := UI.label("", 12, UI.INK2)
+		var zl := UI.label("", 12, UI.ON_GLASS2)
 		zl.size_flags_horizontal = Control.SIZE_EXPAND_FILL
 		zl.clip_text = true
 		head.add_child(zl)
-		var cl := UI.label("", 13, UI.INK2)
+		var cl := UI.label("", 13, UI.ON_GLASS2)
 		head.add_child(cl)
 		var box := VBoxContainer.new()
 		box.add_theme_constant_override("separation", 1)
 		v.add_child(box)
-		var hint_l := UI.label("%s: Weg zur Aufgabe zeigen" % KEYS.SELECT_NAMES[i], 11, UI.INK2)
+		var hint_l := UI.label("%s: Weg zur Aufgabe zeigen" % KEYS.SELECT_NAMES[i], 11, UI.ON_GLASS2)
 		hint_l.visible = not main.night
 		v.add_child(hint_l)
 		cards.append([card, zl, cl, box])
 
 	# ---- top centre: level and timer (or the visibility meter at night). ETH blue = for both.
-	timer_card = UI.panel(UI.PAPER, UI.ETH_BLUE, 14, 8)
+	timer_card = UI.panel(UI.GLASS, UI.GLASS_LINE, 14, 8)
 	root.add_child(timer_card)
 	timer_card.anchor_left = 0.5
 	timer_card.anchor_right = 0.5
@@ -302,28 +295,28 @@ func _ready() -> void:
 	head2.add_theme_constant_override("separation", 8)
 	v2.add_child(head2)
 	head2.add_child(_pill("LEVEL %d" % Game.level, UI.ETH_BLUE, 11)[0])
-	title_l = UI.label("Nacht" if main.night else String(main.lv["name"]), 16, UI.ETH_BLUE)
+	title_l = UI.label("Nacht" if main.night else String(main.lv["name"]), 16, UI.SKY)
 	head2.add_child(title_l)
 	var row2 := HBoxContainer.new()
 	row2.alignment = BoxContainer.ALIGNMENT_CENTER
 	row2.add_theme_constant_override("separation", 10)
 	v2.add_child(row2)
-	meter_l = UI.label("", 20 if main.night else 28, UI.OK)
+	meter_l = UI.label("", 20 if main.night else 28, UI.GREEN)
 	row2.add_child(meter_l)
 	var side := VBoxContainer.new()
 	side.alignment = BoxContainer.ALIGNMENT_CENTER
 	side.add_theme_constant_override("separation", 2)
 	row2.add_child(side)
-	var mb := _bar(BAR_W, UI.OK)
+	var mb := _bar(BAR_W, UI.GREEN)
 	side.add_child(mb[0])
 	meter_fill = mb[1]
-	meter_title = UI.label("SICHTBARKEIT" if main.night else String(main.lv.get("timer_title", "ZEIT BIS FEIERABEND")), 10, UI.INK2)
+	meter_title = UI.label("SICHTBARKEIT" if main.night else String(main.lv.get("timer_title", "ZEIT BIS FEIERABEND")), 10, UI.ON_GLASS2)
 	side.add_child(meter_title)
-	status_l = UI.label("", 10, UI.INK2)
+	status_l = UI.label("", 10, UI.ON_GLASS2)
 	side.add_child(status_l)
 
 	# ---- bottom centre: mini map of the campus with both players and what is still to do
-	var mp := UI.panel(UI.PAPER, UI.ETH_BLUE, 12, 4)
+	var mp := UI.panel(UI.GLASS, UI.GLASS_LINE, 12, 4)
 	root.add_child(mp)
 	mp.anchor_left = 0.5
 	mp.anchor_right = 0.5
@@ -340,7 +333,7 @@ func _ready() -> void:
 	mp.add_child(minimap)
 
 	# ---- bottom-left: ability (night only)
-	ab_panel = UI.panel(UI.PAPER, UI.ETH_BLUE, 14, 10)
+	ab_panel = UI.panel(UI.GLASS, UI.GLASS_LINE, 14, 10)
 	root.add_child(ab_panel)
 	ab_panel.anchor_top = 1.0
 	ab_panel.anchor_bottom = 1.0
@@ -350,9 +343,9 @@ func _ready() -> void:
 	ab_panel.grow_vertical = Control.GROW_DIRECTION_BEGIN
 	var av := VBoxContainer.new()
 	ab_panel.add_child(av)
-	ab_name = UI.label(main.ability["name"], 15, UI.INK)
+	ab_name = UI.label(main.ability["name"], 15, UI.ON_GLASS)
 	av.add_child(ab_name)
-	var abb := _bar(210, UI.ETH_BLUE)
+	var abb := _bar(210, UI.SKY)
 	av.add_child(abb[0])
 	ab_fill = abb[1]
 	ab_panel.visible = main.night
@@ -360,7 +353,7 @@ func _ready() -> void:
 	# ---- bottom: one interaction prompt per player
 	for i in 2:
 		var pc := Color(KEYS.TAG_COLORS[i])
-		var pp := UI.panel(UI.PAPER, pc, 14, 8)
+		var pp := UI.panel(UI.GLASS, pc, 14, 8)
 		root.add_child(pp)
 		pp.anchor_left = 0.25 + 0.5 * i   # under the middle of each player's half
 		pp.anchor_right = 0.25 + 0.5 * i
@@ -375,7 +368,7 @@ func _ready() -> void:
 		pp.add_child(hb)
 		var key := _pill(KEYS.KEY_NAMES[i], pc, 16)
 		hb.add_child(key[0])
-		var pl_l := UI.label("", 18, UI.INK)
+		var pl_l := UI.label("", 18, UI.ON_GLASS)
 		hb.add_child(pl_l)
 		pp.visible = false
 		prompts.append([pp, pl_l, false])
@@ -394,7 +387,7 @@ func _ready() -> void:
 	overlay.set_anchors_and_offsets_preset(Control.PRESET_FULL_RECT)
 	overlay.mouse_filter = Control.MOUSE_FILTER_STOP
 	var dim := ColorRect.new()
-	dim.color = Color(0.97, 0.96, 0.92, 0.82)
+	dim.color = Color(0.02, 0.05, 0.12, 0.5)
 	overlay.add_child(dim)
 	dim.set_anchors_and_offsets_preset(Control.PRESET_FULL_RECT)
 	var cc := CenterContainer.new()
@@ -402,7 +395,7 @@ func _ready() -> void:
 	cc.set_anchors_and_offsets_preset(Control.PRESET_FULL_RECT)
 	ov_cc = cc
 	root.resized.connect(_fit_overlay)
-	ov_card = UI.panel(UI.PAPER, UI.ETH_BLUE, 20, 26)
+	ov_card = UI.panel(UI.GLASS, UI.GLASS_LINE, 20, 26)
 	ov_card.mouse_filter = Control.MOUSE_FILTER_STOP
 	cc.add_child(ov_card)
 	var ov := VBoxContainer.new()
@@ -413,12 +406,12 @@ func _ready() -> void:
 	ov_tag = tp[1]
 	ov_tag_p.size_flags_horizontal = Control.SIZE_SHRINK_BEGIN
 	ov.add_child(ov_tag_p)
-	ov_title = UI.label("", 48, UI.ETH_BLUE)
+	ov_title = UI.label("", 48, UI.SKY)
 	ov.add_child(ov_title)
-	ov_body = UI.label("", 18, UI.INK, 0, true)
+	ov_body = UI.label("", 18, UI.ON_GLASS, 0, true)
 	ov_body.custom_minimum_size = Vector2(780, 0)
 	ov.add_child(ov_body)
-	ov_hint = UI.label("", 14, UI.INK2, 0, true)
+	ov_hint = UI.label("", 14, UI.ON_GLASS2, 0, true)
 	ov_hint.custom_minimum_size = Vector2(780, 0)
 	ov.add_child(ov_hint)
 	var brow := HBoxContainer.new()
@@ -428,7 +421,7 @@ func _ready() -> void:
 	ov_btn.custom_minimum_size = Vector2(240, 60)
 	ov_btn.pressed.connect(func(): main.on_overlay_button())
 	brow.add_child(ov_btn)
-	ov_menu = UI.button("Startbildschirm", UI.INK2, 18)
+	ov_menu = UI.button("Startbildschirm", Color("4a5878"), 18)
 	ov_menu.custom_minimum_size = Vector2(200, 60)
 	ov_menu.pressed.connect(func(): main.on_overlay_menu())
 	brow.add_child(ov_menu)
@@ -437,15 +430,15 @@ func _ready() -> void:
 # ------------------------------------------------------------------ overlay
 ## kind: "info" (start), "win" (confetti + fanfare), "lose" (shake).
 func show_overlay(title: String, body: String, hint: String, button: String, with_menu: bool = false, kind: String = "info", tag: String = "") -> void:
-	var col := UI.ETH_BLUE
+	var col := UI.SKY
 	var btn := UI.ETH_BLUE
 	match kind:
 		"win":
-			col = UI.OK
+			col = UI.GREEN
 		"lose":
 			col = UI.RED
 			btn = UI.RED
-	ov_card.add_theme_stylebox_override("panel", UI.box(UI.PAPER, col, 20, 2, 26))
+	ov_card.add_theme_stylebox_override("panel", UI.box(UI.GLASS, Color(col, 0.6), 20, 2, 26))
 	ov_title.text = title
 	ov_title.label_settings.font_color = col
 	ov_body.text = body
@@ -629,7 +622,7 @@ func _build_tasks(pid: int, objs: Array) -> void:
 		tick.size_flags_vertical = Control.SIZE_SHRINK_CENTER
 		tick.mouse_filter = Control.MOUSE_FILTER_IGNORE
 		row.add_child(tick)
-		var l := UI.label(String(o[0]), 16, UI.INK)
+		var l := UI.label(String(o[0]), 16, UI.ON_GLASS)
 		row.add_child(l)
 		task_rows[pid].append([rowp, tick, l, sb, false])
 
@@ -654,8 +647,8 @@ func _update_tasks() -> void:
 			var text := String(o[0]) + ("  ·  " + note if note != "" else "")
 			if (r[2] as Label).text != text:
 				(r[2] as Label).text = text
-			var col := UI.OK if on else (UI.INK if active else Color(UI.INK, 0.35))
-			(r[2] as Label).label_settings.font_color = UI.WARN if note != "" else col
+			var col := UI.GREEN if on else (UI.ON_GLASS if active else Color(UI.ON_GLASS, 0.35))
+			(r[2] as Label).label_settings.font_color = UI.ORANGE if note != "" else col
 			var sel: bool = main.picked[pid] == k
 			if sel != r[4]:
 				r[4] = sel
@@ -683,13 +676,13 @@ func refresh(delta: float) -> void:
 	if main.night:
 		var m: float = main.max_meter()
 		meter_fill.size = Vector2(BAR_W * m, 12)
-		var c := UI.OK
+		var c := UI.GREEN
 		var txt := "UNENTDECKT"
 		if m >= 0.6:
 			c = UI.RED
 			txt = "ENTDECKT!"
 		elif m > 0.05:
-			c = UI.WARN
+			c = UI.ORANGE
 			txt = "VERDÄCHTIG"
 		meter_l.text = txt
 		meter_l.label_settings.font_color = c
@@ -702,7 +695,7 @@ func refresh(delta: float) -> void:
 		var left: float = main.time_left()
 		var frac: float = left / main.day_total()
 		meter_l.text = "%d:%02d" % [int(left) / 60, int(left) % 60]
-		var c2 := UI.OK if frac > 0.4 else (UI.WARN if frac > 0.15 else UI.RED)
+		var c2 := UI.GREEN if frac > 0.4 else (UI.ORANGE if frac > 0.15 else UI.RED)
 		meter_l.label_settings.font_color = c2
 		meter_fill.color = c2
 		meter_fill.size = Vector2(BAR_W * frac, 12)

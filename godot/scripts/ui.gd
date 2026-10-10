@@ -1,8 +1,10 @@
 extends RefCounted
 ## Shared UI kit: colours, panels, buttons, labels, pop-in, shake, confetti.
 ## Look (since 10.10.2026): cream white paper (PAPER) with dark ink (INK), ETH blue (ETH_BLUE) as the
-## accent instead of yellow. Popups, intros, menus and the HUD all use it. Text on PAPER is INK or
-## INK2; white text with a dark outline is only for text drawn straight onto the game world.
+## accent instead of yellow, for menus and documents. Over the running game (HUD, popups, start /
+## win / lose cards, minigames) panels are dark blue glass instead (GLASS), so they blend into the
+## game: text there is ON_GLASS / ON_GLASS2, titles SKY. Text on PAPER is INK or INK2; white text
+## with a dark outline is only for text drawn straight onto the game world.
 
 const NAVY := Color("23264a")
 const NAVY2 := Color("30356a")
@@ -25,6 +27,12 @@ const INK2 := Color("646b7d")     # secondary text on paper
 const LINE := Color("d9d2c2")     # thin lines on paper
 const OK := Color("1f9d63")       # green that reads on paper
 const WARN := Color("d9741c")     # orange that reads on paper (instead of yellow)
+# in the running game (HUD, popups, minigames): dark blue glass, the game shows through
+const GLASS := Color(0.05, 0.11, 0.25, 0.78)
+const GLASS_LINE := Color(0.56, 0.7, 0.95, 0.45)
+const ON_GLASS := Color("f2f6ff")    # text on glass
+const ON_GLASS2 := Color("a9b7d3")   # secondary text on glass
+const SKY := Color("8fb4f0")         # light ETH blue: titles and accents on glass
 const PARTY := ["ffc93c", "ff5d8f", "3ddc97", "4d8dff", "9b6bff", "ff8c42", "ffffff"]
 
 
@@ -47,7 +55,7 @@ static func box(bg: Color, border: Color, radius: int = 18, bw: int = 4, pad: fl
 	sb.content_margin_right = pad + 4.0
 	sb.content_margin_top = pad
 	sb.content_margin_bottom = pad + 2.0
-	if shadow:
+	if shadow and bg.a > 0.99:   # see-through glass gets no shadow, it would show through
 		sb.shadow_color = Color(0.1, 0.1, 0.2, 0.22)
 		sb.shadow_size = 10
 		sb.shadow_offset = Vector2(0, 4)
