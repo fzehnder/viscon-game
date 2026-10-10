@@ -20,7 +20,8 @@ const DEF := {
 	"intro": "Wahlfach Freelancing am D-MAVT (Maschinenbau und Verfahrenstechnik): Bewerbt euch zu zweit auf einen Freelance-Job bei AMZ Racing, ARIS, Swissloop Tunneling oder einem MedTech-Startup. Das Interview läuft als Video-Call, und ihr antwortet laut ins Mikrofon.\n\nIhr habt nur eine Bewerbung pro Spiel, wählt die Firma gut. Wer gefragt wird, hält seine Taste gedrückt (%s: E, %s: Enter) und spricht, und zwar ausführlich, mit Beispielen. Nach 12 Sekunden Schweigen ist die Frage verloren. Fünf von sechs überzeugenden Antworten bringen den Job." % ["Pink", "Blau"],
 	"hint": "Ohne Spracherkennung antwortet ihr mit den Zahlentasten (1 2 3 bzw. 8 9 0).",
 	"start_toast": ["Bewerbung läuft", "Gleich geht's los."],
-	"win_title": "Wahlfach Freelancing bestanden!",
+	"win_title": "Wahlfach Freelancing\nbestanden!",
+	"lose_title": "Wahlfach Freelancing\nnicht bestanden",
 	"win_text": "%s & %s haben sich auf dem Freelance-Markt behauptet.",
 	"tasks": [
 		{"id": "job", "name": "Bewerbungsgespräch führen", "where": "ETH Freelance-Börse, per Video-Call", "type": "level"},
@@ -65,7 +66,7 @@ func _play_intro() -> void:
 		{"phones": "ETH Freelance-Börse", "text": "4 neue Jobs: AMZ, ARIS, Swissloop, Vitalfaden"},
 		{"say": 1, "text": "Und wie bewirbt man sich?"},
 		{"say": 0, "text": "Video-Call. Die stellen Fragen, wir antworten. Laut. Ins Mikrofon."},
-		{"title": "WAHLFACH FREELANCING", "sub": "D-MAVT  ·  Bewerbung per Video-Call"},
+		{"title": "WAHLFACH\nFREELANCING", "sub": "D-MAVT  ·  Bewerbung per Video-Call"},
 	]
 	var cs = Cutscene.new()
 	main.add_child(cs)
@@ -95,9 +96,12 @@ func finale(_done: Callable) -> void:
 	if not a.is_empty():
 		var nm := String(JOBS.job(String(a["id"])).get("name", a["id"]))
 		jobs = "\n•  %s: %s" % [nm, "angestellt" if a["outcome"] == "hired" else "Absage"]
-	var verdict := "Hervorragend!" if grade >= 5.5 else ("Gut gemacht." if grade >= 4.5 else ("Bestanden." if grade >= 4.0 else "Knapp daneben."))
-	main.hud.show_overlay(String(DEF["win_title"]),
+	var passed := grade >= 4.0
+	var verdict := "Hervorragend!" if grade >= 5.5 else ("Gut gemacht." if grade >= 4.5 else ("Bestanden." if passed else "Knapp daneben."))
+	var story := String(DEF["win_text"]) % [Game.name_of(0), Game.name_of(1)] if passed \
+		else "%s & %s haben es versucht. Diesmal hat es mit dem Job nicht geklappt." % [Game.name_of(0), Game.name_of(1)]
+	main.hud.show_overlay(String(DEF["win_title"]) if passed else String(DEF["lose_title"]),
 		"%s\n\nEure Bewerbung:%s\n\nNote %s · %s\n\nIn der Schweiz ist 6 die Bestnote, ab 4 ist bestanden." % [
-			String(DEF["win_text"]) % [Game.name_of(0), Game.name_of(1)], jobs, String.num(grade, 2), verdict],
-		"R nochmals bewerben · L Leistungsüberblick · M zum Startbildschirm",
-		"Nochmals bewerben", true, "win", String(DEF["tag"]))
+			story, jobs, String.num(grade, 2), verdict],
+		"R neu starten · L Leistungsüberblick · M zum Startbildschirm",
+		"Neu starten", true, "win" if passed else "lose", String(DEF["tag"]))

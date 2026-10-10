@@ -101,6 +101,13 @@ class Card:
 	extends Control
 	var iv
 	var i := 0
+	var k := 0.0   # 0 = resting, 1 = selected; eases, so lifting and framing glide
+
+	func _process(delta: float) -> void:
+		var goal := 1.0 if iv.sel == i else 0.0
+		if absf(goal - k) > 0.001:
+			k += (goal - k) * (1.0 - exp(-12.0 * delta))
+			queue_redraw()
 
 	func _draw() -> void:
 		iv._draw_card(self, i)
@@ -238,15 +245,15 @@ func _draw_card(ci: Control, i: int) -> void:
 	var w := ci.size.x
 	var h := ci.size.y
 	var c1 := Color(j["color"])
-	var on := sel == i
-	var lift := -6.0 if on else 0.0
+	var k: float = ci.k
+	var lift := -10.0 * k
 	var r := Rect2(0, lift, w, h)
-	ci.draw_rect(Rect2(4, lift + 8, w, h), Color(0, 0, 0, 0.12))
+	ci.draw_rect(Rect2(4, lift + 8 + 6.0 * k, w, h), Color(0, 0, 0, 0.1 + 0.08 * k))
 	ci.draw_rect(r, Color.WHITE)
 	ci.draw_rect(Rect2(0, lift, w, 118), c1)
 	_draw_logo(ci, j["id"], Vector2(w / 2.0, lift + 60), c1, Color(j["color2"]))
-	if on:
-		ci.draw_rect(r, UI.YELLOW, false, 4.0)
+	if k > 0.01:
+		ci.draw_rect(r, Color(UI.ETH_BLUE, k), false, 4.0)
 	var y := lift + 148
 	ci.draw_string(font, Vector2(16, y), j["name"], HORIZONTAL_ALIGNMENT_LEFT, w - 32, 22, Color("1a1a1a"))
 	ci.draw_string(font, Vector2(16, y + 22), j["tagline"], HORIZONTAL_ALIGNMENT_LEFT, w - 32, 13, Color("5b6170"))
@@ -257,7 +264,7 @@ func _draw_card(ci: Control, i: int) -> void:
 	ci.draw_string(font, Vector2(16, y + 174), "Schwierigkeit", HORIZONTAL_ALIGNMENT_LEFT, -1, 13, Color("5b6170"))
 	for s in 3:
 		var sc := Vector2(120 + s * 22, y + 169)
-		ci.draw_colored_polygon(UI.star_points(sc, 9, 4, 0.0), UI.YELLOW if s < int(j["stars"]) else Color("dde1e8"))
+		ci.draw_colored_polygon(UI.star_points(sc, 9, 4, 0.0), UI.ETH_BLUE if s < int(j["stars"]) else Color("dde1e8"))
 	if applied == j["id"] and outcome != "":
 		var ok := outcome == "hired"
 		var b0 := Rect2(w - 128, lift + 128, 116, 28)
@@ -267,10 +274,10 @@ func _draw_card(ci: Control, i: int) -> void:
 		# one application only: the other jobs are greyed out
 		ci.draw_rect(r, Color(0.93, 0.94, 0.96, 0.72))
 		ci.draw_string(font, Vector2(0, lift + h / 2.0), "Keine weitere Bewerbung", HORIZONTAL_ALIGNMENT_CENTER, w, 16, Color("5b6170"))
-	elif on and applied == "":
-		var b2 := Rect2(16, h + lift - 52, w - 32, 38)
-		ci.draw_rect(b2, c1)
-		ci.draw_string(font, b2.position + Vector2(0, 26), "Jetzt bewerben", HORIZONTAL_ALIGNMENT_CENTER, b2.size.x, 17, Color.WHITE)
+	elif k > 0.01 and applied == "":
+		var b2 := Rect2(16, h + lift - 52 + 8.0 * (1.0 - k), w - 32, 38)
+		ci.draw_rect(b2, Color(c1, k))
+		ci.draw_string(font, b2.position + Vector2(0, 26), "Jetzt bewerben", HORIZONTAL_ALIGNMENT_CENTER, b2.size.x, 17, Color(1, 1, 1, k))
 
 
 ## Simple emblem per team, drawn (no real logos).
@@ -323,6 +330,20 @@ func _draw_logo(ci: CanvasItem, id: String, c: Vector2, col: Color, col2: Color)
 					y = 10.0
 				pts.append(c + Vector2(x, 6 + y))
 			ci.draw_polyline(pts, col, 3.0)
+
+
+## How many lines _wrap needs for `text`.
+func _wrap_lines(text: String, width: float, fs: int) -> int:
+	var n := 1
+	var cur := ""
+	for wd in text.split(" "):
+		var tryl := wd if cur == "" else cur + " " + wd
+		if font.get_string_size(tryl, HORIZONTAL_ALIGNMENT_LEFT, -1, fs).x > width and cur != "":
+			n += 1
+			cur = wd
+		else:
+			cur = tryl
+	return n
 
 
 func _wrap(ci: CanvasItem, text: String, pos: Vector2, width: float, fs: int, col: Color) -> void:
@@ -467,6 +488,8 @@ func _next_question() -> void:
 
 func _begin_answer() -> void:
 	turn = both_left.pop_front()
+	answer_text = ""
+	a_label.text = ""   # the last answer would otherwise sit on top of the answer cards
 	phase = "answer"
 	phase_t = 0.0
 	talk_t = 0.0
@@ -648,7 +671,7 @@ func _show_reject(right: int) -> void:
 		var l := UI.label("•  %s\n    %s" % [f[0], f[1]], 14, Color("1f407a"), 0, true)
 		v.add_child(l)
 	v.add_child(UI.label("Freundliche Grüsse, %s" % job["boss"], 15, Color("33383d")))
-	v.add_child(UI.label("E / Enter: weiter", 15, Color("5b6170")))
+	v.add_child(UI.label("E / Enter: zum Abschluss", 15, Color("5b6170")))
 	UI.sfx("doom", -10.0)
 
 
@@ -664,7 +687,7 @@ func _process(delta: float) -> void:
 			_process_offer(delta)
 		"reject":
 			if _just(0, "interact") or _just(1, "interact"):
-				_show_board()
+				_end()
 
 
 func _just(pid: int, what: String) -> bool:
@@ -688,9 +711,6 @@ func _process_board() -> void:
 			_apply(sel)
 			return
 	if board_root != null:
-		for c in board_root.get_children():
-			if c is Card:
-				c.queue_redraw()
 		var st: String = speech.state
 		if speech.failed:
 			hint_label.text = "Mikrofon: keine Spracherkennung gefunden (siehe tracker/README.md). Ihr antwortet mit den Zahlentasten."
@@ -796,7 +816,7 @@ func _process_offer(delta: float) -> void:
 		UI.confetti(self, Vector2(size.x / 2.0, size.y * 0.3), 140)
 		var tw := create_tween()
 		tw.tween_interval(2.6)
-		tw.tween_callback(_show_board)
+		tw.tween_callback(_end)
 
 
 # ------------------------------------------------------------------ drawing the call
@@ -955,13 +975,20 @@ func _draw_bottom(ci: Control, r: Rect2) -> void:
 		ci.draw_string(font, Vector2(r.end.x - 120, r.position.y + 24), "%d s" % int(ceilf(ANSWER_TIME - phase_t)), HORIZONTAL_ALIGNMENT_RIGHT, 100, 15, tcol)
 	# keyboard variant: three answer cards
 	if phase == "answer" and not options.is_empty():
+		# long answers go onto a second line; all three cards get the same height
 		var nums: Array = ["1", "2", "3"] if turn == 0 else ["8", "9", "0"]
 		var cw := (r.size.x - 140) / 3.0
+		var tw := cw - 16.0 - 54.0
+		var lines := 1
 		for k in options.size():
-			var b := Rect2(r.position.x + 100 + k * cw, r.position.y + 100, cw - 16, 46)
+			lines = maxi(lines, _wrap_lines(String(options[k][0]), tw, 16))
+		var bh := 26.0 + lines * 20.0
+		for k in options.size():
+			var b := Rect2(r.position.x + 100 + k * cw, r.position.y + 104, cw - 16, bh)
 			ci.draw_rect(b, Color("2c303a"))
 			ci.draw_rect(b, Color(KEYS.TAG_COLORS[turn]), false, 2.0)
-			ci.draw_string(font, b.position + Vector2(12, 29), "%s   %s" % [nums[k], options[k][0]], HORIZONTAL_ALIGNMENT_LEFT, b.size.x - 20, 16, Color.WHITE)
+			ci.draw_string(font, b.position + Vector2(14, 29), nums[k], HORIZONTAL_ALIGNMENT_LEFT, -1, 16, Color(KEYS.TAG_COLORS[turn]))
+			_wrap(ci, String(options[k][0]), b.position + Vector2(40, 29), tw, 16, Color.WHITE)
 	# speech state, small, bottom left
 	ci.draw_string(font, Vector2(r.position.x + 92, r.position.y + 22), "Mikrofon: %s" % speech.state, HORIZONTAL_ALIGNMENT_LEFT, -1, 12, Color("6b7385"))
 
@@ -970,6 +997,15 @@ func _input(event: InputEvent) -> void:
 	if stage == "call" and phase != "bye" and event is InputEventKey and event.pressed and event.physical_keycode == KEY_ESCAPE:
 		get_viewport().set_input_as_handled()
 		_abort_call()
+
+
+## One application per game: after the contract or the rejection mail comes the end screen
+## (level.gd finale), not the board again. Only once.
+func _end() -> void:
+	if stage == "done":
+		return
+	stage = "done"
+	finished.emit(best)
 
 
 ## Esc in the interview: walking out of it counts as an application, every open question is lost.

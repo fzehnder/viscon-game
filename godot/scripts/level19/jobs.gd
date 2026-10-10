@@ -70,7 +70,7 @@ const JOBS := [
 	{
 		"id": "amz", "name": "AMZ Racing", "tagline": "Formula Student · Elektro & Driverless",
 		"role": "Freelance: Telemetrie-Dashboard", "rate": 38, "color": "e3242b", "color2": "1b1b1f",
-		"boss": "Lea Brunner", "boss_role": "Teamleitung Data & Telemetrie", "stars": 2,
+		"boss": "Lea Brunner", "boss_role": "Teamleitung Data & Telemetrie", "stars": 3,
 		"prompt": "Ich studiere an der ETH. AMZ Racing, Motorsport, Team, Stärke, zum Beispiel, weil, Stress, Stunden pro Woche.",
 		"hello": "Hoi zäme, ich bin Lea von AMZ Racing. Wir haben über hundert Bewerbungen, also überzeugt mich. Legen wir los?",
 		"questions": [
@@ -104,7 +104,7 @@ const JOBS := [
 	{
 		"id": "aris", "name": "ARIS", "tagline": "Akademische Raumfahrt Initiative Schweiz",
 		"role": "Freelance: Flugsoftware für die Bergung", "rate": 36, "color": "2c3e8f", "color2": "e8eefc",
-		"boss": "Jonas Meier", "boss_role": "Leitung Avionik", "stars": 3,
+		"boss": "Jonas Meier", "boss_role": "Leitung Avionik", "stars": 1,
 		"prompt": "ETH, ARIS, Raumfahrt, Weltraum, Rakete, Projekt, stolz, Schwäche, zum Beispiel, weil, Rückschlag, in fünf Jahren.",
 		"hello": "Grüezi, Jonas von ARIS. Bei uns zählt, wer ihr seid, und ich frage nach. Bereit für den Countdown?",
 		"questions": [
