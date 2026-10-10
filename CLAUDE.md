@@ -28,10 +28,11 @@ Jedes Level bekommt einen eigenen Branch. Kein Level-Branch hängt von einem and
 | `level-base` | Leo | gemeinsamer Stand ohne Level-Ordner: Level 1, Level-Gerüst, Opp-System, HUD mit Minimap, fliessender Split Screen, Aufgabenwahl mit Pfeilen, Hauptgebäude nach echtem Grundriss. Hier zweigen neue Branches ab |
 | `level2-mensa` | Leo | `level-base` (regelmässig hineingemergt) plus Ordner `godot/scripts/level2/` |
 | `level4-labor` | Knuusper | Level 4 "Chemiepraktikum" in `godot/scripts/level4/`, fasst keine gemeinsame Datei an. Noch nicht auf `main` |
-| `tracking` | Deniz Acar | Kamera- und Mikrofon-Tracking für Minigames (siehe unten). Ändert `project.godot` und diese Datei. Noch nicht auf `main` |
+| `tracking` | Deniz Acar | Kamera- und Mikrofon-Tracking für Minigames (siehe unten). Seit dem 10.10.2026 in `level-base` und damit auf `main` |
+| `level3-polyball` | Deniz Acar | `level-base` plus Ordner `godot/scripts/level3/` (Level 3 "Polyball"). Seit dem 10.10.2026 auf `main` |
 | `level1-coop`, `godot-eth-tag-nacht` | Finn | alte Stände vor dem Level-Gerüst, nicht mehr weiterführen |
 
-Ein Level 3 gibt es noch nicht. Sobald `level4-labor` dazukommt, spielt das Spiel 1 → 2 → 4 (fehlende Nummern werden übersprungen).
+Auf `main` spielt das Spiel 1 → 2 → 3 → 4. Fehlt auf einem Branch eine Nummer, wird sie übersprungen.
 
 Regeln:
 - Neues Level: `git fetch`, dann `git switch -c level3-name origin/level-base`. Nie von einem anderen Level-Branch abzweigen.
@@ -57,7 +58,6 @@ Regeln:
 ## Was die anderen gebaut haben (Stand 10.10.2026, noch nicht auf `main`)
 
 - **Level 4 "Chemiepraktikum"** (`origin/level4-labor`, Knuusper): Tag-Level im Labor im Südflügel bei Prof. Dr. Siedler. Erst pipettieren beide (Timing-Minigame als Platzhalter für das echte Experiment), dann schreiben beide ein Testat (eigenes Quiz, zwei Serien). Wer durchfällt, löst einen Wutanfall des Professors aus (Vollbild-Szene), und das Level beginnt neu. Alles in `godot/scripts/level4/`, Beschreibung in dessen `README.md`.
-- **Tracking** (`origin/tracking`, Deniz Acar): Fundament für Minigames mit Webcam (Gesicht, Hände, Körperhaltung) und Pusten ins Mikrofon. Ein zweiter Prozess `tracker/tracker.py` (Python, MediaPipe, gestartet über `uv`) schickt Daten per UDP an den neuen Autoload `Track` (`scripts/tracking.gd`), Auswertungen in `scripts/track_math.gd`, Testszene `track_debug.tscn`, Anleitung in `tracker/README.md`. Noch kein Minigame benutzt es. Jedes Kamera-Minigame braucht eine Tasten-Variante. Der Branch bringt einen eigenen Abschnitt für diese Datei mit; beim Zusammenführen den nehmen und diesen Absatz hier streichen.
 
 ## Karte
 
@@ -105,9 +105,22 @@ Umsetzung (an den vorhandenen Code angepasst: Skripte statt `Npc.tscn`, Sicht pe
 - Klaubare Bag: `"bag"` am NPC, Interaktion `"use": "bag"` in `main.gd`, Aufgabentyp `"bag"`. `"bag_acc"` bestimmt, wie der Dieb sie trägt (`erstibag` auf dem Rücken oder `loot` in der Hand), `"bag_name"` den Namen in Texten. Gesehen = sofort Opp und Jagd, ungesehen = Timer `NOTICE` (6 bis 9 s), dann Suche in Richtung des Diebs.
 - Bag rausbringen (Wunsch des Teams): Klauen allein erledigt die Aufgabe nicht mehr. Erst wenn der Dieb den Raum des Besitzers verlassen hat (`op.home_zone`, Zonenname am Platz des Besitzers; `main._check_escapes`), gilt sie. Vorher erwischt = Bag weg, nochmals von vorn. Solange jemand die Bag trägt, steht auf der Aufgabenkarte «raus!» (vierter Eintrag in `main.objectives()`), und die gestrichelten Pfeile führen zum nächsten Ausgang (`main._way_out`). Grund: Sonst endet das Level sofort beim Klauen, wenn die Bag die letzte Aufgabe ist.
 - Speicher: `Game.opps` (`id -> {name, look, level, by, why}`), `ConfigFile` unter `user://save.cfg`. `Game.begin_level()` löscht beim (Neu-)Start eines Levels alle Opps, die in diesem oder einem späteren Level entstanden sind; `Game.new_game()` löscht alle. `--nosave` hält alles nur im Speicher (für Tests).
+- Mitgenommenes: `Game.items` (`id -> Level`), `Game.add_item(id)` und `Game.has_item(id)` für Dinge, die die Figuren in spätere Levels mitnehmen (zum Beispiel `prof_badge` aus Level 3). Liegt in derselben Datei im Abschnitt `items` und folgt denselben Regeln wie die Opps: Beim (Neu-)Start eines Levels verschwindet, was in diesem oder einem späteren Level dazukam.
 - Wiederkehr: `main._spawn_npcs` setzt Opps aus früheren Levels an die `opp_spots` des Levels (`"lauert"` oder `"jagd"`). Level 1 und 2 haben keine `opp_spots`; ab Level 3 muss das Level welche angeben.
 - Level 1: Der "Rucksack" aus der Vorgabe **ist die Ersti-Bag**, es gibt dafür keine eigene Aufgabe. Deniz (`rucksack_a`) und Livia (`rucksack_b`) sitzen am Lesetisch in der Bibliothek, ihre Ersti-Bags stehen neben dem Stuhl; die Aufgabe "Ersti-Bag klauen" (jetzt Typ `"bag"`) wird dort erledigt. Die Ersti-Menge auf der Polyterrasse trägt keine Bags mehr (`"bags": 0`); der alte Weg (Bag einem Ersti aus der Menge per Timing-Minigame vom Rücken klauen, Typ `"steal"`) steckt noch in `main.gd` und `student.gd`, ist aber abgeschaltet.
 - Level 2 (auf `level2-mensa`): siehe dessen README.
+
+## Kamera- und Mikrofon-Tracking (gebaut, noch ohne Minigames)
+
+Vorgabe des Teams: Minigames mit Kamera-Erkennung (Pose nachstellen, in die Luft greifen, Pinch, nicht blinzeln, stillhalten, nicken oder Kopf schütteln) und Pusten ins Mikrofon. Die Minigames entstehen beim Bau der Levels, hier liegt nur das Fundament. Anleitung, Datenfelder und ein Rezept pro geplantem Minigame: `tracker/README.md`.
+
+- `tracker/tracker.py` (Repo-Wurzel): zweiter Prozess in Python mit MediaPipe 1.1.0, erkennt Gesichter, Hände und Körperhaltung und schickt sie per UDP ans Spiel (nur localhost, Ports 47800 und 47801). Das Spiel startet ihn selbst über `uv` und beendet ihn wieder. Erster Start braucht Internet (Pakete und Modelle), deshalb auf jedem Rechner einmal `uv run tracker/tracker.py --selftest`.
+- Autoload `Track` (`scripts/tracking.gd`): `Track.use(self, ["face"])` (auch `"hand"`, `"pose"`) gilt, solange der Node im Baum ist. `Track.face(pid)`, `Track.hand(pid)`, `Track.pose(pid)` liefern, was in der Bildhälfte der Person ist (P1 sitzt links, P2 rechts), sonst `{}`. `Track.preview` ist das Kamerabild. `Track.use_mic(self)`, danach `Track.blow` (0 bis 1) und `Track.blowing`. Vor dem ersten `use` läuft nichts und kostet nichts.
+- `scripts/track_math.gd`: fertige Auswertungen (`eyes_closed`, `looking_away`, `moved_cm`, `pinch01`, `is_fist`, `pose_match`, Klassen `NodShake` und `Jitter`). Schwellen als Konstanten oben in der Datei.
+- **Jedes Kamera-Minigame braucht eine Tasten-Variante:** Ohne Kamera oder Tracker bleibt `Track.alive` auf `false`.
+- Testszene: `godot --path godot res://track_debug.tscn`. Ohne Kamera testen: den Tracker vorher von Hand mit `--fake bild.jpg` starten, das Spiel benutzt dann diesen.
+- `Track` rechnet seine Wartezeiten in Echtzeit, nicht in Spielzeit. In Bot-Läufen mit `--fixed-fps` startet der Tracker deshalb meist gar nicht; Kamera-Minigames dort über die Tasten-Variante prüfen.
+- Offen: Die Schwellen sind Startwerte und noch nicht im Spieltest eingestellt. Pusten ist nur mit Raumgeräusch geprüft. Vorzeichen von `pitch` und die Angabe linke/rechte Hand sind nicht von einem Menschen bestätigt.
 
 ## Spielkonzept (Plan)
 
@@ -172,6 +185,8 @@ Auf `level-base`:
 
 Auf `level2-mensa`: Level 2 "Mensa-Stau" komplett spielbar (Schlange als Stau, Kassiererin, Menü, Tische, Basisprüfungs-Cutscene, Opps durch Vordrängeln). Details, Stellschrauben und Offenes in `godot/scripts/level2/README.md`.
 
+Auf `level3-polyball`: Level 3 "Polyball" im Hauptgebäude (Verkleidung als Faktor auf das Opp-System, Frack, Armband zu zweit, Prof-Badge im Spielstand, Buffet, wiederkehrende Opps über `opp_spots`). Das Kamera-Minigame auf der Tanzfläche fehlt noch. Details, Stellschrauben und Offenes in `godot/scripts/level3/README.md`.
+
 Geprüft (per Bot, nach dem Kartenumbau): Level 1 mit Ersti-Bags und Opps bis zum Sieg, Kamera und HUD, Level 2 von der Schlange bis zum Siegbildschirm, Erreichbarkeit aller Räume bei Tag und Nacht. Von Menschen ist noch nichts davon gespielt worden: Schwierigkeit, Zeiten und das Gefühl des Split-Screen-Übergangs sind offen. Die Nacht ist nach dem Kartenumbau nur auf Erreichbarkeit geprüft, nicht gespielt.
 
 Altes Prototyp-Verhalten (Nacht), noch nicht nach Plan:
@@ -181,8 +196,9 @@ Altes Prototyp-Verhalten (Nacht), noch nicht nach Plan:
 Offen:
 - Nacht laut Plan: Guard-Sprint bei Alarm, Rauswurf statt Game Over, Teammate holt den Spieler zurück, verloren erst wenn beide draussen sind
 - Opps: Kein Level hat bisher `opp_spots`, die Wiederkehr ist nur mit einem Testlevel geprüft. Offen ist auch, ob "erwischt ohne Beute = Level verloren" am Tag zu hart ist
-- Level 3 komplett. Wer schon Positionen im alten Hauptgebäude verwendet hat, muss sie an die neue Karte anpassen (Tabelle unter "Karte")
-- `level4-labor` und `tracking` sind noch nicht mit `main` zusammengeführt und nicht gegen die neuesten Änderungen hier geprüft (Bag rausbringen, Aufgabenwahl, HUD)
+- Level 3: Das Kamera-Minigame auf der Tanzfläche fehlt noch, alles andere ist gebaut (siehe `godot/scripts/level3/README.md`)
+- `level4-labor` ist nicht gegen die neuesten Änderungen hier geprüft (Bag rausbringen, Aufgabenwahl, HUD)
+- `tracking` und Level 3 sind nach dem Zusammenführen nur mit kurzen Startläufen gegen den neuen Stand geprüft, nicht neu durchgespielt
 - Die Möblierung der neuen Büros und Hörsäle ist schlicht (Pult, Stuhl, Bankreihen); die Hörsäle sind rechteckig mit Bühnennische statt fächerförmig, die Höfe neben den Hörsälen fehlen
 - Der Pages-Deploy-Workflow auf `main` baut weiterhin nur den Phaser-Platzhalter, das Godot-Spiel wird nirgends automatisch gebaut oder veröffentlicht
 
@@ -202,6 +218,7 @@ Offen:
 | `menu.gd`, `legi_card.gd` | Story-Intro, Charakter-Erstellung |
 | `transcript.gd` | Level-Auswahl als Leistungsüberblick (myStudies-Look): Tabelle von Hand gezeichnet, Systemschrift Arial |
 | `hud.gd`, `ui.gd`, `fx.gd`, `sfx.gd` | Anzeigen (Aufgabenkarten, Zeit, Minimap), Popup-Stil, Effekte, Sounds |
+| `tracking.gd`, `track_math.gd` | Autoload `Track`: Webcam (Gesicht, Hand, Körper) und Pusten ins Mikrofon für Minigames; Auswertungen dazu. Anleitung und Rezepte in `tracker/README.md`, Testszene `track_debug.tscn` |
 | `characters.gd`, `character_art.gd` | Looks, Quiz-/Moodle-Inhalte, Figuren-Zeichnung |
 
 Konventionen: Code-Kommentare auf Englisch, Texte im Spiel auf Deutsch (Schweizer Schreibweise, kein ß). Zeilenenden LF (`godot/.gitattributes`). Godot legt neben jedes Skript eine `.uid`-Datei, die gehört mit ins Repo.
