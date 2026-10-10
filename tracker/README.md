@@ -196,3 +196,20 @@ uv run tracker/tracker.py --fake foto.jpg
 - Der Tracker schickt pro Kamerabild ein Paket: erstes Byte `J`, dann JSON. Die Vorschau kommt getrennt: erstes Byte `P`, dann ein JPEG, höchstens 15 pro Sekunde.
 - Die Kamera ist nur an, solange jemand `Track.use` hält. Das Legi-Foto im Menü benutzt die Kamera über Godot selbst und gibt sie vorher wieder frei.
 - Vor dem ersten `Track.use` läuft nichts davon und kostet nichts.
+
+## Spracherkennung (`speech.py`)
+
+Für Minigames, in denen man laut antwortet (Wahlfach Freelancing). Whisper (faster-whisper, Modell `base`, etwa 150 MB) läuft offline in einem eigenen Prozess; das Spiel nimmt das Mikrofon selbst auf und schickt nur den Pfad einer WAV-Datei (UDP, localhost, Ports 47802 und 47803).
+
+Einrichten, einmal pro Rechner (eine der beiden Arten):
+
+```bash
+uv run tracker/speech.py --selftest          # mit uv: lädt Pakete und Modell selbst
+python3 -m venv tracker/.venv && tracker/.venv/bin/pip install faster-whisper==1.1.1 requests && tracker/.venv/bin/python tracker/speech.py --selftest
+```
+
+Das Spiel sucht den Prozess in derselben Reihenfolge wie den Kamera-Tracker: `VISCON_SPEECH_PYTHON`, `VISCON_PYTHON`, `tracker/.venv`, `uv`, `python3`. Achtung: Liegt in `tracker/.venv` nur Whisper, startet der Kamera-Tracker dort nicht und versucht danach von selbst `uv`.
+
+Im Spiel: `scripts/speech.gd` als Kind-Node anhängen, `begin()` beim Drücken, `finish(prompt)` beim Loslassen, das Signal `heard(id, text)` liefert den Text. `is_ready`, `failed` und `state` für die Anzeige, `level` (0 bis 1) für eine Pegelanzeige. Ohne Spracherkennung bleibt `failed` wahr: dann eine Tastenvariante anbieten.
+
+`--model small` erkennt Deutsch besser, ist aber langsamer (etwa 500 MB). `prompt` mit Wörtern, die in der Antwort vorkommen können, hilft Whisper bei Namen und Fachwörtern.
