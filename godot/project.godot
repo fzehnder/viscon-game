@@ -19,10 +19,15 @@ config/description="Story-Modus zu zweit: vom Ersti-Tag bis zum nächtlichen Ein
 run/main_scene="res://menu.tscn"
 config/features=PackedStringArray("4.7")
 
+[audio]
+
+driver/enable_input=true
+
 [autoload]
 
 Game="*res://scripts/game_state.gd"
 Sfx="*res://scripts/sfx.gd"
+Track="*res://scripts/tracking.gd"
 
 [display]
 
