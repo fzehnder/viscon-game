@@ -12,6 +12,9 @@ var dept := "D-INFK"       # internal content set for quiz/Moodle texts and nigh
 # Opps: people you have wronged. They stay Opps in later levels and are saved to disk.
 # opp id -> {"name": String, "look": Dictionary, "level": int, "by": [player ids], "why": String}
 var opps: Dictionary = {}
+# Grades: the best grade per level that was won, shown in the transcript (transcript.gd) and saved to disk.
+# level number -> {"grade": float, "time": int (seconds), "mistakes": int}
+var grades: Dictionary = {}
 # Things the players carry from level to level (e.g. "prof_badge" from the Polyball).
 # item id -> level in which they got it
 var items: Dictionary = {}
@@ -111,8 +114,23 @@ func begin_level() -> void:
 		save_game()
 
 
+## Remembers the grade of a level that was just won. Only the best one counts; returns true if this is it.
+func add_grade(n: int, grade: float, time: int, mistakes: int) -> bool:
+	if grades.has(n) and float(grades[n]["grade"]) >= grade:
+		return false
+	grades[n] = {"grade": grade, "time": time, "mistakes": mistakes}
+	save_game()
+	return true
+
+
+## Best grade of level `n`, or 0.0 if it has never been won.
+func grade_of(n: int) -> float:
+	return float(grades[n]["grade"]) if grades.has(n) else 0.0
+
+
 func new_game() -> void:
 	opps.clear()
+	grades.clear()
 	items.clear()
 	save_game()
 	set_level(1)
@@ -124,6 +142,8 @@ func save_game() -> void:
 	var cfg := ConfigFile.new()
 	for id in opps:
 		cfg.set_value("opps", id, opps[id])
+	for n in grades:
+		cfg.set_value("grades", str(n), grades[n])
 	for id in items:
 		cfg.set_value("items", id, items[id])
 	cfg.save(save_path)
@@ -131,6 +151,7 @@ func save_game() -> void:
 
 func load_game() -> void:
 	opps.clear()
+	grades.clear()
 	items.clear()
 	if not persist:
 		return
@@ -143,6 +164,11 @@ func load_game() -> void:
 			if d is Dictionary and d.has("name") and d.has("look") and d.has("level"):
 				d["by"] = d.get("by", [])
 				opps[id] = d
+	if cfg.has_section("grades"):
+		for key in cfg.get_section_keys("grades"):
+			var g = cfg.get_value("grades", key)
+			if g is Dictionary and g.has("grade"):
+				grades[int(key)] = g
 	if cfg.has_section("items"):
 		for id in cfg.get_section_keys("items"):
 			items[id] = int(cfg.get_value("items", id))
