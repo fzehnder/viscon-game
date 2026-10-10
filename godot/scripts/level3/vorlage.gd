@@ -32,20 +32,20 @@ func _ready() -> void:
 	cc.mouse_filter = Control.MOUSE_FILTER_IGNORE
 	root.add_child(cc)
 	cc.set_anchors_and_offsets_preset(Control.PRESET_FULL_RECT)
-	var p := UI.panel(UI.NAVY, accent, 24, 18.0)
+	var p := UI.panel(UI.PAPER, accent, 14, 18.0)
 	cc.add_child(p)
 	var v := VBoxContainer.new()
 	v.add_theme_constant_override("separation", 10)
 	p.add_child(v)
-	v.add_child(UI.label("Armband-Vorlage", 30, accent, 7))
+	v.add_child(UI.label("Armband-Vorlage", 30, accent.darkened(0.18)))
 	band = Control.new()
 	band.custom_minimum_size = Vector2(SEG * pattern.size() + 60.0, 118.0)
 	band.draw.connect(_draw_band)
 	v.add_child(band)
-	status_l = UI.label(status, 17, UI.WHITE, 0, true)
+	status_l = UI.label(status, 17, UI.INK, 0, true)
 	status_l.custom_minimum_size = Vector2(band.custom_minimum_size.x, 46)
 	v.add_child(status_l)
-	var info := UI.label(hint, 14, UI.MUTED, 0, true)
+	var info := UI.label(hint, 14, UI.INK2, 0, true)
 	info.custom_minimum_size = Vector2(band.custom_minimum_size.x, 0)
 	v.add_child(info)
 	_place()
@@ -58,7 +58,7 @@ func _process(delta: float) -> void:
 	_place()
 	if status_l.text != status:
 		status_l.text = status
-	status_l.label_settings.font_color = UI.RED if wrong else UI.WHITE
+	status_l.label_settings.font_color = UI.RED if wrong else UI.INK
 	band.queue_redraw()
 
 
@@ -94,16 +94,16 @@ func _draw_band() -> void:
 		var d: Vector2 = DIRS[k]
 		var n := Vector2(-d.y, d.x)
 		band.draw_colored_polygon(PackedVector2Array([c + d * 16.0, c - d * 10.0 + n * 13.0, c - d * 10.0 - n * 13.0]), UI.DARK)
-		var num_col := UI.MUTED
+		var num_col := UI.INK2
 		if built >= 0 and i < built:
 			# already built: ticked off
 			band.draw_rect(box, Color(0.08, 0.09, 0.17, 0.55))
 			band.draw_polyline(PackedVector2Array([c + Vector2(-13, 1), c + Vector2(-4, 11), c + Vector2(14, -11)]), UI.GREEN, 5.0)
-			num_col = UI.GREEN
+			num_col = UI.OK
 		elif built >= 0 and i == built:
 			# the one to read out next
-			band.draw_rect(box.grow(4.0 + 2.0 * sin(t * 6.0)), UI.WHITE, false, 4.0)
-			num_col = UI.WHITE
+			band.draw_rect(box.grow(4.0 + 2.0 * sin(t * 6.0)), UI.INK, false, 4.0)
+			num_col = UI.INK
 		var num := str(i + 1)
 		var w := font.get_string_size(num, HORIZONTAL_ALIGNMENT_LEFT, -1, 14).x
 		band.draw_string(font, Vector2(c.x - w / 2.0, 104.0), num, HORIZONTAL_ALIGNMENT_LEFT, -1, 14, num_col)

@@ -23,9 +23,10 @@ const TYPE_SPEED := 34.0          # letters per second on the sheet
 const ROW_PAUSE := 0.16           # seconds between two lines
 const ROLL_STEP := 0.085          # seconds per quarter grade while the grade counts up
 const STAY := 7.0                 # seconds after the stamp until it goes on by itself
-const PAPER := Color("fff8e7")
-const INK := Color("1c1d33")
-const INK2 := Color("6b7385")
+const BACK := Color("f6f2e8")      # the cream of the menus
+const PAPER := Color("fffdf7")
+const INK := Color("1c2033")
+const INK2 := Color("646b7d")
 const PASS := 4.0
 
 var info: Dictionary = {}
@@ -39,7 +40,6 @@ var roll_t := 0.0
 var beat := "intro"               # intro, rows, roll, stamp
 var stamp_t := -1.0               # seconds since the stamp came down (-1: not yet)
 var ending := false
-var view_modes: Array = []        # how the views of the game were drawn before (they pause while this plays)
 var root: Control
 var canvas: Control
 
@@ -60,13 +60,21 @@ func _ready() -> void:
 	canvas.set_anchors_and_offsets_preset(Control.PRESET_FULL_RECT)
 	root.modulate.a = 0.0
 	create_tween().tween_property(root, "modulate:a", 1.0, 0.3)
-	# the scene fills the screen: the game behind it does not have to be drawn
-	var m = get_parent()
-	if m != null and "vps" in m:
-		for vp in m.vps:
-			view_modes.append(vp.render_target_update_mode)
-			vp.render_target_update_mode = SubViewport.UPDATE_DISABLED
+	_views(false)
 	UI.sfx("whoosh", -8.0)
+
+
+## The scene fills the screen, so the game behind it is not drawn while it plays. Kept up every
+## frame: a level's own ending that covered the views before lets go of them a moment after this
+## scene has started, and would switch them on again.
+func _views(on: bool) -> void:
+	var m = get_parent()
+	if m == null or not ("vps" in m):
+		return
+	var mode := SubViewport.UPDATE_ALWAYS if on else SubViewport.UPDATE_DISABLED
+	for vp in m.vps:
+		if vp.render_target_update_mode != mode:
+			vp.render_target_update_mode = mode
 
 
 func play(p_info: Dictionary, done: Callable = Callable()) -> void:
@@ -90,6 +98,7 @@ func _process(delta: float) -> void:
 	if ending:
 		return
 	t += delta
+	_views(false)
 	canvas.queue_redraw()
 	match beat:
 		"intro":
@@ -164,10 +173,7 @@ func _finish() -> void:
 	if ending:
 		return
 	ending = true
-	var m = get_parent()
-	if m != null and "vps" in m:
-		for i in mini(view_modes.size(), m.vps.size()):
-			m.vps[i].render_target_update_mode = view_modes[i]
+	_views(true)
 	var tw := create_tween()
 	tw.tween_property(root, "modulate:a", 0.0, 0.25)
 	tw.tween_callback(func():
@@ -180,12 +186,12 @@ func _finish() -> void:
 func _verdict() -> Array:        # [word on the stamp, colour]
 	var g := _grade()
 	if g >= 5.5:
-		return ["HERVORRAGEND", UI.GREEN]
+		return ["HERVORRAGEND", UI.OK]
 	if g >= 4.5:
-		return ["GUT GEMACHT", UI.GREEN]
+		return ["GUT GEMACHT", UI.OK]
 	if g >= PASS:
-		return ["BESTANDEN", UI.GREEN]
-	return ["KNAPP DANEBEN", UI.ORANGE]
+		return ["BESTANDEN", UI.OK]
+	return ["KNAPP DANEBEN", UI.WARN]
 
 
 func _text(pos: Vector2, s: String, size: int, col: Color, align := HORIZONTAL_ALIGNMENT_LEFT, outline := 0, out_col := Color("15162b")) -> void:
@@ -205,7 +211,7 @@ func _draw_scene() -> void:
 	var vs: Vector2 = canvas.size
 	var k := minf(vs.x / W, vs.y / H)
 	var o := (vs - Vector2(W, H) * k) / 2.0
-	canvas.draw_rect(Rect2(Vector2.ZERO, vs), UI.NAVY)
+	canvas.draw_rect(Rect2(Vector2.ZERO, vs), BACK)
 	canvas.draw_set_transform(o, 0.0, Vector2(k, k))
 	var mid := Vector2(W / 2.0, H / 2.0 + 10.0)
 	var hit := stamp_t >= 0.0
@@ -215,14 +221,14 @@ func _draw_scene() -> void:
 		var a := t * 0.25 + i * TAU / 14.0
 		var far := 900.0
 		canvas.draw_colored_polygon(PackedVector2Array([mid, mid + Vector2.from_angle(a - 0.09) * far, mid + Vector2.from_angle(a + 0.09) * far]),
-			Color(UI.YELLOW if ok else UI.ORANGE, (0.09 if hit else 0.04) if i % 2 == 0 else 0.02))
+			Color(UI.ETH_BLUE if ok else UI.WARN, (0.1 if hit else 0.05) if i % 2 == 0 else 0.025))
 	# head line
 	var tag := String(info.get("tag", ""))
 	if tag != "":
 		var tw := ThemeDB.fallback_font.get_string_size(tag, HORIZONTAL_ALIGNMENT_LEFT, -1, 16).x
-		canvas.draw_rect(Rect2(W / 2.0 - tw / 2.0 - 12.0, 26.0, tw + 24.0, 28.0), UI.PINK)
+		canvas.draw_rect(Rect2(W / 2.0 - tw / 2.0 - 12.0, 26.0, tw + 24.0, 28.0), UI.ETH_BLUE)
 		_text(Vector2(W / 2.0, 46.0), tag, 16, UI.WHITE, HORIZONTAL_ALIGNMENT_CENTER)
-	_text(Vector2(W / 2.0, 104.0), String(info.get("name", "")), 46, UI.YELLOW, HORIZONTAL_ALIGNMENT_CENTER, 10)
+	_text(Vector2(W / 2.0, 104.0), String(info.get("name", "")), 46, UI.ETH_BLUE, HORIZONTAL_ALIGNMENT_CENTER)
 	# the two, each on a spot in their colour; they jump when the stamp comes down
 	for pid in 2:
 		var col := Color(String(KEYS.TAG_COLORS[pid]))
@@ -236,13 +242,13 @@ func _draw_scene() -> void:
 			hop = (sin(t * 2.2 + pid * 1.5) * 0.5 + 0.5) * 5.0
 		var feet := Vector2(x, 596.0)
 		canvas.draw_set_transform(o + feet * k, 0.0, Vector2(k, k * 0.32))
-		canvas.draw_circle(Vector2.ZERO, 96.0, Color(col, 0.28))
+		canvas.draw_circle(Vector2.ZERO, 96.0, Color(col, 0.22))
 		canvas.draw_arc(Vector2.ZERO, 96.0, 0.0, TAU, 48, Color(col, 0.9), 5.0, true)
 		canvas.draw_set_transform(o, 0.0, Vector2(k, k))
 		if enter > 0.0:
 			ART.draw_character(canvas, Game.player_looks[pid], ART.FRONT, t * 8.0, hit and ok, o + (feet + Vector2(0, drop - hop)) * k, 7.4 * k)
 			canvas.draw_set_transform(o, 0.0, Vector2(k, k))
-		_text(Vector2(x, 668.0), Game.name_of(pid), 24, col, HORIZONTAL_ALIGNMENT_CENTER, 7)
+		_text(Vector2(x, 668.0), Game.name_of(pid), 24, col.darkened(0.18), HORIZONTAL_ALIGNMENT_CENTER)
 	# the sheet slides up, a little crooked
 	var slide := 1.0 - pow(1.0 - clampf(t / INTRO, 0.0, 1.0), 3.0)
 	var sheet := Rect2(-250.0, -238.0, 500.0, 476.0)
@@ -250,8 +256,9 @@ func _draw_scene() -> void:
 	if hit and stamp_t < 0.25:
 		jolt = Vector2(sin(stamp_t * 90.0), cos(stamp_t * 70.0)) * 9.0 * (1.0 - stamp_t / 0.25)
 	canvas.draw_set_transform(o + (mid + Vector2(0, (1.0 - slide) * 620.0) + jolt) * k, -0.022, Vector2(k, k))
-	canvas.draw_rect(Rect2(sheet.position + Vector2(10, 14), sheet.size), Color(0, 0, 0, 0.3))
+	canvas.draw_rect(Rect2(sheet.position + Vector2(8, 12), sheet.size), Color(0.1, 0.1, 0.2, 0.16))
 	canvas.draw_rect(sheet, PAPER)
+	canvas.draw_rect(sheet, UI.LINE, false, 2.0)
 	canvas.draw_rect(Rect2(sheet.position, Vector2(sheet.size.x, 8.0)), UI.ETH_BLUE)
 	var left := sheet.position.x + 34.0
 	var right := sheet.end.x - 34.0
@@ -271,7 +278,7 @@ func _draw_scene() -> void:
 		y += 36.0
 	# the grade: a big number and a bar from 1 to 6 with the mark at 4
 	if beat == "roll" or hit:
-		var gcol: Color = UI.GREEN.darkened(0.3) if shown_grade >= PASS else UI.ORANGE.darkened(0.15)
+		var gcol: Color = UI.OK if shown_grade >= PASS else UI.WARN
 		_text(Vector2(left, sheet.position.y + 366.0), "Note", 16, INK2)
 		var pulse := 1.0 + 0.06 * maxf(0.0, 1.0 - fposmod(roll_t, ROLL_STEP) / ROLL_STEP) if beat == "roll" else 1.0
 		_text(Vector2(left, sheet.position.y + 438.0), Transcript.grade_text(shown_grade), int(76.0 * pulse), gcol)
@@ -290,7 +297,7 @@ func _draw_scene() -> void:
 	if hit:
 		var v := _verdict()
 		var word := String(v[0])
-		var scol: Color = (v[1] as Color).darkened(0.18)
+		var scol: Color = v[1]
 		var slam := clampf(stamp_t / 0.13, 0.0, 1.0)
 		var sc := lerpf(3.2, 1.0, slam * slam)
 		if stamp_t > 0.13:
@@ -309,10 +316,10 @@ func _draw_scene() -> void:
 			canvas.draw_set_transform(o + (at + Vector2(128.0, -66.0)) * k, -0.13, Vector2(k, k))
 			var pop := clampf((stamp_t - 0.35) / 0.2, 0.0, 1.0)
 			if pop > 0.0:
-				_text(Vector2(0, 0), "Neue Bestnote!", int(26.0 * (0.6 + 0.4 * pop)), UI.PINK, HORIZONTAL_ALIGNMENT_CENTER, 6, PAPER)
+				_text(Vector2(0, 0), "Neue Bestnote!", int(26.0 * (0.6 + 0.4 * pop)), UI.ETH_BLUE, HORIZONTAL_ALIGNMENT_CENTER, 6, PAPER)
 	canvas.draw_set_transform(o, 0.0, Vector2(k, k))
 	if hit and stamp_t > 0.6:
-		_text(Vector2(W / 2.0, H - 22.0), "E / Enter weiter", 16, Color(UI.WHITE, 0.75 + 0.25 * sin(t * 4.0)), HORIZONTAL_ALIGNMENT_CENTER)
+		_text(Vector2(W / 2.0, H - 22.0), "E / Enter weiter", 16, Color(INK, 0.7 + 0.3 * sin(t * 4.0)), HORIZONTAL_ALIGNMENT_CENTER)
 	else:
-		_text(Vector2(W / 2.0, H - 22.0), "E / Enter weiter · Esc überspringen", 15, UI.MUTED, HORIZONTAL_ALIGNMENT_CENTER)
+		_text(Vector2(W / 2.0, H - 22.0), "E / Enter weiter · Esc überspringen", 15, INK2, HORIZONTAL_ALIGNMENT_CENTER)
 	canvas.draw_set_transform(Vector2.ZERO, 0.0, Vector2.ONE)

@@ -12,9 +12,16 @@ const KEYS = preload("res://scripts/controls.gd")
 const LV = preload("res://scripts/levels.gd")
 const UI = preload("res://scripts/ui.gd")
 const LegiCard = preload("res://scripts/legi_card.gd")
-const INK := Color("ffffff")
+const INK := Color("ffffff")      # on the dark game boards inside the panel
 const MUTED := Color("b9bde6")
-const SIGNAL := Color("ffc93c")
+const SIGNAL := Color("5b8fe0")   # light ETH blue: markers and highlights
+const TEXT := Color("1c2033")     # text on the cream panel (= UI.INK)
+const TEXT2 := Color("646b7d")    # secondary text on the panel (= UI.INK2)
+const BTN_BG := Color("eef1f8")    # answer buttons: normal, current, right, wrong
+const BTN_LINE := Color("c9d0e0")
+const CUR_BG := Color("e1eafa")
+const RIGHT_BG := Color("d8f3e4")
+const WRONG_BG := Color("fbe0de")
 const OKC := Color("3ddc97")
 const BAD := Color("ff4d5e")
 const WIRE_COLORS := ["e74c3c", "3498db", "f1c40f", "2ecc71", "ecf0f1", "e67e22"]
@@ -30,7 +37,7 @@ var keys: Dictionary = {}
 var labels: Dictionary = {}
 var keys2: Dictionary = {}
 var labels2: Dictionary = {}
-var accent := Color("ffc93c")   # border colour: the player's colour (yellow for co-op)
+var accent := Color("215caf")   # border colour: the player's colour (ETH blue for co-op)
 var legi_card = null
 
 var root: Control
@@ -138,11 +145,11 @@ func _button(text: String, size: int = 16) -> Button:
 	b.text = text
 	b.focus_mode = Control.FOCUS_NONE
 	b.add_theme_font_size_override("font_size", size)
-	b.add_theme_stylebox_override("normal", _style(UI.NAVY2, Color(0.45, 0.5, 0.85)))
-	b.add_theme_stylebox_override("hover", _style(UI.NAVY2.lightened(0.1), SIGNAL))
-	b.add_theme_stylebox_override("pressed", _style(UI.NAVY2.darkened(0.1), SIGNAL))
-	b.add_theme_color_override("font_color", INK)
-	b.add_theme_color_override("font_hover_color", INK)
+	b.add_theme_stylebox_override("normal", _style(BTN_BG, BTN_LINE))
+	b.add_theme_stylebox_override("hover", _style(BTN_BG.darkened(0.04), UI.ETH_BLUE))
+	b.add_theme_stylebox_override("pressed", _style(BTN_BG.darkened(0.08), UI.ETH_BLUE))
+	b.add_theme_color_override("font_color", TEXT)
+	b.add_theme_color_override("font_hover_color", TEXT)
 	return b
 
 
@@ -161,15 +168,16 @@ func open(k: String, p: Dictionary, d: String) -> void:
 		root.set_anchors_and_offsets_preset(Control.PRESET_FULL_RECT)
 	else:
 		_place_half()
-	var dim := ColorRect.new()
-	dim.color = Color(0.05, 0.05, 0.12, 0.5)
-	root.add_child(dim)
-	dim.set_anchors_and_offsets_preset(Control.PRESET_FULL_RECT)
+	if screen_side < 0:   # only a full-screen minigame dims the game; on one half the other player keeps playing
+		var dim := ColorRect.new()
+		dim.color = Color(0.97, 0.96, 0.92, 0.6)
+		root.add_child(dim)
+		dim.set_anchors_and_offsets_preset(Control.PRESET_FULL_RECT)
 	var cc := CenterContainer.new()
 	root.add_child(cc)
 	cc.set_anchors_and_offsets_preset(Control.PRESET_FULL_RECT)
 	panel = PanelContainer.new()
-	panel.add_theme_stylebox_override("panel", UI.box(UI.NAVY, accent, 24, 5, 18))
+	panel.add_theme_stylebox_override("panel", UI.box(UI.PAPER, accent, 18, 2, 18))
 	cc.add_child(panel)
 	body = VBoxContainer.new()
 	body.add_theme_constant_override("separation", 10)
@@ -182,7 +190,7 @@ func open(k: String, p: Dictionary, d: String) -> void:
 	var abort_txt: String = labels["abort"]
 	if kind == "highfive" and not labels2.is_empty():
 		abort_txt = "%s / %s" % [labels["abort"], labels2["abort"]]
-	head.add_child(_label("%s · abbrechen" % abort_txt, 13, MUTED))
+	head.add_child(_label("%s · abbrechen" % abort_txt, 13, TEXT2))
 	if p.has("legi"):
 		var pid := int(p["legi"])
 		legi_card = LegiCard.new()
@@ -199,7 +207,7 @@ func open(k: String, p: Dictionary, d: String) -> void:
 		"moodle": _setup_moodle()
 		"setup": _setup_setup()
 		"highfive": _setup_highfive()
-	info_l = _label("", 15, MUTED, true)
+	info_l = _label("", 15, TEXT2, true)
 	info_l.custom_minimum_size = Vector2(640, 0)
 	body.add_child(info_l)
 	_update_info()
@@ -274,9 +282,9 @@ func _succeed(msg: String) -> void:
 		return
 	closing = 1.1 if legi_card else 0.9
 	info_l.text = msg
-	info_l.label_settings.font_color = OKC
-	panel.add_theme_stylebox_override("panel", UI.box(UI.NAVY, OKC, 24, 5, 18))
-	title_l.label_settings.font_color = OKC
+	info_l.label_settings.font_color = UI.OK
+	panel.add_theme_stylebox_override("panel", UI.box(UI.PAPER, UI.OK, 18, 2, 18))
+	title_l.label_settings.font_color = UI.OK
 	if legi_card:
 		legi_card.validate()
 	UI.sfx("grant", -6.0)
@@ -412,7 +420,7 @@ func _setup_quiz() -> void:
 	var bank: Array = (CH.QUIZ[dept] as Array).duplicate()
 	bank.shuffle()
 	questions = bank.slice(0, int(params.get("count", 3)))
-	q_label = _label("", 20, INK, true)
+	q_label = _label("", 20, TEXT, true)
 	q_label.custom_minimum_size = Vector2(640, 60)
 	body.add_child(q_label)
 	for i in 3:
@@ -440,7 +448,7 @@ func _show_question() -> void:
 	q_options = opts
 	for i in 3:
 		q_buttons[i].text = "%s   %s" % [_num_name(i), opts[i][0]]
-		q_buttons[i].add_theme_stylebox_override("normal", _style(Color(0.15, 0.2, 0.26), Color(0.3, 0.38, 0.46)))
+		q_buttons[i].add_theme_stylebox_override("normal", _style(BTN_BG, BTN_LINE))
 		if opts[i][1]:
 			q_right = i
 	if info_l:
@@ -450,12 +458,12 @@ func _show_question() -> void:
 func _quiz_answer(i: int) -> void:
 	if q_lock > 0.0 or closing >= 0.0:
 		return
-	q_buttons[q_right].add_theme_stylebox_override("normal", _style(Color(0.2, 0.45, 0.25), OKC))
+	q_buttons[q_right].add_theme_stylebox_override("normal", _style(RIGHT_BG, UI.OK))
 	if i == q_right:
 		q_correct += 1
 		_ding()
 	else:
-		q_buttons[i].add_theme_stylebox_override("normal", _style(Color(0.5, 0.18, 0.15), BAD))
+		q_buttons[i].add_theme_stylebox_override("normal", _style(WRONG_BG, BAD))
 		_err()
 	q_lock = 0.9
 
@@ -476,7 +484,7 @@ func _setup_moodle() -> void:
 	title_l.text = "moodle"
 	title_l.label_settings.font_color = Color("f98012")
 	title_l.label_settings.font_size = 28
-	var crumb := _label("ETH Zürich  ›  Meine Kurse  ›  " + m["course"], 14, MUTED)
+	var crumb := _label("ETH Zürich  ›  Meine Kurse  ›  " + m["course"], 14, TEXT2)
 	body.add_child(crumb)
 	var card := PanelContainer.new()
 	card.add_theme_stylebox_override("panel", _style(Color("f4f5f7"), Color("d7dbe0"), 14))
@@ -633,9 +641,9 @@ func _setup_setup() -> void:
 		for a in (st[1] as Array):
 			answers.append(String(a).replace("%COURSE%", course))
 		s_steps.append([String(st[0]), answers, int(st[2])])
-	s_progress = _label("", 13, MUTED)
+	s_progress = _label("", 13, TEXT2)
 	body.add_child(s_progress)
-	s_label = _label("", 20, INK, true)
+	s_label = _label("", 20, TEXT, true)
 	s_label.custom_minimum_size = Vector2(640, 60)
 	body.add_child(s_label)
 	for i in 3:
@@ -667,13 +675,13 @@ func _setup_paint(wrong: int) -> void:
 	for i in s_buttons.size():
 		var b: Button = s_buttons[i]
 		b.text = "%s   %s" % [_num_name(i), s_opts[i][0]]
-		var bg := Color(0.15, 0.2, 0.26)
-		var br := Color(0.3, 0.38, 0.46)
+		var bg := BTN_BG
+		var br := BTN_LINE
 		if i == s_cur:
-			bg = Color(0.2, 0.26, 0.34)
-			br = SIGNAL
+			bg = CUR_BG
+			br = UI.ETH_BLUE
 		if i == wrong:
-			bg = Color(0.5, 0.18, 0.15)
+			bg = WRONG_BG
 			br = BAD
 		b.add_theme_stylebox_override("normal", _style(bg, br))
 
@@ -683,7 +691,7 @@ func _setup_pick(i: int) -> void:
 		return
 	s_cur = i
 	if s_opts[i][1]:
-		s_buttons[i].add_theme_stylebox_override("normal", _style(Color(0.2, 0.45, 0.25), OKC))
+		s_buttons[i].add_theme_stylebox_override("normal", _style(RIGHT_BG, UI.OK))
 		_ding()
 		s_lock = 0.6
 	else:
@@ -931,7 +939,8 @@ func _on_draw() -> void:
 			c.draw_rect(Rect2(BAR_X + zone.x, 80, zone.y - zone.x, 36), Color(0.3, 0.75, 0.4, 0.85))
 			c.draw_rect(Rect2(BAR_X, 80, BAR_W, 36), Color(0.4, 0.48, 0.56), false, 1.5)
 			var mx := BAR_X + pos
-			c.draw_rect(Rect2(mx - 3, 70, 6, 56), INK)
+			c.draw_rect(Rect2(mx - 3, 70, 6, 56), TEXT)
+			c.draw_rect(Rect2(mx - 1, 72, 2, 52), INK)
 			c.draw_colored_polygon(PackedVector2Array([Vector2(mx - 8, 62), Vector2(mx + 8, 62), Vector2(mx, 72)]), SIGNAL)
 			if flash > 0.0:
 				var fc := OKC if flash_ok else BAD
@@ -946,7 +955,8 @@ func _on_draw() -> void:
 			c.draw_rect(Rect2(BAR_X + zone.x, 80, zone.y - zone.x, 36), Color(0.3, 0.75, 0.4, 0.85))
 			c.draw_rect(Rect2(BAR_X, 80, BAR_W, 36), Color(0.4, 0.48, 0.56), false, 1.5)
 			var hx := BAR_X + pos
-			c.draw_rect(Rect2(hx - 3, 70, 6, 56), INK)
+			c.draw_rect(Rect2(hx - 3, 70, 6, 56), TEXT)
+			c.draw_rect(Rect2(hx - 1, 72, 2, 52), INK)
 			c.draw_colored_polygon(PackedVector2Array([Vector2(hx - 8, 62), Vector2(hx + 8, 62), Vector2(hx, 72)]), SIGNAL)
 			if flash > 0.0:
 				var hfc := OKC if flash_ok else BAD
@@ -984,7 +994,7 @@ func _on_draw() -> void:
 				var a2 := _node_pos(0, sel_left)
 				var m := c.get_local_mouse_position()
 				c.draw_line(a2, m if side == 1 and m.x > 140 else _node_pos(1, cur), Color(WIRE_COLORS[sel_left], 0.6), 4.0)
-				c.draw_arc(a2, 17, 0, TAU, 28, INK, 2.0)
+				c.draw_arc(a2, 17, 0, TAU, 28, UI.ETH_BLUE, 2.5)
 			if wrong_t > 0.0:
 				c.draw_line(_node_pos(0, wrong_pair.x), _node_pos(1, wrong_pair.y), Color(1, 0.3, 0.25, wrong_t * 2.0), 4.0)
 			var cp := _node_pos(side, cur)
@@ -1005,4 +1015,4 @@ func _on_draw() -> void:
 			for i in seq.size():
 				var dc := Vector2(470 + (i % 6) * 22, 40 + (i / 6) * 22)
 				c.draw_circle(dc, 7, OKC if i < input_i else Color(0.25, 0.3, 0.36))
-			c.draw_string(font, Vector2(470, 20), "Fortschritt", HORIZONTAL_ALIGNMENT_LEFT, -1, 13, MUTED)
+			c.draw_string(font, Vector2(470, 20), "Fortschritt", HORIZONTAL_ALIGNMENT_LEFT, -1, 13, TEXT2)

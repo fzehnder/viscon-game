@@ -139,26 +139,27 @@ class Bg:
 			var sc := maxf(size.x / ps.x, size.y / ps.y)
 			var ds := ps * sc
 			draw_texture_rect(photo, Rect2((size - ds) / 2.0, ds), false)
-			draw_rect(Rect2(Vector2.ZERO, size), Color(UI2.NAVY, 0.25))
+			draw_rect(Rect2(Vector2.ZERO, size), Color(UI2.PAPER, 0.18))
 			return
-		draw_rect(Rect2(Vector2.ZERO, size), Color("0b0f14") if dark else UI2.NAVY)
+		draw_rect(Rect2(Vector2.ZERO, size), Color("0b0f14") if dark else Color("f6f2e8"))
+		var grid := Color(1, 1, 1, 0.035) if dark else Color(UI2.ETH_BLUE, 0.07)
 		var step := 48.0
 		var gx := fmod(t * 12.0, step)
 		var x := -step + gx
 		while x < size.x:
-			draw_line(Vector2(x, 0), Vector2(x, size.y), Color(1, 1, 1, 0.035), 1.0)
+			draw_line(Vector2(x, 0), Vector2(x, size.y), grid, 1.0)
 			x += step
 		var y := -step + gx
 		while y < size.y:
-			draw_line(Vector2(0, y), Vector2(size.x, y), Color(1, 1, 1, 0.035), 1.0)
+			draw_line(Vector2(0, y), Vector2(size.x, y), grid, 1.0)
 			y += step
 		if dark:
 			return
 		for i in 26:
 			var sx := fmod(i * 197.3 + t * (14.0 + i % 5 * 6.0), size.x + 80.0) - 40.0
 			var sy := fmod(i * 131.7 + t * (9.0 + i % 3 * 7.0), size.y + 80.0) - 40.0
-			var col := Color(UI2.PARTY[i % UI2.PARTY.size()])
-			col.a = 0.22
+			var col := UI2.ETH_BLUE.lightened(0.15 * (i % 4))
+			col.a = 0.1
 			if i % 3 == 0:
 				draw_colored_polygon(UI2.star_points(Vector2(sx, sy), 14, 6, t * (0.5 + i % 4 * 0.3)), col)
 			elif i % 3 == 1:
@@ -216,7 +217,7 @@ func _go(s: String) -> void:
 	stage = s
 	for c in stage_root.get_children():
 		c.queue_free()
-	bg.dark = s == "hack" or s == "names"
+	bg.dark = s == "hack"
 	bg.show_photo = s == "title"
 	stage_root.modulate.a = 0.0
 	stage_root.create_tween().tween_property(stage_root, "modulate:a", 1.0, 0.25)
@@ -255,46 +256,48 @@ func _centered(l: Control) -> Control:
 
 # ------------------------------------------------------------------ 1 · start page
 func _build_title() -> void:
+	var card := UI.panel(UI.PAPER, UI.ETH_BLUE, 20, 34)
+	_center().add_child(card)
 	var v := _vbox(10)
-	_center().add_child(v)
-	v.add_child(_centered(UI.label("ETH ZENTRUM", 26, UI.BLUE, 8)))
-	var title := _centered(UI.label("Tag & Nacht", 104, UI.YELLOW, 18))
+	card.add_child(v)
+	v.add_child(_centered(UI.label("ETH ZENTRUM", 24, UI.INK2)))
+	var title := _centered(UI.label("Tag & Nacht", 96, UI.ETH_BLUE))
 	v.add_child(title)
-	v.add_child(_centered(UI.label("Ein Story-Abenteuer für zwei an einer Tastatur", 22, UI.WHITE, 6)))
+	v.add_child(_centered(UI.label("Ein Story-Abenteuer für zwei an einer Tastatur", 22, UI.INK)))
 	var gap := Control.new()
 	gap.custom_minimum_size = Vector2(0, 30)
 	v.add_child(gap)
-	var start := UI.button("START", UI.GREEN, 38)
+	var start := UI.button("START", UI.ETH_BLUE, 38)
 	start.custom_minimum_size = Vector2(320, 86)
 	start.size_flags_horizontal = Control.SIZE_SHRINK_CENTER
 	start.pressed.connect(_new_game)
 	v.add_child(start)
 	UI.pulse(start, 0.06, 1.0)
 	if Game.has_profile():
-		var cont := UI.button("Weiterspielen als %s & %s" % [Game.name_of(0), Game.name_of(1)], UI.BLUE, 20)
+		var cont := UI.button("Weiterspielen als %s & %s" % [Game.name_of(0), Game.name_of(1)], UI.ETH_BLUE.lightened(0.2), 20)
 		cont.size_flags_horizontal = Control.SIZE_SHRINK_CENTER
 		cont.pressed.connect(func():
 			Game.set_level(Game.story_level)   # not the elective that was played last
 			_go("loading"))
 		v.add_child(cont)
-		var again := UI.button("Figuren ändern", UI.PURPLE, 16)
+		var again := UI.button("Figuren ändern", UI.ETH_BLUE, 16)
 		again.size_flags_horizontal = Control.SIZE_SHRINK_CENTER
 		again.pressed.connect(func():
 			Game.set_level(Game.story_level)
 			_go("custom"))
 		v.add_child(again)
-	v.add_child(_centered(UI.label("Enter drücken", 15, UI.WHITE, 5)))
+	v.add_child(_centered(UI.label("Enter drücken", 15, UI.INK2)))
 	# the levels as a transcript of records: grades so far, and a click goes straight into a level
 	# (skips the intro), handy for testing and demos
-	var levels := UI.button("Leistungsüberblick · Level wählen", UI.NAVY2.lightened(0.15), 16)
+	var levels := UI.button("Leistungsüberblick · Level wählen", UI.INK2, 16)
 	levels.size_flags_horizontal = Control.SIZE_SHRINK_CENTER
 	levels.pressed.connect(func(): _go("transcript"))
 	v.add_child(levels)
 	UI.pop_in(title, 0.05, 0.3)
 	title.resized.connect(func(): title.pivot_offset = title.size / 2.0)
 	var tw := title.create_tween().set_loops()
-	tw.tween_property(title, "rotation", 0.035, 1.3).set_trans(Tween.TRANS_SINE)
-	tw.tween_property(title, "rotation", -0.035, 1.3).set_trans(Tween.TRANS_SINE)
+	tw.tween_property(title, "rotation", 0.015, 1.6).set_trans(Tween.TRANS_SINE)
+	tw.tween_property(title, "rotation", -0.015, 1.6).set_trans(Tween.TRANS_SINE)
 
 
 func _new_game() -> void:
@@ -575,11 +578,11 @@ func _build_photo() -> void:
 	cam_failed = false
 	cam_wait = 0.0
 	var pc := Color(KEYS.TAG_COLORS[photo_pid])
-	var card := UI.panel(UI.NAVY, pc, 26, 24)
+	var card := UI.panel(UI.PAPER, pc, 20, 24)
 	_center().add_child(card)
 	var v := _vbox(12)
 	card.add_child(v)
-	v.add_child(_centered(UI.label("Legi-Foto", 20, UI.MUTED)))
+	v.add_child(_centered(UI.label("Legi-Foto", 20, UI.INK2)))
 	v.add_child(_centered(UI.label(Game.name_of(photo_pid), 46, pc, 10)))
 	var frame := Control.new()
 	frame.custom_minimum_size = Vector2(300, 375)
@@ -619,7 +622,7 @@ func _build_photo() -> void:
 	count_l.vertical_alignment = VERTICAL_ALIGNMENT_CENTER
 	frame.add_child(count_l)
 	count_l.set_anchors_and_offsets_preset(Control.PRESET_FULL_RECT)
-	cam_status = UI.label("Kamera wird gesucht …", 16, UI.MUTED, 0, true)
+	cam_status = UI.label("Kamera wird gesucht …", 16, UI.INK2, 0, true)
 	cam_status.custom_minimum_size = Vector2(420, 0)
 	cam_status.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
 	v.add_child(cam_status)
@@ -627,13 +630,13 @@ func _build_photo() -> void:
 	row.alignment = BoxContainer.ALIGNMENT_CENTER
 	row.add_theme_constant_override("separation", 12)
 	v.add_child(row)
-	shoot_btn = UI.button("Foto machen", UI.GREEN, 24)
+	shoot_btn = UI.button("Foto machen", UI.ETH_BLUE, 24)
 	shoot_btn.pressed.connect(_shoot)
 	row.add_child(shoot_btn)
-	var skip := UI.button("Ohne Foto", UI.PURPLE, 18)
+	var skip := UI.button("Ohne Foto", UI.INK2, 18)
 	skip.pressed.connect(func(): _use_photo(null))
 	row.add_child(skip)
-	v.add_child(_centered(UI.label("Leertaste, E oder Enter = Foto", 14, UI.MUTED)))
+	v.add_child(_centered(UI.label("Leertaste, E oder Enter = Foto", 14, UI.INK2)))
 	UI.pop_in(card, 0.0, 0.7)
 
 
@@ -771,7 +774,7 @@ func _use_photo(tex) -> void:
 func _build_legi() -> void:
 	var v := _vbox(18)
 	_center().add_child(v)
-	v.add_child(_centered(UI.label("Eure Legis sind da!", 44, UI.YELLOW, 10)))
+	v.add_child(_centered(UI.label("Eure Legis sind da!", 44, UI.ETH_BLUE)))
 	var row := HBoxContainer.new()
 	row.alignment = BoxContainer.ALIGNMENT_CENTER
 	row.add_theme_constant_override("separation", 36)
@@ -798,7 +801,7 @@ func _build_legi() -> void:
 		tw.tween_callback(func():
 			card.validate()
 			UI.sfx("click", -4.0)).set_delay(0.9 + 0.25 * i)
-	var next := UI.button("Ab zum Ersti-Tag!", UI.GREEN, 28)
+	var next := UI.button("Ab zum Ersti-Tag!", UI.ETH_BLUE, 28)
 	next.size_flags_horizontal = Control.SIZE_SHRINK_CENTER
 	next.pressed.connect(_legi_next)
 	v.add_child(next)
