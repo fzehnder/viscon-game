@@ -3,8 +3,8 @@ extends CanvasLayer
 ## screen (P1 left, P2 right), level and timer top centre, mini map bottom centre,
 ## interaction prompts, bouncy toasts, big "done!" celebrations with confetti, and the
 ## start / win / lose screens.
-## The middle column (timer above, mini map below) stays clear of the players because main.gd
-## splits the screen early when they move apart vertically (SPLIT_AT_Y).
+## The HUD never moves with the split screen. The middle column (timer above, mini map below)
+## stays clear of the players because main.gd keeps them closer to the centre vertically (FIT_Y).
 
 const CH = preload("res://scripts/characters.gd")
 const KEYS = preload("res://scripts/controls.gd")
