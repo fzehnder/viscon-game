@@ -1,6 +1,6 @@
-# Level 5 · Basisprüfung (Finale)
+# Level 6 · Basisprüfung (Finale)
 
-Das letzte Story-Level, nach Level 4. Computerprüfung in der Prüfungshalle im ONA-Gebäude: lange Fensterwand mit Sprossen, grüne Stahlstützen mit Diagonalstreben, Lüftungsrohre, Reihen von Pulten mit weissen Trennwänden und Bildschirmen. Der Streber sitzt neben ihnen, beide schreiben bei ihm ab, in der Ich-Perspektive: Jede Bildschirmhälfte ist das, was die Person sieht. **Die Kamera ist Pflicht.**
+Das letzte Story-Level, nach Level 5 (Nacht am Hönggerberg). Computerprüfung in der Prüfungshalle im ONA-Gebäude: lange Fensterwand mit Sprossen, grüne Stahlstützen mit Diagonalstreben, Lüftungsrohre, Reihen von Pulten mit weissen Trennwänden und Bildschirmen. Der Streber sitzt neben ihnen, beide schreiben bei ihm ab, in der Ich-Perspektive: Jede Bildschirmhälfte ist das, was die Person sieht. **Die Kamera ist Pflicht.**
 
 ## So spielt es sich
 
@@ -14,7 +14,7 @@ Das letzte Story-Level, nach Level 4. Computerprüfung in der Prüfungshalle im 
 5. **Es wird immer schwerer** (Balken «Alarm» oben in der Mitte): kürzere Warnung, häufigere Blicke, ab einem Drittel blufft der Streber, ab knapp der Hälfte schaut er auch zweimal nacheinander, die Aufsicht steht öfter auf. Der Streber schaut öfter zu der Person, die mehr hinüberschaut. Wer hinüberschaut, während er zur anderen Seite dreht, ist ein Beinahe-Erwischt: Der Alarm steigt, und es kostet eine Viertelnote.
 6. **Geschafft**, wenn beide acht Antworten haben: Cutscene mit den Noten, Siegbildschirm, Ende der Story. **Erwischt** oder **Zeit um** (4:00): Verloren-Bildschirm, R versucht es nochmals.
 
-Für Tests ohne Kamera gibt es das Startargument `--exam-keys` (P1 hält A, P2 hält Pfeil rechts): `godot --path godot res://main.tscn -- --level=5 --exam-keys`.
+Für Tests ohne Kamera gibt es das Startargument `--exam-keys` (P1 hält A, P2 hält Pfeil rechts): `godot --path godot res://main.tscn -- --level=6 --exam-keys`.
 
 ## Stellschrauben (oben in `exam.gd`)
 

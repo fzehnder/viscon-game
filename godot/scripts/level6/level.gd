@@ -1,20 +1,20 @@
 extends Node2D
-## Level 5 · Basisprüfung, the last level of the story, in the ONA exam hall (computer exam).
+## Level 6 · Basisprüfung, the last level of the story, in the ONA exam hall (computer exam).
 ## Both players sit left and right of a Streber and copy from his screen in first person
 ## (exam.gd): turn the head towards him to read, back to the own screen to type. He and the
 ## supervisor look up now and then; whoever is seen with the head turned is caught, and the exam
 ## is over for both (red light, green light). The camera is required (Track.face yaw, the
 ## direction is calibrated at the start).
 
-const ExamScript = preload("res://scripts/level5/exam.gd")
+const ExamScript = preload("res://scripts/level6/exam.gd")
 const Cutscene = preload("res://scripts/cutscene.gd")
 
 const DEF := {
 	"name": "Basisprüfung",
-	"tag": "LEVEL 5 · FINALE",
+	"tag": "LEVEL 6 · FINALE",
 	"mode": "day",
 	"time": 900.0,   # the exam has its own clock (exam.gd EXAM_TIME)
-	"course": "252-0005-00 L", "ects": 8, "block": "B",
+	"course": "252-0006-00 L", "ects": 8, "block": "B",
 	"start": Vector2(26.0, 42.0),
 	"intro": "Prüfungstag in der ONA-Halle, Computerprüfung. Gelernt habt ihr nichts, aber neben euch sitzt der Streber des Jahrgangs.\n\nSetzt euch nebeneinander vor die Kamera. Dreht den Kopf zu ihm (links sitzende Person nach links, rechts sitzende nach rechts), um auf seinen Bildschirm zu schauen, und wieder nach vorne, um es einzutippen. Der Streber zuckt, bevor er sich umdreht, die Aufsicht steht auf, bevor sie in die Halle schaut. Wer mit gedrehtem Kopf erwischt wird, fliegt, und ihr beide mit.",
 	"hint": "Diese Prüfung geht nur mit Kamera.",
@@ -42,7 +42,7 @@ func _process(_delta: float) -> void:
 		pl.enabled = false
 	var steps := [
 		{"say": 0, "text": "Prüfungstag. Hast du gelernt?"},
-		{"say": 1, "text": "Nein. Wir waren in der Mensa, im Labor und am Polyball."},
+		{"say": 1, "text": "Nein. Wir waren in der Mensa, im Labor, am Polyball und nachts am Hönggerberg."},
 		{"say": 0, "text": "Aber schau, wer neben uns sitzt: der Streber. Der hat alles richtig."},
 		{"say": 1, "text": "Dann schauen wir halt ein bisschen rüber. Nur nicht erwischen lassen."},
 		{"title": "BASISPRÜFUNG", "sub": "ONA-Halle  ·  Computerprüfung  ·  Blick auf den eigenen Bildschirm"},
