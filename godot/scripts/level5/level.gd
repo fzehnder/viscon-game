@@ -15,8 +15,10 @@ const TS := 32.0
 const MD = preload("res://scripts/map_data.gd")
 const ProfScript = preload("res://scripts/professor.gd")
 const PcScript = preload("res://scripts/level5/grade_pc.gd")
+const VentScript = preload("res://scripts/level5/vent_game.gd")
 const ART = preload("res://scripts/character_art.gd")
 const UI = preload("res://scripts/ui.gd")
+const KEYS = preload("res://scripts/controls.gd")
 const Cutscene = preload("res://scripts/cutscene.gd")
 const WATCH = preload("res://scripts/level5/watch.gd")
 
@@ -30,6 +32,16 @@ const CHECK_TIME := 1.2             # a suspicious guard next to your cupboard o
 const CHECK_NEAR := 1.7             # ... when he is this close (tiles)
 const SAW_YOU := 0.35               # hiding while a guard's suspicion is above this: he saw it
 const DANGER_NEAR := 5.0            # heartbeat and red edges from this distance (tiles)
+const REBOOT_TIME := 60.0           # after the cables are out: seconds until security notices (alarm)
+const SHAKE_MAX := 9.0              # px the picture shakes in the last seconds of the countdown
+const ROOM_SEE := 0.35              # the cameras in the camera room raise the alarm after this long
+const ROOM := Rect2(16, 9, 12, 15)  # the camera room (tiles)
+# Cameras of the camera room in front of the office: [position, looking at, sweep, range]
+const ROOM_CAMS := [
+	[Vector2(16.3, 9.3), PI / 4.0, 0.7, 9.0], [Vector2(27.6, 9.3), 3.0 * PI / 4.0, 0.7, 9.0],
+	[Vector2(16.3, 23.6), -PI / 4.0, 0.7, 9.0], [Vector2(27.6, 23.6), -3.0 * PI / 4.0, 0.7, 9.0],
+	[Vector2(22.2, 9.3), PI / 2.0, 1.2, 8.0], [Vector2(22.2, 23.6), -PI / 2.0, 1.2, 8.0],
+]
 const BUS := Rect2(38.0, 76.3, 16.0, 2.5)        # where the ETH-Link stands (tiles)
 const BUS_DOOR := Rect2(44.5, 73.4, 3.0, 1.4)    # step in here
 
@@ -42,8 +54,8 @@ const DEF := {
 	"time": 420.0,
 	"course": "052-0005-00 L", "ects": 6, "block": "B",
 	"start": Vector2(46.0, 72.4),
-	"intro": "Mitternacht am Hönggerberg. Mit der Karte, die ihr dem Prof am Polyball abgenommen habt, kommt ihr ins HIL. Im Büro des Profs ganz im Westen des Nordflügels liegen die bewerteten Abgaben, und auf seinem Computer die Notenliste. Jede*r von euch ändert den Namen auf einer Abgabe mit der 6 in den eigenen. Dann verschwindet ihr und steigt in den letzten ETH-Link.\n\nDer Sicherheitsdienst patrouilliert mit Taschenlampen, im schmalen Gang des Nordflügels gleich zu dritt, und Kameras lösen Alarm aus. Wer gesehen wird, fliegt. Versteckt euch in den Schränken, aber nicht vor den Augen einer Wache: Wer misstrauisch ist, macht den Schrank auf. Schleichen ist leise, Rennen hört man weit. In Schränken und Modellkisten sieht euch niemand.",
-	"hint": "Schleichen: C bzw. -. Verstecken und wieder raus: E bzw. Enter.",
+	"intro": "Mitternacht am Hönggerberg. Ins HIL, durch den Kameraraum ins Büro des Profs, am Computer euren Namen bei der 6 eintragen und mit dem letzten ETH-Link verschwinden.\n\nWachen mit Taschenlampen und Kameras: Wer gesehen wird, fliegt. Versteckt euch in Schränken, aber nicht vor den Augen einer Wache.",
+	"hint": "Schleichen: C bzw. -.",
 	"start_toast": ["Hönggerberg, 00:12", "Neben dem Haupteingang ist eine Tür mit Kartenleser. Haltet euch vom Licht der Taschenlampen fern."],
 	"timer_title": "BIS ZUM LETZTEN ETH-LINK",
 	"win_title": "Zwei Sechser!",
@@ -51,8 +63,9 @@ const DEF := {
 	"lose_title": "Letzten ETH-Link verpasst",
 	"lose_text": "Der letzte ETH-Link ist weg, und der Sicherheitsdienst macht die Morgenrunde.",
 	"tasks": [
-		{"id": "badge", "name": "Zugang mit Karte", "where": "Prof-Karte vom Polyball, sonst Campus Info", "type": "level"},
-		{"id": "grades", "name": "Namen bei der 6 ändern", "where": "Computer im Büro des Profs (Ostflügel)", "type": "level"},
+		{"id": "badge", "name": "Zugang mit Karte", "where": "Prof-Karte, sonst Campus Info", "type": "level"},
+		{"id": "cams", "name": "Kameraraum ausschalten", "where": "Lüftungsschacht im Technikraum am Nordgang", "type": "level"},
+		{"id": "grades", "name": "Beide Namen bei der 6", "where": "Computer im Büro des Profs (einer reicht)", "type": "level"},
 		{"id": "bus", "name": "In den ETH-Link einsteigen", "where": "Haltestelle vor dem HIL", "type": "level"},
 	],
 	# Opps from earlier levels pull an all-nighter in the drawing studio
@@ -83,13 +96,13 @@ const GUARDS := [
 		"pts": [Vector2(61.5, 41.5), Vector2(61.5, 20.5), Vector2(72.5, 16.5), Vector2(61.5, 20.5)]},
 	{"name": "Wachmann Lüthi", "speed": 58.0, "range": 7.0, "pmin": 1.0, "pmax": 2.5,
 		"quote": "Hier ist nachts niemand. Ausser Ihnen, offenbar.",
-		"pts": [Vector2(18.5, 16.5), Vector2(97.5, 16.5)]},
+		"pts": [Vector2(30.5, 16.5), Vector2(97.5, 16.5)]},
 	{"name": "Wachfrau Keller", "speed": 52.0, "range": 7.0, "pmin": 1.5, "pmax": 3.0,
 		"quote": "Finger weg von den Unterlagen der Professur!",
-		"pts": [Vector2(60.5, 16.5), Vector2(20.5, 16.5), Vector2(60.5, 16.5), Vector2(96.5, 16.5)]},
+		"pts": [Vector2(60.5, 16.5), Vector2(30.5, 16.5), Vector2(60.5, 16.5), Vector2(96.5, 16.5)]},
 	{"name": "Wachmann Huber", "speed": 48.0, "range": 7.5, "pmin": 3.0, "pmax": 5.5,
 		"quote": "Ins Büro des Profs? Ganz sicher nicht.",
-		"pts": [Vector2(18.5, 16.5), Vector2(33.5, 16.5)]},
+		"pts": [Vector2(31.0, 16.5), Vector2(44.5, 16.5)]},
 	{"name": "Nachtwächter Ammann", "speed": 54.0, "range": 7.0,
 		"quote": "Auch Architekturstudis müssen irgendwann schlafen. Raus hier!",
 		"pts": [Vector2(66.5, 39.5), Vector2(89.5, 39.5), Vector2(95.9, 44.9), Vector2(95.9, 34.9), Vector2(89.5, 39.5)]},
@@ -97,9 +110,8 @@ const GUARDS := [
 
 # Security cameras: [position (tiles), looking at (rad), sweep (rad), range (tiles)]
 const CAMS := [
-	[Vector2(19.6, 15.45), 0.0, 0.45, 9.0],          # north corridor, in front of the office
-	[Vector2(52.5, 15.45), PI / 2.0, 1.1, 5.0],      # north corridor, middle
-	[Vector2(88.5, 15.45), PI, 0.45, 9.0],           # north corridor, east end
+	[Vector2(52.5, 16.1), PI / 2.0, 1.1, 5.0],      # north corridor, middle
+	[Vector2(88.5, 16.1), PI, 0.45, 9.0],           # north corridor, east end
 	[Vector2(52.5, 43.45), PI / 2.0, 1.0, 9.0],      # foyer
 	[Vector2(29.45, 25.45), PI / 4.0, 0.6, 10.0],    # gta exhibition
 	[Vector2(65.45, 39.5), 0.0, 0.4, 10.0],          # east block corridor
@@ -121,6 +133,11 @@ var check_t: Array = [0.0, 0.0]
 var danger: Array = [0.0, 0.0]
 var beat_t: Array = [0.0, 0.0]
 var was_hidden: Array = [false, false]
+var room_cams: Array = []
+var alarmed := false                # the countdown ran out once
+var cams_dead := false              # the cables in the vent are out: the camera room is broken
+var reboot_t := 0.0                 # countdown until security notices (alarm)
+var tick_t := 0.0
 
 
 ## The campus Hönggerberg instead of the Zentrum, the HIL after its real ground floor, simplified
@@ -163,6 +180,11 @@ static func build_map(md) -> void:
 	md.fill(9, 9, 14, 23, MD.CARPET)               # the professor's office, west end
 	md.fill(15, 9, 15, 23, MD.WALL)
 	md.fill(15, 16, 15, 17, MD.CARPET)             # its door (locked, see below)
+	# the camera room in front of the office, server racks, the security desk
+	md.fill(16, 9, 27, 23, MD.LAB)
+	md.fill(28, 9, 28, 23, MD.WALL)
+	md.fill(28, 16, 28, 17, MD.LAB)                # open doorway from the corridor
+	md.fill(29, 9, 29, 14, MD.WALL)                # what is left of the first office
 	md.fill(41, 18, 45, 24, MD.TILE)               # passage down to the atrium (west)
 	md.fill(41, 18, 41, 23, MD.WALL)
 	md.fill(45, 19, 45, 24, MD.WALL)
@@ -216,19 +238,28 @@ static func build_map(md) -> void:
 	# --- small offices: desks, and in some of them a cupboard to hide in ---
 	var k := 0
 	for x in range(20, 100, 5):
+		if x < 30:
+			k += 1
+			continue
 		if x + 1 < 99:
 			md.R("labdesk", x + 1.2, 9.1, 2.6, 1.0)
 		if k % 2 == 0 and x + 4 < 100:
 			md.R("locker", x + 3.6, 13.05, 1.2, 0.9, {"use": "hide", "label": "In den Büroschrank"})
 		k += 1
 	for x in range(22, 100, 6):
-		if x in [40, 58, 64]:
+		if x in [22, 40, 58, 64]:
 			continue
 		if x + 5 < 100:
 			md.R("labdesk", x + 1.4, 22.1, 3.2, 0.9)
+		if x == 46:   # this room has the main switch instead of a cupboard
+			md.R("l5_vent", x + 4.4, 19.05, 1.4, 0.9, {"use": "level", "act": "vent", "label": "Lüftungsschacht öffnen"})
+			continue
 		if (x / 6) % 2 == 1 and x + 5 < 100:
 			md.R("cabinet", x + 4.4, 19.05, 1.4, 0.9, {"use": "hide", "label": "In den Aktenschrank"})
-	md.R("l5_closet", 17.2, 19.1, 1.4, 0.9, {"use": "hide", "label": "In den Putzschrank"})
+	md.R("l5_closet", 29.15, 19.1, 1.2, 0.9, {"use": "hide", "label": "In den Putzschrank"})
+	for r: Array in [[20.5, 10.0], [24.0, 10.0], [17.2, 19.6], [20.5, 19.6], [24.0, 19.6]]:
+		md.R("rack", r[0], r[1], 1.0, 3.4)
+	md.R("l5_secdesk", 16.3, 9.15, 3.0, 1.1)
 	# --- gta exhibition: tall display walls, a crate ---
 	for y: float in [27.0, 32.0, 37.0]:
 		md.R("l5_panel", 31.0, y, 6.0, 0.6, {"tall": true})
@@ -283,11 +314,12 @@ static func build_map(md) -> void:
 	md.L("ALUMNI LOUNGE", 35.0, 50.5, 0.32, "floor")
 	md.L("FOYER", 52.0, 53.5, 0.45, "floor")
 	md.L("BÜRO PROF", 11.8, 15.6, 0.28, "floor")
+	md.L("KAMERARAUM", 22.0, 16.9, 0.32, "floor")
 	md.L("ZEICHENSAAL", 95.6, 40.6, 0.3, "floor")
 	md.L("CAMPUS INFO", 67.0, 66.8, 0.3, "floor")
 	md.L("ETH-LINK", 46.0, 72.5, 0.34, "floor")
 	md.zones = [
-		[Rect2(9, 9, 6, 15), "Büro der Professur"], [Rect2(9, 16, 91, 2), "Gang Nordflügel"],
+		[Rect2(9, 9, 6, 15), "Büro der Professur"], [Rect2(16, 9, 12, 15), "Kameraraum"], [Rect2(9, 16, 91, 2), "Gang Nordflügel"],
 		[Rect2(9, 9, 91, 15), "Nordflügel"], [Rect2(29, 25, 12, 20), "gta Ausstellung"],
 		[Rect2(29, 46, 12, 10), "Alumni Lounge"], [Rect2(42, 43, 22, 13), "Foyer HIL"],
 		[Rect2(42, 25, 3, 18), "Gang am Atrium"], [Rect2(60, 25, 3, 18), "Gang am Atrium"],
@@ -317,6 +349,17 @@ func _ready() -> void:
 		cam.range_px = float(c[3]) * TS
 		add_child(cam)
 		cams.append(cam)
+	for c in ROOM_CAMS:
+		var cam = WATCH.Cam.new()
+		cam.main = main
+		cam.level = self
+		cam.position = (c[0] as Vector2) * TS
+		cam.base = c[1]
+		cam.sweep = c[2]
+		cam.range_px = float(c[3]) * TS
+		cam.see_time = ROOM_SEE
+		add_child(cam)
+		room_cams.append(cam)
 	var cl := CanvasLayer.new()
 	cl.layer = 9   # under the HUD
 	main.add_child.call_deferred(cl)
@@ -345,6 +388,7 @@ func _process(delta: float) -> void:
 		guards[i].speed = base_speed[i] * (GUARD_SPEED_UP if restless else 1.0) * (ALARM_SPEED if alarm_t > 0.0 else 1.0)
 	for pid in 2:
 		_watch_hidden(pid, delta)
+	_process_power(delta)
 
 
 ## Somebody in a cupboard: heartbeat when a guard comes close; a suspicious guard next to it
@@ -401,10 +445,74 @@ func alarm(at: Vector2) -> void:
 	main.hud.toast("ALARM!", "Eine Kamera hat euch gesehen. Der Sicherheitsdienst rennt hin. Versteckt euch!", 4.0)
 
 
+## After the cables are out: the countdown until security notices, with the picture shaking more
+## and more and a heartbeat that gets faster. At 0: alarm, the guards run to the camera room.
+func _process_power(delta: float) -> void:
+	var shake := Vector2.ZERO
+	if cams_dead and reboot_t > 0.0:
+		reboot_t -= delta
+		tick_t -= delta
+		var urgent := reboot_t < 10.0
+		if tick_t <= 0.0:
+			tick_t = 0.5 if reboot_t < 20.0 else 1.0
+			if urgent:
+				UI.sfx("buzz", -4.0)
+				UI.sfx("tick", 0.0)
+			else:
+				UI.sfx("tick", -6.0 if reboot_t < 20.0 else -10.0)
+		var k := clampf(1.0 - reboot_t / REBOOT_TIME, 0.0, 1.0)
+		var amp := SHAKE_MAX * k * k * (1.6 if urgent else 1.0)
+		shake = Vector2(randf_range(-amp, amp), randf_range(-amp, amp))
+		if reboot_t <= 0.0:
+			reboot_t = 0.0
+			alarmed = true
+			main.hud.toast("Der Sicherheitsdienst hat es bemerkt!", "Alle rennen zum Kameraraum. Weg da!", 4.5)
+			alarm(ROOM.get_center() * TS)
+	for c in main.cams:
+		c.offset = shake
+
+
+## The vent: pantomime in front of the camera (vent_game.gd), on top of everything like a minigame.
+func _open_vent(pid: int) -> void:
+	var mg = VentScript.new()
+	mg.pid = pid
+	mg.main = main
+	main.minis[pid] = mg
+	main.nears[pid] = null
+	main.players[pid].enabled = false
+	main.add_child(mg)
+	mg.open()
+	mg.finished.connect(func(ok: bool):
+		if main.minis[pid] == mg:
+			main.minis[pid] = null
+		if main.state != "play":
+			return
+		main.players[pid].enabled = true
+		if ok:
+			_break_cams())
+
+
+## The cables are out: the cameras of the camera room are broken for good, the countdown starts.
+func _break_cams() -> void:
+	cams_dead = true
+	reboot_t = REBOOT_TIME
+	tick_t = 0.0
+	for c in room_cams:
+		c.set_off(true, true)
+	if not main.done[0].has("cams"):
+		main._coop_done("cams")
+	UI.sfx("grant")
+	main.hud.toast("Kameras kaputt! 60 Sekunden", "Bis der Sicherheitsdienst den Ausfall bemerkt. Ins Büro, beide Namen bei der 6 und raus aus dem Westflügel!", 5.0)
+
+
 # ------------------------------------------------------------------ interaction
 func interact(pid: int, o: Dictionary) -> void:
 	match String(o.get("act", "")):
 		"door":
+			if String(o["door"]) == "office" and not cams_dead:
+				UI.sfx("buzz")
+				main.hud.toast("Gesperrt", "Die Bürotür hängt an der Sicherheitsanlage. Erst den Kameraraum lahmlegen: Lüftungsschacht im Technikraum am Nordgang.", 4.5, pid)
+				return
 			if not main.done[pid].has("badge"):
 				UI.sfx("buzz")
 				main.hud.toast("Rotes Licht", "Der Leser will eine Karte. Die Ersatzkarte liegt in der Campus Info.", 3.5, pid)
@@ -412,6 +520,11 @@ func interact(pid: int, o: Dictionary) -> void:
 			main.world.open_door(String(o["door"]))
 			UI.sfx("grant")
 			main.hud.toast("Grünes Licht", "Die Tür summt und springt auf.", 2.5, pid)
+		"vent":
+			if cams_dead:
+				main.hud.toast("Erledigt", "Die Kabel sind schon draussen.", 2.0, pid)
+				return
+			_open_vent(pid)
 		"keybox":
 			o["taken"] = true
 			main._coop_done("badge")
@@ -453,13 +566,13 @@ func _open_pc(pid: int) -> void:
 			return
 		main.players[pid].enabled = true
 		if ok:
-			main._task_done(pid, "grades")
+			main._coop_done("grades")
 			_check_restless())
 
 
 ## Both names are in: the guards get restless, faster and further.
 func _check_restless() -> void:
-	if restless or not (main.done[0].has("grades") and main.done[1].has("grades")):
+	if restless or not main.done[0].has("grades"):
 		return
 	restless = true
 	for g in guards:
@@ -494,6 +607,8 @@ func task_targets(id: String, _pid: int) -> Array:
 	match id:
 		"badge":
 			return [Vector2(71.0, 62.4) * TS]
+		"cams":
+			return [Vector2(51.1, 20.6) * TS]
 		"grades":
 			return [Vector2(10.9, 20.4) * TS]
 		"bus":
@@ -531,6 +646,7 @@ func _draw() -> void:
 		if k.begins_with("l5_"):
 			_draw_obj(o)
 	_draw_bus()
+
 
 
 func _draw_tracks() -> void:
@@ -631,6 +747,28 @@ func _draw_obj(o: Dictionary) -> void:
 			while px2 < x + w - 30:
 				draw_rect(Rect2(px2, y + 3, 26, h - 6), Color("c9d6e6"))
 				px2 += 40
+		"l5_vent":
+			draw_rect(Rect2(x + 3, y + 4, w, h), Color(0, 0, 0, 0.35))
+			draw_rect(R2, Color("7d8794") if not cams_dead else Color("16181d"))
+			if not cams_dead:
+				for i in 4:
+					draw_rect(Rect2(x + 4, y + 3 + i * (h - 6) / 4.0, w - 8, 3), Color("4a5560"))
+				for c2: Vector2 in [Vector2(x + 3, y + 3), Vector2(x + w - 3, y + 3), Vector2(x + 3, y + h - 3), Vector2(x + w - 3, y + h - 3)]:
+					draw_circle(c2, 2.0, Color("c9ced8"))
+			else:
+				for i in 3:
+					draw_line(Vector2(x + 8 + i * 12, y + 4), Vector2(x + 4 + i * 12, y + h + 8), Color(["e74c3c", "f1c40f", "3498db"][i]).darkened(0.3), 3.0)
+				if fmod(t * 5.0, 1.0) < 0.25:
+					draw_circle(Vector2(x + w / 2.0, y + h / 2.0), 3.0, UI.YELLOW)
+			draw_string(ThemeDB.fallback_font, Vector2(x - 6, y - 4), "LÜFTUNG", HORIZONTAL_ALIGNMENT_LEFT, -1, 9, Color(0.8, 0.85, 0.9))
+		"l5_secdesk":
+			draw_rect(Rect2(x + 3, y + 4, w, h), Color(0, 0, 0, 0.35))
+			draw_rect(R2, Color("3b3f45"))
+			for i in 3:
+				var sc := Rect2(x + 4 + i * (w - 8) / 3.0, y + 3, (w - 8) / 3.0 - 3, h * 0.6)
+				draw_rect(sc, Color("15162b"))
+				if not cams_dead:
+					draw_rect(sc.grow(-2.0), Color(0.3, 0.7, 0.45, 0.6 + 0.2 * sin(t * 3.0 + i)))
 		"l5_keybox":
 			draw_rect(R2, Color("5a3d2a"))
 			if not o.get("taken", false):

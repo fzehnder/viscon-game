@@ -1,9 +1,9 @@
 extends CanvasLayer
 ## The professor's computer: the grade list of the design studio (Notenverwaltung). On the half of
 ## the screen of the player who sits at it, like the other minigames (registered in main.minis).
-## Pick the submission with the 6 (up / down, interact), then type your own name over the student's
-## by hammering interact. Opening a wrong one beeps (mistake: the guards hear it). A submission that
-## already carries the other player's name does not count. Esc / Backspace (abort) leaves.
+## Pick a submission with the 6 (up / down, interact), then type your own name over the student's
+## by hammering interact; then the same for the other player on the second 6. One visit is enough
+## for both. Opening a wrong one beeps (mistake: the guards hear it). Esc / Backspace leaves.
 
 signal finished(success: bool, mistakes: int)
 signal mistake
@@ -22,6 +22,7 @@ var mistakes := 0
 var rows: Array = []            # [{"name", "project", "grade", "mine": pid or -1}] shared, see open()
 var sel := 0
 var typing := -1                # row being renamed
+var todo: Array = []            # whose names still have to go in, first the own one
 var typed := 0.0
 var done_t := -1.0
 var abort_held := true          # the abort key counts only after it was let go once
@@ -50,6 +51,9 @@ func open(p_rows: Array) -> void:
 	view.mouse_filter = Control.MOUSE_FILTER_IGNORE
 	root.add_child(view)
 	sel = 0
+	todo = [pid, 1 - pid]
+	for r in rows:   # a name that is in already does not have to go in again
+		todo.erase(int(r["mine"]))
 	UI.sfx("click")
 
 
@@ -94,12 +98,17 @@ func _process(delta: float) -> void:
 		if Input.is_action_just_pressed(KEYS.action(pid, "interact")):
 			typed += CHARS_PER_PRESS
 			UI.sfx("type", -10.0)
-			if typed >= Game.name_of(pid).length():
-				rows[typing]["name"] = Game.name_of(pid)
-				rows[typing]["mine"] = pid
+			var who: int = todo[0]
+			if typed >= Game.name_of(who).length():
+				rows[typing]["name"] = Game.name_of(who)
+				rows[typing]["mine"] = who
 				typing = -1
-				done_t = 0.0
-				UI.sfx("success")
+				todo.pop_front()
+				if todo.is_empty():
+					done_t = 0.0
+					UI.sfx("success")
+				else:
+					UI.sfx("pop")
 		return
 	if Input.is_action_just_pressed(KEYS.action(pid, "up")):
 		sel = (sel - 1 + rows.size()) % rows.size()
@@ -144,10 +153,10 @@ func _draw_pc(ci: Control) -> void:
 		var name_txt: String = r["name"]
 		var name_col := Color("1c2033")
 		if i == typing:
-			var target := Game.name_of(pid)
+			var target := Game.name_of(todo[0])
 			var n := int(typed)
 			name_txt = target.substr(0, n) + ("|" if fmod(t, 0.6) < 0.3 else " ")
-			name_col = col.darkened(0.2)
+			name_col = Color(KEYS.TAG_COLORS[todo[0]]).darkened(0.2)
 		elif mine >= 0:
 			name_col = Color(KEYS.TAG_COLORS[mine]).darkened(0.2)
 		ci.draw_string(font, Vector2(14, y + row_h * 0.68), name_txt, HORIZONTAL_ALIGNMENT_LEFT, w * 0.4 - 20, 16, name_col)
@@ -159,9 +168,11 @@ func _draw_pc(ci: Control) -> void:
 	var hint := "%s: hoch / runter wählen · %s: Abgabe öffnen · %s: weg vom PC" % [
 		"W / S" if pid == 0 else "Pfeile", "E" if pid == 0 else "Enter", "Esc" if pid == 0 else "Rücktaste"]
 	if typing >= 0:
-		hint = "Namen eintippen: %s hämmern!" % ("E" if pid == 0 else "Enter")
+		hint = "%s eintippen: %s hämmern!" % [Game.name_of(todo[0]), "E" if pid == 0 else "Enter"]
 	elif done_t >= 0.0:
-		hint = "Gespeichert. Die 6 gehört jetzt %s." % Game.name_of(pid)
+		hint = "Gespeichert. Beide Sechser gehören jetzt euch."
+	elif not todo.is_empty() and todo[0] != pid:
+		hint = "Jetzt die zweite 6 für %s." % Game.name_of(todo[0])
 	ci.draw_rect(Rect2(0, h - 40, w, 40), Color("dfe5ee"))
 	ci.draw_string(font, Vector2(12, h - 14), hint, HORIZONTAL_ALIGNMENT_LEFT, w - 24, 14, Color("1c2033"))
 	if mistakes > 0:

@@ -5,13 +5,18 @@ const UI = preload("res://scripts/ui.gd")
 const KEYS = preload("res://scripts/controls.gd")
 
 
-## A camera on the wall: sweeps left and right, its cone is red. Whoever stays in it too long
+## A camera on the wall (place it on a floor tile, a ray that starts inside a wall does not see that
+## wall): sweeps left and right, its cone is red. Walls and tall furniture block its view. Whoever stays in it too long
 ## sets off the alarm (level.alarm): the nearest guards run there. It cannot catch anybody itself.
 class Cam:
 	extends Node2D
 	const TS := 32.0
-	const SEE_TIME := 0.8        # seconds in the cone until the alarm
 	const COOL := 7.0            # seconds before it can raise the alarm again
+	const BOOT := 0.7            # flickering after the power comes back, not watching yet
+	var see_time := 0.8          # seconds in the cone until the alarm
+	var off := false             # no power (level 5: main switch) ...
+	var dead := false            # ... or switched off for good
+	var boot := 0.0
 	var main
 	var level
 	var base := 0.0
@@ -31,17 +36,31 @@ class Cam:
 		add_child(cone)
 		t = randf() * 10.0
 
+	## Power on or off; after the power comes back it flickers for a moment.
+	func set_off(o: bool, d: bool) -> void:
+		dead = d
+		if off and not o:
+			boot = BOOT
+		off = o
+
 	func _process(delta: float) -> void:
 		t += delta
+		if off:
+			cone.visible = false
+			meter = 0.0
+			queue_redraw()
+			return
+		boot = maxf(0.0, boot - delta)
+		cone.visible = boot <= 0.0 or fmod(t, 0.16) < 0.08
 		dir = base + sin(t * speed) * sweep
 		var pts := PackedVector2Array([Vector2.ZERO])
 		for i in 13:
 			var a := dir - half + 2.0 * half * i / 12.0
-			pts.append(main.world.ray_end(global_position, global_position + Vector2.from_angle(a) * range_px) - global_position)
+			pts.append(main.world.sight_end(global_position, global_position + Vector2.from_angle(a) * range_px) - global_position)
 		cone.polygon = pts
 		cone.color = Color(1.0, 0.25, 0.25, 0.1 + 0.3 * meter) if cool <= 0.0 else Color(1.0, 0.6, 0.3, 0.08)
 		queue_redraw()
-		if main.state != "play":
+		if main.state != "play" or boot > 0.0:
 			return
 		cool = maxf(0.0, cool - delta)
 		var target = null
@@ -49,10 +68,10 @@ class Cam:
 			if pl.hidden_mode or not pl.visible:
 				continue
 			var to: Vector2 = pl.global_position - global_position
-			if to.length() < range_px and absf(wrapf(to.angle() - dir, -PI, PI)) < half and main.world.line_clear(global_position, pl.global_position):
+			if to.length() < range_px and absf(wrapf(to.angle() - dir, -PI, PI)) < half and main.world.sight_clear(global_position, pl.global_position):
 				target = pl
 		if target != null and cool <= 0.0:
-			meter = minf(1.0, meter + delta / SEE_TIME)
+			meter = minf(1.0, meter + delta / see_time)
 			if meter >= 1.0:
 				meter = 0.0
 				cool = COOL
@@ -60,11 +79,35 @@ class Cam:
 		else:
 			meter = maxf(0.0, meter - delta * 0.7)
 
+	## Torn cables: the camera hangs down crooked, sparks now and then, a thin trail of smoke.
+	func _draw_broken() -> void:
+		draw_set_transform(Vector2.ZERO, base + 1.1, Vector2.ONE)
+		draw_rect(Rect2(-6, -5, 14, 10), Color("2b2f35"))
+		draw_rect(Rect2(6, -3, 5, 6), Color("15162b"))
+		draw_line(Vector2(9, -2), Vector2(11, 3), Color(0.8, 0.9, 1.0, 0.6), 1.0)   # cracked lens
+		draw_set_transform(Vector2.ZERO, 0.0, Vector2.ONE)
+		draw_line(Vector2(-4, -4), Vector2(-9, 10), Color("e74c3c"), 1.5)
+		draw_line(Vector2(-2, -4), Vector2(-4, 12), Color("3498db"), 1.5)
+		var ph := fmod(t * 1.3 + base, 2.0)
+		if ph < 0.25:
+			for i in 5:
+				var a := t * 40.0 + i * 1.3
+				draw_line(Vector2(-6, 10), Vector2(-6, 10) + Vector2.from_angle(a) * (6.0 + i * 2.0), Color(1.0, 0.85, 0.3, 0.9), 1.5)
+		for i in 3:
+			var k := fmod(t * 0.6 + i / 3.0, 1.0)
+			draw_circle(Vector2(sin(t + i) * 4.0, -8.0 - k * 34.0), 3.0 + k * 6.0, Color(0.6, 0.6, 0.65, 0.35 * (1.0 - k)))
+
 	func _draw() -> void:
 		draw_set_transform(Vector2.ZERO, dir, Vector2.ONE)
 		draw_rect(Rect2(-6, -5, 14, 10), Color("2b2f35"))
 		draw_rect(Rect2(6, -3, 5, 6), Color("15162b"))
 		draw_set_transform(Vector2.ZERO, 0.0, Vector2.ONE)
+		if dead:
+			_draw_broken()
+			return
+		if off:
+			draw_circle(Vector2(-3, -7), 2.5, Color("5a1a1a"))
+			return
 		var on := fmod(t, 1.0) < 0.5 or meter > 0.0
 		draw_circle(Vector2(-3, -7), 2.5, UI.RED if on else Color("5a1a1a"))
 
@@ -90,6 +133,40 @@ class Overlay:
 		for pid in 2:
 			if main.players[pid].hidden_mode and not level.boarded[pid]:
 				_slats(pid)
+		if level.cams_dead and level.reboot_t > 0.0:
+			_countdown(vs)
+
+
+	## After the cables are out: how long until security notices. Huge digits that pop at every
+	## second and shake, a red edge that gets thicker, red flashes in the last ten seconds.
+	func _countdown(vs: Vector2) -> void:
+		var left: float = level.reboot_t
+		var k := clampf(1.0 - left / 60.0, 0.0, 1.0)            # 0 at the start, 1 at the end
+		var urgent := left < 10.0
+		var sec_frac := fmod(left, 1.0)                           # 1 -> 0 within each second
+		var pop := 1.0 + 0.35 * pow(sec_frac, 3.0)                # every new second jumps big
+		var font := ThemeDB.fallback_font
+		# the edge of the screen, red and thicker the less time is left, beating
+		var beat := 0.5 + 0.5 * sin(t * (4.0 + k * 10.0))
+		var edge := 20.0 + k * 70.0
+		draw_rect(Rect2(Vector2.ZERO, vs).grow(-edge / 2.0), Color(0.9, 0.0, 0.05, 0.25 + 0.45 * k * beat), false, edge)
+		if urgent and sec_frac > 0.8:
+			draw_rect(Rect2(Vector2.ZERO, vs), Color(1.0, 0.05, 0.1, (sec_frac - 0.8) * 1.6))   # flash at each second
+		var shake := (2.0 + k * 10.0) * (2.0 if urgent else 1.0)
+		var off := Vector2(randf_range(-shake, shake), randf_range(-shake, shake))
+		var fs := int((110.0 + k * 90.0) * pop)
+		var col := UI.RED.lerp(Color.WHITE, 0.4 * beat) if left < 20.0 else UI.YELLOW.lerp(UI.RED, k)
+		var txt := "%d" % int(ceilf(left))
+		var y := vs.y * 0.42 + fs * 0.3
+		draw_string_outline(font, Vector2(0, y) + off, txt, HORIZONTAL_ALIGNMENT_CENTER, vs.x, fs, 20, Color("15162b"))
+		draw_string(font, Vector2(0, y) + off, txt, HORIZONTAL_ALIGNMENT_CENTER, vs.x, fs, col)
+		var sub := "SICHERHEITSDIENST BEMERKT DEN AUSFALL IN"
+		draw_string_outline(font, Vector2(0, y - fs * 0.85) + off * 0.5, sub, HORIZONTAL_ALIGNMENT_CENTER, vs.x, 24, 8, Color("15162b"))
+		draw_string(font, Vector2(0, y - fs * 0.85) + off * 0.5, sub, HORIZONTAL_ALIGNMENT_CENTER, vs.x, 24, col)
+		if urgent:
+			var go := "RAUS!" if fmod(t, 0.5) < 0.25 else "SCHNELL!"
+			draw_string_outline(font, Vector2(0, y + 60.0) + off, go, HORIZONTAL_ALIGNMENT_CENTER, vs.x, 40, 10, Color("15162b"))
+			draw_string(font, Vector2(0, y + 60.0) + off, go, HORIZONTAL_ALIGNMENT_CENTER, vs.x, 40, Color.WHITE)
 
 
 	## Where the player is on the screen (the view that follows them).
