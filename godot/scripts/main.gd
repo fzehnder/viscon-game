@@ -37,6 +37,7 @@ const LevelDone = preload("res://scripts/level_done.gd")
 const LV = preload("res://scripts/levels.gd")
 const UI = preload("res://scripts/ui.gd")
 const Transcript = preload("res://scripts/transcript.gd")
+const PauseMenu = preload("res://scripts/pause_menu.gd")
 const TS := 32.0
 const START := Vector2(12.5, 43.5)
 const STATION := Rect2(0, 41, 10.2, 5)
@@ -139,6 +140,10 @@ var zoom := 2.5 / 1.3    # about 1.92. Change this (also in tweens), both camera
 # the transcript (level overview) on top of the running game: L or the button, the game pauses
 var tr_layer: CanvasLayer = null
 var tr_closed_frame := -10
+# the pause menu: its button, or Esc while no minigame and no scene is using that key
+var pause_layer: CanvasLayer = null
+var pause_closed_frame := -10
+var mini_frame := -10      # the last frame in which a minigame was open: its Esc must not open the menu as well
 
 
 ## Layer for the transcript that keeps running while the game is paused; L closes it again
@@ -486,6 +491,10 @@ func _update_cameras(delta: float = 0.0, snap: bool = false) -> void:
 
 
 func _unhandled_input(event: InputEvent) -> void:
+	if event is InputEventKey and event.pressed and not event.echo and event.physical_keycode == KEY_ESCAPE and _esc_pauses():
+		get_viewport().set_input_as_handled()
+		open_pause()
+		return
 	var dz := 0.0
 	if event is InputEventMouseButton and event.pressed:
 		if event.button_index == MOUSE_BUTTON_WHEEL_UP:
@@ -559,6 +568,8 @@ func busy(i: int) -> bool:
 
 func _process(delta: float) -> void:
 	_update_cameras(delta)
+	if minis[0] != null or minis[1] != null:
+		mini_frame = Engine.get_process_frames()
 	if Input.is_action_just_pressed("transcript"):
 		open_transcript()
 		return
@@ -648,24 +659,71 @@ func on_overlay_menu() -> void:
 	get_tree().change_scene_to_file("res://menu.tscn")
 
 
-# ------------------------------------------------------------------ transcript in the game
-## Small button bottom right, above everything except cutscenes: the transcript is always one click away.
+# ------------------------------------------------------------------ pause menu and transcript in the game
+## Two small buttons bottom right, above everything except cutscenes: the pause menu and the
+## transcript are always one click away. One above the other: side by side the left one would
+## lie on the input hint of player 2.
 func _add_transcript_button() -> void:
 	var cl := CanvasLayer.new()
 	cl.layer = 16   # over the HUD and over full-screen level scenes such as the ski race
 	add_child(cl)
+	var row := VBoxContainer.new()
+	row.add_theme_constant_override("separation", 6)
+	row.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	row.anchor_left = 1.0
+	row.anchor_top = 1.0
+	row.anchor_right = 1.0
+	row.anchor_bottom = 1.0
+	row.grow_horizontal = Control.GROW_DIRECTION_BEGIN
+	row.grow_vertical = Control.GROW_DIRECTION_BEGIN
+	row.offset_right = -14.0
+	row.offset_bottom = -12.0
+	row.modulate.a = 0.85
+	cl.add_child(row)
+	var m := UI.button("Menü · Esc", UI.INK2, 14)
+	m.size_flags_horizontal = Control.SIZE_SHRINK_END
+	m.pressed.connect(open_pause)
+	row.add_child(m)
 	var b := UI.button("Leistungsüberblick · L", UI.ETH_BLUE, 14)
-	b.anchor_left = 1.0
-	b.anchor_top = 1.0
-	b.anchor_right = 1.0
-	b.anchor_bottom = 1.0
-	b.grow_horizontal = Control.GROW_DIRECTION_BEGIN
-	b.grow_vertical = Control.GROW_DIRECTION_BEGIN
-	b.offset_right = -14.0
-	b.offset_bottom = -12.0
-	b.modulate.a = 0.85
 	b.pressed.connect(open_transcript)
-	cl.add_child(b)
+	row.add_child(b)
+
+
+## Esc belongs to the minigames (leave) and to the scenes (skip). Only while the players walk
+## around or read the mission card does it open the pause menu.
+func _esc_pauses() -> bool:
+	if not (state in ["play", "intro"]) or minis[0] != null or minis[1] != null:
+		return false
+	return Engine.get_process_frames() - mini_frame > 2
+
+
+## Pause menu over the game (pause_menu.gd): resume, restart the level, transcript, start screen.
+func open_pause() -> void:
+	if pause_layer != null or tr_layer != null or Engine.get_process_frames() - pause_closed_frame < 3:
+		return
+	pause_layer = PauseMenu.new()
+	pause_layer.title = "%s · %s" % [String(lv.get("tag", "")), String(lv.get("name", ""))]
+	pause_layer.resume.connect(close_pause)
+	pause_layer.restart.connect(func():
+		get_tree().paused = false
+		get_tree().reload_current_scene())
+	pause_layer.transcript.connect(func():
+		close_pause()
+		open_transcript())
+	pause_layer.to_menu.connect(func():
+		get_tree().paused = false
+		get_tree().change_scene_to_file("res://menu.tscn"))
+	add_child(pause_layer)
+	get_tree().paused = true
+
+
+func close_pause() -> void:
+	if pause_layer == null:
+		return
+	get_tree().paused = false
+	pause_layer.queue_free()
+	pause_layer = null
+	pause_closed_frame = Engine.get_process_frames()
 
 
 ## Shows the transcript over the game and pauses it. A click on a course starts that level
