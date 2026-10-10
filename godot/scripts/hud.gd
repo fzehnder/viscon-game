@@ -16,7 +16,7 @@ var main
 var root: Control
 # one task card per player: [panel, zone label, counter label, box for the rows]
 var cards: Array = []
-var task_rows: Array = [[], []]   # per player: [row, tick, label]
+var task_rows: Array = [[], []]   # per player: [row panel, tick, label, style box, picked]
 var title_l: Label
 var minimap: Control
 # timer / meter
@@ -149,6 +149,11 @@ class MiniMap:
 					var po := _at(op.global_position)
 					draw_circle(po, 4.5 + sin(t * 12.0), UI2.RED)
 					draw_arc(po, 6.5, 0.0, TAU, 16, UI2.RED, 1.0)
+			# the dashed way to a picked task
+			for i in main.players.size():
+				var route: Array = main.routes[i]
+				for j in range(1, route.size()):
+					draw_dashed_line(_at(route[j - 1]), _at(route[j]), Color(KEYS2.TAG_COLORS[i]), 1.6, 3.0)
 		# the two players, always on top
 		for i in main.players.size():
 			var pl = main.players[i]
@@ -238,8 +243,11 @@ func _ready() -> void:
 		var cl := UI.label("", 13, UI.MUTED)
 		head.add_child(cl)
 		var box := VBoxContainer.new()
-		box.add_theme_constant_override("separation", 3)
+		box.add_theme_constant_override("separation", 1)
 		v.add_child(box)
+		var hint_l := UI.label("%s: Weg zur Aufgabe zeigen" % KEYS.SELECT_NAMES[i], 11, UI.MUTED)
+		hint_l.visible = not main.night
+		v.add_child(hint_l)
 		cards.append([card, zl, cl, box])
 
 	# ---- top centre: level and timer (or the visibility meter at night). Yellow = for both.
@@ -516,9 +524,28 @@ func _build_tasks(pid: int, objs: Array) -> void:
 	task_rows[pid] = []
 	var box: VBoxContainer = cards[pid][3]
 	for o in objs:
+		# a row can be picked (key or click): then it is framed and the way is shown in the world
+		var k: int = task_rows[pid].size()
+		var rowp := PanelContainer.new()
+		var sb := StyleBoxFlat.new()
+		sb.bg_color = Color(0, 0, 0, 0)
+		sb.border_color = Color(0, 0, 0, 0)
+		sb.set_border_width_all(2)
+		sb.set_corner_radius_all(8)
+		sb.content_margin_left = 5
+		sb.content_margin_right = 5
+		sb.content_margin_top = 1
+		sb.content_margin_bottom = 1
+		rowp.add_theme_stylebox_override("panel", sb)
+		rowp.mouse_filter = Control.MOUSE_FILTER_STOP
+		rowp.gui_input.connect(func(ev: InputEvent):
+			if ev is InputEventMouseButton and ev.pressed and ev.button_index == MOUSE_BUTTON_LEFT:
+				main.pick(pid, k))
+		box.add_child(rowp)
 		var row := HBoxContainer.new()
 		row.add_theme_constant_override("separation", 8)
-		box.add_child(row)
+		row.mouse_filter = Control.MOUSE_FILTER_IGNORE
+		rowp.add_child(row)
 		var tick := Tick.new()
 		tick.col = Color(KEYS.TAG_COLORS[pid])
 		tick.custom_minimum_size = Vector2(16, 16)
@@ -527,7 +554,7 @@ func _build_tasks(pid: int, objs: Array) -> void:
 		row.add_child(tick)
 		var l := UI.label(String(o[0]), 16, UI.WHITE)
 		row.add_child(l)
-		task_rows[pid].append([row, tick, l])
+		task_rows[pid].append([rowp, tick, l, sb, false])
 
 
 ## Day: every task has a state per player. Night: one shared list, shown on both sides.
@@ -546,6 +573,14 @@ func _update_tasks() -> void:
 			if on:
 				n_done += 1
 			(r[2] as Label).label_settings.font_color = UI.GREEN if on else (UI.WHITE if active else Color(1, 1, 1, 0.35))
+			var sel: bool = main.picked[pid] == k
+			if sel != r[4]:
+				r[4] = sel
+				var pc := Color(KEYS.TAG_COLORS[pid])
+				(r[3] as StyleBoxFlat).bg_color = Color(pc, 0.3) if sel else Color(0, 0, 0, 0)
+				(r[3] as StyleBoxFlat).border_color = pc if sel else Color(0, 0, 0, 0)
+				if sel:
+					UI.pop_in(r[0], 0.0, 0.85)
 			var tick: Tick = r[1]
 			if on == tick.on:
 				continue

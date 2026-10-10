@@ -44,6 +44,8 @@ Ein 2D-Spiel für **Godot 4.3 oder neuer**. Du wählst dein Departement, gestalt
 
 Zwei Spieler*innen an einer Tastatur. Sind beide nah beieinander, gibt es eine gemeinsame Kamera. Laufen sie auseinander oder ist jemand in einem Minigame, teilt sich der Bildschirm (P1 links, P2 rechts). Der Übergang ist fliessend: Die beiden Bildhälften gleiten auseinander und wieder zusammen, nichts springt. Das Minigame öffnet sich auf der Hälfte von dem, der es gestartet hat.
 
+Aufgabe wählen: Mit Tab (P1) oder Komma (P2) geht man seine offenen Aufgaben der Reihe nach durch, ein weiterer Druck nach der letzten schaltet wieder aus. Ein Klick auf die Aufgabe geht auch. Die gewählte Aufgabe ist auf der Karte eingerahmt, und gestrichelte Pfeile in der eigenen Farbe zeigen den kürzesten Weg zum nächsten Ort, an dem man sie erledigen kann (auch auf der Minimap). Bei «High Five» führt der Weg zur anderen Person.
+
 Anzeigen: Die Aufgaben stehen auf der Seite der jeweiligen Person, links für P1 (WASD), rechts für P2 (Pfeiltasten), mit Häkchen und Zähler. Oben in der Mitte Level und Zeit, unten in der Mitte die Minimap: der ganze Campus, beide Figuren in ihrer Farbe, offene Aufgaben als Rauten (in der Farbe derer, die sie noch brauchen, Gelb heisst beide) und rot blinkend ein Opp, der gerade jemanden jagt.
 
 | | P1 | P2 |
@@ -51,6 +53,7 @@ Anzeigen: Die Aufgaben stehen auf der Seite der jeweiligen Person, links für P1
 | Gehen | WASD | Pfeiltasten |
 | Interagieren / Minigame | E | Enter |
 | Sprinten (2 s, lädt in ca. 3 s auf) | Shift | . |
+| Aufgabe wählen, Weg anzeigen | Tab | , |
 | Schleichen | Ctrl | - (US-Layout: /) |
 | Minigame abbrechen | Esc | Backspace |
 | Antworten | 1 2 3 | 8 9 0 |
@@ -144,6 +147,11 @@ func interact(pid: int, o: Dictionary) -> void:
 ## Markierungen für eine Aufgabe: [[Position in px, Farbe], ...]
 func goal_positions(_id: String, n0: bool, n1: bool) -> Array:
 	return [[Vector2(40.5, 30.5) * TS, main._need_color(n0, n1)]]
+
+
+## Wohin die gestrichelten Pfeile führen, wenn jemand die Aufgabe wählt: Punkte in px.
+func task_targets(_id: String, _pid: int) -> Array:
+	return [Vector2(40.5, 31.5) * TS]
 
 
 func on_noise(_at: Vector2, _radius: float) -> void:

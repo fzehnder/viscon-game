@@ -1,5 +1,6 @@
 extends Node2D
-## World-space overlays: sound rings, interaction highlights, goal markers, P1/P2 tags, stamina, thrown wrench.
+## World-space overlays: sound rings, interaction highlights, goal markers, the dashed way to a
+## picked task, P1/P2 tags, stamina, thrown wrench.
 
 const TS := 32.0
 const KEYS = preload("res://scripts/controls.gd")
@@ -45,6 +46,59 @@ func _process(delta: float) -> void:
 	queue_redraw()
 
 
+## Point and direction at distance `d` along a line of points.
+func _along(points: Array, d: float) -> Array:
+	for i in range(1, points.size()):
+		var a: Vector2 = points[i - 1]
+		var b: Vector2 = points[i]
+		var seg := a.distance_to(b)
+		if d <= seg and seg > 0.01:
+			return [a.lerp(b, d / seg), (b - a) / seg]
+		d -= seg
+	var last: Vector2 = points[points.size() - 1]
+	var before: Vector2 = points[points.size() - 2]
+	return [last, (last - before).normalized()]
+
+
+## Dashes that run towards the goal, small arrows along the way and a big one at the end.
+func _draw_route(points: Array, col: Color, pid: int) -> void:
+	var total := 0.0
+	for i in range(1, points.size()):
+		total += (points[i - 1] as Vector2).distance_to(points[i])
+	if total < 8.0:
+		return
+	var dark := Color(0.08, 0.09, 0.17, 0.55)
+	var period := 15.0
+	var dash := 8.0
+	var d := fmod(t * 26.0, period) - period
+	while d < total - 6.0:
+		var d0 := maxf(d, 0.0)
+		var d1 := minf(d + dash, total - 6.0)
+		if d1 - d0 > 1.0:
+			var p0: Vector2 = _along(points, d0)[0]
+			var p1: Vector2 = _along(points, d1)[0]
+			draw_line(p0, p1, dark, 4.2)
+			draw_line(p0, p1, col, 2.4)
+		d += period
+	# small arrows, a little out of step for the two players so that they do not hide each other
+	var step := 60.0
+	var da := fmod(t * 26.0 + pid * 30.0, step) + 14.0
+	while da < total - 16.0:
+		var pa: Array = _along(points, da)
+		_arrow(pa[0], pa[1], 5.5, col, dark)
+		da += step
+	var end: Array = _along(points, total)
+	_arrow(end[0], end[1], 9.0 + sin(t * 6.0) * 1.2, col, dark)
+	draw_arc(end[0], 11.0 + sin(t * 6.0) * 2.0, 0.0, TAU, 24, Color(col, 0.7), 1.6)
+
+
+func _arrow(tip: Vector2, dirv: Vector2, size: float, col: Color, dark: Color) -> void:
+	var side := Vector2(-dirv.y, dirv.x)
+	var pts := PackedVector2Array([tip + dirv * size * 0.6, tip - dirv * size + side * size * 0.8, tip - dirv * size - side * size * 0.8])
+	draw_colored_polygon(pts, col)
+	draw_polyline(pts + PackedVector2Array([pts[0]]), dark, 1.0)
+
+
 func _draw() -> void:
 	if main.state != "play":
 		return
@@ -84,6 +138,11 @@ func _draw() -> void:
 		draw_colored_polygon(dia, Color(gc, 0.95))
 		draw_polyline(dia + PackedVector2Array([dia[0]]), Color(0.08, 0.09, 0.17), 1.5)
 		draw_circle(g, 2.6, Color(0.08, 0.09, 0.17))
+	# dashed way to the task a player has picked, in that player's colour
+	for i in main.players.size():
+		var route: Array = main.routes[i]
+		if route.size() >= 2:
+			_draw_route(route, Color(KEYS.TAG_COLORS[i]), i)
 	# name tag and stamina bar above each player
 	var font := ThemeDB.fallback_font
 	for i in main.players.size():

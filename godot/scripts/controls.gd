@@ -1,17 +1,17 @@
 extends RefCounted
 ## Two players on one keyboard. Physical key positions (US layout), so it works on Swiss keyboards too.
-## P1 (left hand side):  WASD move · E interact · Shift sprint · Ctrl sneak · Esc leave minigame · 1 2 3 answers
-## P2 (right hand side): arrows move · Enter interact · . sprint · - (US: /) sneak · Backspace leave minigame · 8 9 0 answers
+## P1 (left hand side):  WASD move · E interact · Shift sprint · Ctrl sneak · Tab pick a task · Esc leave minigame · 1 2 3 answers
+## P2 (right hand side): arrows move · Enter interact · . sprint · - (US: /) sneak · , pick a task · Backspace leave minigame · 8 9 0 answers
 
 const PLAYER_KEYS := [
 	{
 		"up": [KEY_W], "down": [KEY_S], "left": [KEY_A], "right": [KEY_D],
-		"interact": [KEY_E, KEY_SPACE], "sprint": [KEY_SHIFT], "sneak": [KEY_CTRL],
+		"interact": [KEY_E, KEY_SPACE], "sprint": [KEY_SHIFT], "sneak": [KEY_CTRL], "select": [KEY_TAB],
 		"abort": [KEY_ESCAPE], "nums": [KEY_1, KEY_2, KEY_3],
 	},
 	{
 		"up": [KEY_UP], "down": [KEY_DOWN], "left": [KEY_LEFT], "right": [KEY_RIGHT],
-		"interact": [KEY_ENTER, KEY_KP_ENTER], "sprint": [KEY_PERIOD], "sneak": [KEY_SLASH],
+		"interact": [KEY_ENTER, KEY_KP_ENTER], "sprint": [KEY_PERIOD], "sneak": [KEY_SLASH], "select": [KEY_COMMA],
 		"abort": [KEY_BACKSPACE], "nums": [KEY_8, KEY_9, KEY_0],
 	},
 ]
@@ -28,6 +28,7 @@ const LABELS := [
 ]
 const SOLO_LABELS := {"ok": "E oder Leertaste", "nums": "1 2 3", "dirs": "Pfeiltasten oder WASD", "abort": "Esc"}
 const KEY_NAMES := ["E", "Enter"]
+const SELECT_NAMES := ["Tab", "Komma"]     # key that picks a task and shows the way to it
 const TAGS := ["P1", "P2"]
 const TAG_COLORS := ["ff5d8f", "4d8dff"]   # P1 pink, P2 blue (yellow = both)
 
@@ -39,7 +40,7 @@ static func action(pid: int, what: String) -> String:
 static func setup() -> void:
 	for pid in PLAYER_KEYS.size():
 		var keys: Dictionary = PLAYER_KEYS[pid]
-		for what in ["up", "down", "left", "right", "interact", "sprint", "sneak"]:
+		for what in ["up", "down", "left", "right", "interact", "sprint", "sneak", "select"]:
 			var a := action(pid, what)
 			if InputMap.has_action(a):
 				continue
