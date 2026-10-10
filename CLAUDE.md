@@ -234,7 +234,7 @@ Offen:
 | `transcript.gd` | Level-Auswahl als Leistungsüberblick (myStudies-Look): Tabelle von Hand gezeichnet, Systemschrift Arial |
 | `hud.gd`, `ui.gd`, `fx.gd`, `sfx.gd` | Anzeigen (Aufgabenkarten, Zeit, Minimap, Stempel «ERLEDIGT» bei einer erledigten Aufgabe: `hud.celebrate`), Popup-Stil, Effekte (auch der Weg zur Aufgabe), Sounds |
 | `tracking.gd`, `track_math.gd` | Autoload `Track`: Webcam (Gesicht, Hand, Körper) und Pusten ins Mikrofon für Minigames; Auswertungen dazu. Anleitung und Rezepte in `tracker/README.md`, Testszene `track_debug.tscn` |
-| `characters.gd`, `character_art.gd` | Looks, Quiz-/Moodle-Inhalte, Figuren-Zeichnung. Jede Figur wird zweimal gezeichnet: zuerst alle Teile dunkel und etwas grösser (`_ink`), dann farbig; was übersteht, ist der Umriss. Im Renderer deshalb nie direkt `ci.draw_*` aufrufen, sondern die Helfer (`_rect`, `_circ`, `_ell`, `_cap`, `_line`, `_arc`, `_poly`). Kopfmitte (y = -35), Augenkasten und Mundlage nicht verschieben: `level4/prof_rage.gd` und andere zeichnen darüber |
+| `characters.gd`, `character_art.gd` | Looks, Quiz-/Moodle-Inhalte, Figuren-Zeichnung. Der dunkle Umriss ist eine eigene kleine Funktion (`_outline`): die Hauptformen der Figur noch einmal, dunkel und etwas grösser, vor der Figur gezeichnet. Wer eine Form ändert oder ergänzt, die übersteht (Frisur, grosses Accessoire), führt `_outline` nach. Figuren werden jedes Bild neu gezeichnet, eine ganze Menge davon, deshalb zählt dort jeder Aufruf: Ein `draw_circle` kostet 64 Dreiecke, also in Weltgrösse (`_fine` falsch) Kästchen oder `_oval` / `_cap` (Einheitsform, verschoben und gestreckt) nehmen. Ein zweiter Durchgang über alle Teile für den Umriss hat Level 1 von 30 auf 14 Bilder pro Sekunde gedrückt; so wie jetzt sind es wieder 30. Kopfmitte (y = -35), Augenkasten und Mundlage nicht verschieben: `level4/prof_rage.gd` und andere zeichnen darüber |
 
 Konventionen: Code-Kommentare auf Englisch, Texte im Spiel auf Deutsch (Schweizer Schreibweise, kein ß). Zeilenenden LF (`godot/.gitattributes`). Godot legt neben jedes Skript eine `.uid`-Datei, die gehört mit ins Repo.
 
@@ -275,7 +275,7 @@ Damit ein Level zum Rest passt:
 - Blasen über Köpfen: dunkler Kreis, Radius 10, bei y -58. Gelbes «!» = passt auf (wie die Erstis), Grün = Chance. Sichtkegel wie bei den Professoren: `Color(1.0, 0.93, 0.6, 0.2)`, bei Alarm Richtung Rot.
 - Hinweise als `main.hud.toast(Titel, Text, Dauer)`, Erklär-Toasts nur einmal zeigen. Erledigtes feiert `main._task_done` selbst. Fehler: `main.mistakes_total += 1`, roter Geräuschkreis `main.fx.sound(...)`, `UI.sfx("fail")`.
 - Ziele als Rauten über `goal_positions` in der Farbe derer, die sie noch brauchen (`main._need_color`).
-- Neue Sounds als Notenliste in `sfx.gd`, neue Accessoires in `character_art.gd` (dort nur über die Zeichen-Helfer, siehe Dateitabelle).
+- Neue Sounds als Notenliste in `sfx.gd`, neue Accessoires in `character_art.gd` (dort auf die Kosten achten und den Umriss nachführen, siehe Dateitabelle).
 
 Leveldesign:
 - Das Zeitfenster, um das sich ein Level dreht, sichtbar machen (ablaufender Ring, Markierung am Boden), sonst wirkt Erwischtwerden willkürlich.
