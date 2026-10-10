@@ -81,6 +81,7 @@ Ein Opp ist jemand, dem ihr etwas angetan habt. Die meisten Leute sind zuerst ne
 - **Wer ist gemeint:** Ein Opp ist nur hinter denen her, die ihm etwas getan haben. Die andere Person lässt er in Ruhe.
 - **Erwischt:** Berührt euch ein Opp, während ihr seine Bag tragt, ist die Beute weg: Er bringt sie zurück an den Platz, die Aufgabe ist wieder offen und es zählt als Fehler. Ohne Beute heisst erwischt: Level verloren.
 - **Tempo:** Ein Opp ist schneller als Gehen und langsamer als Sprinten. Abhängen geht mit einem Sprint und einer Ecke oder einem Regal dazwischen.
+- **Bag zurück:** Hat ein Opp seine Bag wieder, ist ihm der Aufwand nicht mehr viel wert. Er trottet euch nur noch hinterher, langsamer als ihr geht, gibt nach drei Sekunden auf und lässt euch danach eine Weile in Ruhe. Klaut ihr die Bag erneut, ist er wieder mit vollem Tempo hinter euch her.
 
 Ersti-Bag in Level 1: Sieht Deniz oder Livia den Diebstahl, wird er oder sie sofort zum Opp. Sonst fällt es erst nach 6 bis 9 Sekunden auf (oder früher, wenn sich jemand umdreht und euch mit der Bag sieht), und dann wird in eure Richtung gesucht.
 

@@ -11,6 +11,8 @@ extends CharacterBody2D
 ##   LAUERN        back at their place, but angry: watches, and the suspicion bar fills when they see you
 ## Seeing a player does not start the chase at once: the suspicion bar fills while the player is
 ## visible (faster when close), the chase starts at 100 %. Walls and tall furniture block the view.
+## Once an Opp has their bag back it is not worth the effort to them any more: they only trot
+## after you, slower than you walk, and give up after a few seconds.
 ##
 ## Levels place these NPCs through "npcs" in their definition (see _spawn_npcs in main.gd):
 ##   {"id": "rucksack_a", "name": "Deniz", "pos": Vector2(tile), "face": angle, "mode": "sitzt",
@@ -36,6 +38,9 @@ const MISTRUST_TIME := 3.0
 const NOTICE := Vector2(6.0, 9.0)   # seconds until the owner notices a theft that nobody saw
 const CALM := 4.0                   # seconds of peace after they got their bag back
 const START_DELAY := 0.7            # a moment of shock before the chase, so the player gets a head start
+const TIRED_SPEED := 100.0          # with their bag back: slower than a walking player (135)
+const TIRED_CHASE := 3.0            # ... and only for this many seconds, then they let it be
+const TIRED_CALM := 7.0             # ... and leave you alone for a while afterwards
 const QUOTES := ["Dich kenn ich doch!", "Hab ich dich!", "Na warte, dich hab ich nicht vergessen!"]
 
 var main
@@ -59,6 +64,7 @@ var target = null
 var last_seen := Vector2.ZERO
 var lost_t := 0.0
 var start_t := 0.0
+var chase_t := 0.0                  # how long the running chase has lasted
 var timer := 0.0
 var calm_t := 0.0
 var look_base := 0.0
@@ -310,9 +316,15 @@ func take_back() -> void:
 
 
 # ------------------------------------------------------------------ state changes
+## True once the stolen bag is back with its owner (on the way home or at its place again).
+func bag_is_back() -> bool:
+	return bag_state == "carried" or bag_state == "there"
+
+
 func _chase(pl) -> void:
 	if state != JAGD:
 		start_t = START_DELAY
+		chase_t = 0.0
 	state = JAGD
 	target = pl
 	meter = 1.0
@@ -442,7 +454,7 @@ func _physics_process(delta: float) -> void:
 			elif angry:
 				_watch(delta)
 	if moving:
-		phase += delta * (13.0 if state == JAGD else 9.0)
+		phase += delta * (13.0 if (state == JAGD and not bag_is_back()) else 9.0)
 	_update_cone()
 	queue_redraw()
 
@@ -478,24 +490,33 @@ func _hunt(delta: float) -> void:
 	if d < CATCH_D and not pl.hidden_mode:
 		main.opp_catch(self, pl)
 		return
+	# with the bag back they do not put much into it: slower, and not for long
+	var tired := bag_is_back()
+	var spd := TIRED_SPEED if tired else CHASE_SPEED
+	chase_t += delta
 	var sees := can_see(pl, true)
 	if sees:
 		last_seen = pl.global_position
 		lost_t = 0.0
 	else:
 		lost_t += delta
-		if lost_t > LOSE_AFTER:
-			meter = 0.6
-			_search(last_seen)
-			return
+	if tired and (chase_t > TIRED_CHASE or lost_t > 0.6):
+		meter = 0.0
+		calm_t = TIRED_CALM
+		_go_home()
+		return
+	if lost_t > LOSE_AFTER:
+		meter = 0.6
+		_search(last_seen)
+		return
 	if sees and d < 2.5 * TS:
-		_step(to, CHASE_SPEED, delta)   # close enough: straight at them
+		_step(to, spd, delta)   # close enough: straight at them
 		return
 	repath_t -= delta
 	if repath_t <= 0.0 or path.is_empty():
 		repath_t = 0.3
 		path = world.find_path(global_position, last_seen)
-	_follow(delta, CHASE_SPEED)
+	_follow(delta, spd)
 
 
 # ------------------------------------------------------------------ drawing
