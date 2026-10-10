@@ -622,6 +622,9 @@ func _open_cam(kind: String, pid: int, on_ok: Callable, on_fallback: Callable = 
 		mg.labels2 = KEYS.labels_for(1)
 	else:
 		mg.accent = Color(String(KEYS.TAG_COLORS[pid]))
+	if pid >= 0:
+		# on the half the player is on already, so the two halves never swap (main.minigame_side)
+		mg.screen_side = main.minigame_side(pid) if main.has_method("minigame_side") else pid
 	for j in who:
 		main.minis[j] = mg
 		main.nears[j] = null
@@ -727,10 +730,15 @@ func _watch_mouth(pid: int) -> void:
 	buffet_mg[pid] = mg
 	mouth_open[pid] = true                 # has to close once before it counts
 	Track.use(mg, ["face"], false)         # released by itself when the minigame closes
-	var dim = mg.root.get_child(0)
-	if dim is ColorRect:
-		dim.color = KameraSpiel.LIGHT      # the buffet is brightly lit: the lamp for the camera
-		_cover(mg, [pid])
+	# the buffet is brightly lit: the lamp for the camera. A minigame on one half of the screen has
+	# no sheet of its own behind the panel, so the light is added here.
+	var light := ColorRect.new()
+	light.color = KameraSpiel.LIGHT
+	light.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	mg.root.add_child(light)
+	mg.root.move_child(light, 0)
+	light.set_anchors_and_offsets_preset(Control.PRESET_FULL_RECT)
+	_cover(mg, [pid])
 
 
 func _snap_with_mouth() -> void:

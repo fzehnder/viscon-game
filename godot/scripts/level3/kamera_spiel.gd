@@ -81,6 +81,8 @@ const DIR_VECS := [Vector2(0, -1), Vector2(0, 1), Vector2(-1, 0), Vector2(1, 0)]
 
 var kind := ""
 var pid := -1                    # the player ("badge"), -1 = both ("tanz")
+var screen_side := -1            # for one player: the half it is on (0 left, 1 right). Set by the level before it
+                                 # opens; main turns the split so that this half is the player's (main._pick_force_flip)
 var mistakes := 0
 var keys: Dictionary = {}        # of P1, or of the one player
 var keys2: Dictionary = {}       # of P2 ("tanz")
@@ -244,7 +246,7 @@ func _place() -> void:
 	var half := vs.x / 2.0
 	var k := clampf((half - 24.0) / 700.0, 0.5, 1.0)
 	scale = Vector2(k, k)
-	offset = Vector2(pid * half, 0.0)
+	offset = Vector2((screen_side if screen_side >= 0 else pid) * half, 0.0)
 	root.position = Vector2.ZERO
 	root.size = Vector2(half, vs.y) / k
 

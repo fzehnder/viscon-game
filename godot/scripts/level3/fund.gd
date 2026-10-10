@@ -74,7 +74,7 @@ func _ready() -> void:
 	head.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
 	v.add_child(head)
 	# what they say about it, one after the other in the same card
-	card = UI.panel(UI.NAVY, GOLD, 18, 12)
+	card = UI.panel(UI.PAPER, UI.ETH_BLUE, 14, 12)
 	card.mouse_filter = Control.MOUSE_FILTER_IGNORE
 	card.modulate.a = 0.0
 	v.add_child(card)
@@ -90,9 +90,9 @@ func _ready() -> void:
 	var tv := VBoxContainer.new()
 	tv.add_theme_constant_override("separation", 2)
 	h.add_child(tv)
-	name_l = UI.label("", 16, GOLD, 4)
+	name_l = UI.label("", 16, UI.INK)
 	tv.add_child(name_l)
-	text_l = UI.label("", 17, UI.WHITE, 0, true)
+	text_l = UI.label("", 17, UI.INK, 0, true)
 	text_l.custom_minimum_size = Vector2(330, 70)
 	tv.add_child(text_l)
 	_place()
@@ -114,8 +114,8 @@ func _process(delta: float) -> void:
 		portrait.col = col
 		portrait.queue_redraw()
 		name_l.text = Game.name_of(who)
-		name_l.label_settings.font_color = col
-		card.add_theme_stylebox_override("panel", UI.box(UI.NAVY, col, 18, 4, 12))
+		name_l.label_settings.font_color = col.darkened(0.18)
+		card.add_theme_stylebox_override("panel", UI.box(UI.PAPER, col, 14, 3, 12))
 		text_l.text = String(LINES[line][1])
 		text_l.visible_characters = 0
 		shown = 0.0
