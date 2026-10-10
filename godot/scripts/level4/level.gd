@@ -7,13 +7,15 @@ extends Node2D
 ## and in the pavilion behind it the store room with safety cabinet and gas cylinders.
 ## Prof. Dr. Siedler walks his rounds, other students work.
 ##
-## Challenge 1, pipetting: each player pipettes at one of the two free places (yellow mat).
-##   The real experiment is built later and plugs into start_pipette() (see there); for now a
-##   timing minigame stands in for it.
+## Challenge 1, pipetting, for two and with the camera (pipette_game.gd): one player presses the
+##   pipette (thumb and index finger pinched just the right amount), the other one holds the glass
+##   (a flat hand held level and without shaking). Done when both are right at the same time
+##   until the glass is full. Without a camera the same game is played with keys.
 ## Challenge 2, the Testat: once both have pipetted, each player sits down at one of the two desks
 ##   in front of the professor and answers easy chemistry questions, series A at the left desk and
-##   series B at the right one. One wrong answer is allowed. Whoever fails makes the professor boil
-##   over (prof_rage.gd), and both start the level again.
+##   series B at the right one. The questions are meant to be passed by anybody, and one wrong
+##   answer is allowed. Whoever still fails makes the professor boil over (prof_rage.gd), and both
+##   start the level again.
 ##
 ## All positions are in tiles (1 tile = 32 px) unless a name ends in _px.
 
@@ -27,6 +29,7 @@ const Person = preload("lab_person.gd")
 const Quiz = preload("chem_quiz.gd")
 const Rage = preload("prof_rage.gd")
 const LabSfx = preload("lab_sfx.gd")
+const PipetteGame = preload("pipette_game.gd")
 
 const DEF := {
 	"name": "Chemiepraktikum",
@@ -36,14 +39,14 @@ const DEF := {
 	"start": Vector2(69.9, 63.2),   # just inside the lab door
 	"timer_title": "PRAKTIKUM ENDET IN",
 	"intro": "Praktikum Allgemeine Chemie bei Prof. Dr. Siedler. Er gilt als ruhig, solange niemand einen Fehler macht. Beide müssen alles erledigen:",
-	"hint": "Im Testat ist genau ein Fehler erlaubt. Fällt jemand durch, kocht der Professor über, und ihr fangt beide von vorne an.",
-	"start_toast": ["Willkommen im Labor", "Geht an die zwei freien Plätze mit der gelben Matte und pipettiert. Und: Im Labor wird nicht gerannt."],
+	"hint": "Pipettiert wird zu zweit vor der Kamera: Eine Person drückt die Pipette, die andere hält das Glas ruhig. Im Testat ist ein Fehler erlaubt; fällt jemand durch, kocht der Professor über, und ihr fangt beide von vorne an.",
+	"start_toast": ["Willkommen im Labor", "Geht zusammen an einen freien Platz mit gelber Matte. Wer dort drückt, nimmt die Pipette, die andere Person hält das Glas. Und: Im Labor wird nicht gerannt."],
 	"win_title": "Testat bestanden",
 	"win_text": "%s & %s haben pipettiert, ohne etwas zu sprengen, und das Testat bestanden. Prof. Dr. Siedler bleibt unter 100 °C.",
 	"lose_title": "Praktikum vorbei",
 	"lose_text": "Die Laborzeit ist um, und das Testat ist nicht bestanden. Prof. Dr. Siedler notiert etwas. Mit Rotstift.",
 	"tasks": [
-		{"id": "pipette", "name": "Pipettieren", "where": "an den zwei freien Laborplätzen", "type": "level"},
+		{"id": "pipette", "name": "Pipettieren", "where": "zu zweit an einem freien Laborplatz, vor der Kamera", "type": "level"},
 		{"id": "testat", "name": "Testat bestehen", "where": "vorne beim Professor, Serie A und B", "type": "level"},
 	],
 }
@@ -51,6 +54,7 @@ const DEF := {
 # ---- tuning
 const Q_COUNT := 4            # questions per player, drawn from the series of the desk
 const Q_ALLOWED := 1          # wrong answers that are still a pass
+const PARTNER_DIST := 2.6     # tiles: pipetting needs the second player this close, to hold the glass
 const RUN_SCOLD := 5.0        # seconds between two scoldings for running in the lab
 const PROF_SPEED := 44.0      # px per second on his rounds
 const PROF_PAUSE := Vector2(1.4, 3.0)
@@ -58,23 +62,25 @@ const PROF_NAME := "Prof. Dr. Siedler"
 
 # ---- questions: [question, [answers], index of the correct answer]. The answers are shuffled.
 const SET_NAMES := ["A", "B"]
-const SET_A := [   # substances and formulas
-	["Welche Formel hat Wasser?", ["H2O", "CO2", "NaCl"], 0],
-	["Welchen pH-Wert hat reines Wasser bei 25 °C?", ["7", "1", "14"], 0],
-	["Was ist NaCl im Alltag?", ["Kochsalz", "Zucker", "Backpulver"], 0],
-	["Welches Element hat das Symbol O?", ["Sauerstoff", "Gold", "Osmium"], 0],
-	["Wofür steht das Symbol Fe?", ["Eisen", "Fluor", "Blei"], 0],
-	["Welches ist das leichteste Element?", ["Wasserstoff", "Helium", "Blei"], 0],
-	["Wie viele Protonen hat ein Wasserstoffatom?", ["1", "2", "8"], 0],
+const SET_A := [   # things everybody knows from the kitchen
+	["Was ist H2O?", ["Wasser", "Orangensaft", "Benzin"], 0],
+	["Was passiert mit Wasser bei 0 °C?", ["Es gefriert zu Eis", "Es fängt an zu brennen", "Es wird zu Gold"], 0],
+	["Was passiert mit Wasser bei 100 °C?", ["Es kocht", "Es gefriert", "Es wird zu Schokolade"], 0],
+	["Woraus besteht ein Eiswürfel?", ["Aus gefrorenem Wasser", "Aus Glas", "Aus Zucker"], 0],
+	["Welches Gas brauchen wir zum Atmen?", ["Sauerstoff", "Helium", "Lachgas"], 0],
+	["Was steigt aus kochendem Wasser auf?", ["Wasserdampf", "Rauchzeichen", "Sternenstaub"], 0],
+	["Was streut man aufs Frühstücksei?", ["Salz", "Sand", "Zement"], 0],
+	["Wie sieht reines Wasser im Glas aus?", ["Durchsichtig", "Pink", "Schwarz"], 0],
 ]
-const SET_B := [   # lab work and reactions
-	["Was entsteht, wenn eine Säure mit einer Base reagiert?", ["Salz und Wasser", "Gold", "Noch mehr Säure"], 0],
-	["Welche Farbe hat Lackmus in einer Säure?", ["Rot", "Blau", "Grün"], 0],
-	["«Erst das Wasser, dann die Säure, ...»", ["«... sonst geschieht das Ungeheure.»", "«... sonst wird der Kaffee kalt.»", "«... dann ist Feierabend.»"], 0],
-	["Womit misst man 10.0 mL am genauesten ab?", ["Mit einer Vollpipette", "Mit einer Kaffeetasse", "Nach Augenmass"], 0],
-	["Was trägt man im Labor immer?", ["Schutzbrille und Labormantel", "Flip-Flops", "Kopfhörer und Sonnenbrille"], 0],
-	["Bei welcher Temperatur siedet Wasser auf Meereshöhe?", ["100 °C", "0 °C", "37 °C"], 0],
-	["Was macht ein Katalysator?", ["Er beschleunigt eine Reaktion", "Er färbt alles blau", "Er frisst die Edukte auf"], 0],
+const SET_B := [   # staying alive in the lab
+	["Was trägt man im Labor vor den Augen?", ["Eine Schutzbrille", "Eine Schlafmaske", "Eine Taucherbrille"], 0],
+	["Darf man im Labor Chemikalien trinken?", ["Nein, niemals", "Ja, wenn sie blau sind", "Nur zum Znüni"], 0],
+	["Was trägt man im Labor über den Kleidern?", ["Einen Labormantel", "Einen Bademantel", "Ein Superheldencape"], 0],
+	["Was tut man, wenn es im Labor brennt?", ["Alarm schlagen und rausgehen", "Marshmallows holen", "Ein Selfie machen"], 0],
+	["Darf man im Labor rennen?", ["Nein", "Ja, immer", "Nur rückwärts"], 0],
+	["Womit misst man die Temperatur?", ["Mit einem Thermometer", "Mit einem Lineal", "Mit einer Waage"], 0],
+	["Womit misst man 10.0 mL ab?", ["Mit einer Pipette", "Mit einer Gabel", "Mit dem Hut des Professors"], 0],
+	["Was macht man nach dem Experiment mit den Händen?", ["Waschen", "Ablecken", "In die Hosentasche stecken"], 0],
 ]
 const SETS := [SET_A, SET_B]
 
@@ -134,8 +140,8 @@ var students: Array = []
 var benches: Array = []               # Rect2 in tiles, row by row
 var desk_props: Array = []
 # challenge 1
-var st_done: Array = [-1, -1]         # station -> player who pipetted there, -1 = still free
-var st_busy: Array = [-1, -1]         # station -> player who is pipetting there right now
+var st_done: Array = [-1, -1]         # station -> player who had the pipette there, -1 = not used
+var st_busy: Array = [-1, -1]         # station -> player who has the pipette there right now
 # challenge 2
 var phase := 1                        # 1 = pipetting, 2 = Testat
 var desk_who: Array = [-1, -1]        # desk -> player sitting there
@@ -215,6 +221,9 @@ func _ready() -> void:
 	rng.randomize()
 	sfx = LabSfx.new()
 	add_child(sfx)
+	# Wake the tracker now, so the camera is ready when the players reach the bench.
+	# It is let go again as soon as the pipetting is done (pipette_done).
+	Track.use(self, ["hand"], false)
 	benches = BENCHES.duplicate()
 	for k in DESKS.size():
 		var r: Rect2 = DESKS[k]
@@ -341,42 +350,66 @@ func _station_rect(k: int) -> Rect2:
 	return Rect2(float(STATION_X[k]) - 0.7, STATION_Y, 1.4, (BENCHES[k] as Rect2).size.y)
 
 
+## The player who presses at the bench takes the pipette, the other one has to stand next to
+## them and holds the glass.
 func _use_station(pid: int, k: int) -> void:
-	if st_busy[k] >= 0 and st_busy[k] != pid:
-		main.hud.toast("Besetzt", "%s ist hier gerade dran. Der andere Platz ist frei." % Game.name_of(st_busy[k]), 2.5)
+	var other := 1 - pid
+	if st_busy[k] >= 0 or main.busy(other):
+		main.hud.toast("Moment!", "%s ist gerade beschäftigt." % Game.name_of(other), 2.5)
 		return
-	var pl = main.players[pid]
-	pl.dir = PI / 2.0
-	pl.facing = ART.FRONT
+	if main.players[other].global_position.distance_to(main.players[pid].global_position) > PARTNER_DIST * TS:
+		main.hud.toast("Das geht nur zu zweit", "Du nimmst die Pipette, aber %s muss neben dir stehen und das Glas halten." % Game.name_of(other), 4.0)
+		return
+	for pl in main.players:
+		pl.dir = PI / 2.0
+		pl.facing = ART.FRONT
 	st_busy[k] = pid
 	start_pipette(pid, k)
 
 
-## CHALLENGE 1, PLACEHOLDER. The real experiment (pipetting the right amount into the glass) is
-## built later and replaces the body of this function. Whatever it does, it has to end with
-## exactly one of these calls:
-##   pipette_done(pid, k)     the right amount is in the glass
-##   pipette_failed(pid, k)   wrong amount or spilled: the professor boils over, the level restarts
-##   pipette_aborted(pid, k)  the player walked away, nothing happens
-## Until then a timing minigame stands in for it.
+## Challenge 1: the camera game for two (pipette_game.gd), opened like main.open_coop_minigame
+## opens a co-op minigame. `pid` has the pipette, the other player holds the glass.
+## It ends with exactly one of these:
+##   pipette_done(pid, k)     the glass is full, the task is done for both
+##   pipette_aborted(pid, k)  somebody left the game, nothing happens
+##   pipette_failed(pid, k)   not used by the camera game (nobody can fail it), kept as a hook:
+##                            the professor boils over and the level restarts
 func start_pipette(pid: int, k: int) -> void:
-	var on_ok := func(): pipette_done(pid, k)
-	var on_close := func(): pipette_aborted(pid, k)
-	main.open_minigame("timing", {"title": "Pipettieren: 10.0 mL", "hits": 3, "verb": "Tropfen", "speed": 270.0},
-		on_ok, pid, Callable(), on_close)
+	var mg = PipetteGame.new()
+	mg.pipetter = pid
+	mg.sfx = sfx
+	for j in 2:
+		main.minis[j] = mg
+		main.nears[j] = null
+		main.players[j].enabled = false
+	main.add_child(mg)
+	mg.open()
+	mg.finished.connect(func(ok: bool):
+		if main.minis[0] != mg and main.minis[1] != mg:
+			return
+		for j in 2:
+			if main.minis[j] == mg:
+				main.minis[j] = null
+		if main.state != "play":
+			return
+		for pl in main.players:
+			pl.enabled = true
+		if ok:
+			pipette_done(pid, k)
+		else:
+			pipette_aborted(pid, k)
+			main.hud.toast("Abgebrochen", "Ihr könnt es jederzeit nochmals versuchen.", 2.5))
 
 
 func pipette_done(pid: int, k: int) -> void:
 	st_busy[k] = -1
 	st_done[k] = pid
+	Track.release(self)   # the camera is not needed any more in this level
 	sfx.play("drip", -4.0)
-	main._task_done(pid, "pipette")
-	if main.done[0].has("pipette") and main.done[1].has("pipette"):
-		var tw := create_tween()   # let the celebration finish first
-		tw.tween_interval(2.0)
-		tw.tween_callback(_start_testat)
-	else:
-		main.hud.toast("10.0 mL, sauber", "Jetzt fehlt noch %s am anderen Platz. Danach kommt das Testat." % Game.name_of(1 - pid), 4.0)
+	main._coop_done("pipette")
+	var tw := create_tween()   # let the celebration finish first
+	tw.tween_interval(2.0)
+	tw.tween_callback(_start_testat)
 
 
 func pipette_failed(pid: int, k: int) -> void:
@@ -584,7 +617,7 @@ func update_near(pid: int) -> void:
 	if not main.done[pid].has("pipette"):
 		for k in STATION_X.size():
 			if st_done[k] < 0 and p.distance_to(_station_stand(k)) < 1.0:
-				main.nears[pid] = {"use": "level", "act": "pipette", "k": k, "label": "Pipettieren", "rect": _station_rect(k)}
+				main.nears[pid] = {"use": "level", "act": "pipette", "k": k, "label": "Pipettieren (zu zweit)", "rect": _station_rect(k)}
 				return
 	if not main.done[pid].has("testat"):
 		for k in DESKS.size():
@@ -898,17 +931,15 @@ func _draw_bench(i: int) -> void:
 				_beaker(Vector2(gx2, base_y), 10.0, 11.0, liquid, 0.55)
 
 
-## One of the two free places: stand with pipette, the glass under it, a mat in the owner's colour.
+## One of the two free places: stand with pipette, the glass under it, on a yellow mat (green when done).
 func _draw_station(k: int) -> void:
 	var x: float = float(STATION_X[k]) * TS
 	var by: float = STATION_Y * TS
 	var who: int = st_done[k]
 	var busy: bool = st_busy[k] >= 0
-	var mc := UI.YELLOW
+	var mc := UI.YELLOW   # yellow = both, like everywhere
 	if who >= 0:
-		mc = Color(KEYS.TAG_COLORS[who])
-	elif busy:
-		mc = Color(KEYS.TAG_COLORS[st_busy[k]])
+		mc = UI.GREEN
 	var mat := Rect2(x - 20.0, by + 13.5, 40.0, 20.5)
 	draw_rect(mat, Color(mc, 0.25))
 	draw_rect(mat, Color(mc, 0.95), false, 1.5)
