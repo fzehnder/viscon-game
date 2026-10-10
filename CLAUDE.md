@@ -38,7 +38,25 @@ Regeln:
 - Aufgaben mit `"spots"` (wie in Level 1) werden ohne eigene Logik zu Stationen mit Minigame.
 - Nach dem Sieg zeigt `main.gd` "Weiter zu Level N", solange es ein nächstes gibt.
 - `scripts/cutscene.gd`: Cutscenes aus Schritten (`say`, `phones`, `mail`, `title`), für alle Levels.
+- Opps: `"npcs"` und `"opp_spots"` in `DEF`, `Game.add_opp(...)` für eigene Auslöser, optionaler Hook `on_opp_catch(opp, pid) -> bool`. Siehe Abschnitt "Opp-System".
 - Ein lauffähiges Gerüst für ein neues Level steht in `godot/README.md` (getestet), die ausführliche Vorlage ist `scripts/level2/level.gd` auf `level2-mensa`.
+
+## Opp-System (gebaut, auf `level-base`)
+
+Vorgabe des Teams: Die meisten NPCs sind zuerst neutral, ein Ereignis macht sie zum Opp, der Status bleibt über Levels gespeichert. Level 1: zwei Studis am Lesetisch, Rucksack geklaut, Opp verfolgt dich. Level 2: Person in der Schlange, vor die man sich drängelt. Ab Level 3: Opps aus früheren Levels tauchen wieder auf, jagen direkt oder lauern.
+
+Umsetzung (an den vorhandenen Code angepasst: Skripte statt `Npc.tscn`, Sicht per Rechnung und Raycast statt `Area2D`, Spawns in `DEF` statt in einer Textdatei):
+- `scripts/opp.gd`: `CharacterBody2D` mit Zuständen `NEUTRAL, MISSTRAUISCH, JAGD, SUCHEN, ZURUECK, LAUERN` (`enum` und `match`). Gezeichnet wie alle Figuren, Opps tragen ein rotes Namensschild.
+- Sicht: Kegel (38 Grad halber Winkel, 5.5 Tiles), `world.sight_clear` / `sight_end` blocken an Wänden und hohen Möbeln (`TALL_KINDS` in `world.gd`, Kollisionslayer 64; ein Level markiert eigene Möbel mit `"tall": true`).
+- Verdachtsbalken `meter`: füllt sich in `_watch`, solange ein Gegner sichtbar ist, bei 1.0 beginnt die Jagd. Vor dem Losrennen 0.7 s Schrecksekunde (`START_DELAY`).
+- Lärm: `main.on_step` und Minigame-Fehler rufen `hear` auf. Neutrale reagieren nur mit `"hears": true`, Opps immer (sie gehen nachsehen).
+- `foes`: Ein Opp jagt nur die Spieler, die ihm etwas getan haben.
+- Erwischt (`main.opp_catch`): mit dessen Rucksack = Beute weg, Aufgabe wieder offen, Fehler; sonst `main.caught(opp)` = Level verloren. Level können das mit `on_opp_catch` übersteuern.
+- Rucksack: `"bag"` am NPC, Interaktion `"use": "bag"` in `main.gd`, Aufgabentyp `"bag"`, Accessoire `loot`. Gesehen = sofort Opp und Jagd, ungesehen = Timer `NOTICE` (6 bis 9 s), dann Suche in Richtung des Diebs.
+- Speicher: `Game.opps` (`id -> {name, look, level, by, why}`), `ConfigFile` unter `user://save.cfg`. `Game.begin_level()` löscht beim (Neu-)Start eines Levels alle Opps, die in diesem oder einem späteren Level entstanden sind; `Game.new_game()` löscht alle. `--nosave` hält alles nur im Speicher (für Tests).
+- Wiederkehr: `main._spawn_npcs` setzt Opps aus früheren Levels an die `opp_spots` des Levels (`"lauert"` oder `"jagd"`). Level 1 und 2 haben keine `opp_spots`; ab Level 3 muss das Level welche angeben.
+- Level 1: Deniz (`rucksack_a`) und Livia (`rucksack_b`) am Lesetisch in der Bibliothek, neue Aufgabe "Rucksack klauen". Die Ersti-Bag-Aufgabe gibt es weiterhin.
+- Level 2 (auf `level2-mensa`): siehe dessen README.
 
 ## Spielkonzept (Plan)
 
@@ -92,10 +110,11 @@ Auf `level-base`:
 - Dynamischer Split Screen (`main.gd`, `SPLIT_AT` / `MERGE_AT`), auch wenn jemand im Minigame ist
 - Schleichen / Gehen / Sprinten, Stamina (2 s Sprint, ca. 3 s Regeneration), Geräuschkreise pro Schritt (`player.gd`, `fx.gd`)
 - Story-Intro im Menü: Startseite, Hack der Bewerbungsseite, Namen, Legi-Foto, Charakter-Editor; Level-Auswahl «Direkt zu»
-- Level 1 "Ersti-Tag" (Tag, 7 min): Ersti-Bag klauen, Legi validieren, Moodle & Code Expert einrichten, Koop-High-Five, Note 1 bis 6
+- Level 1 "Ersti-Tag" (Tag, 7 min): Ersti-Bag klauen, Rucksack klauen, Legi validieren, Moodle & Code Expert einrichten, Koop-High-Five, Note 1 bis 6
 - Minigames (`minigame.gd`): Timing, Kabel, Sequenz, Quiz, Moodle, Setup, High Five
 - Karte ETH Zentrum mit Tag/Nacht, Kollision, A*-Wegfindung, HUD, Popups
 - Level-Gerüst, Cutscene-Abspieler, Übergang zum nächsten Level
+- Opp-System samt Rucksack-Diebstahl in Level 1 (siehe oben). Per Bot geprüft, von Menschen noch nicht gespielt
 
 Auf `level2-mensa`: Level 2 "Mensa-Stau" komplett spielbar (Schlange als Stau, Kassiererin, Menü, Tische, Basisprüfungs-Cutscene). Details, Stellschrauben und Offenes in `godot/scripts/level2/README.md`. Nur per Bot geprüft, noch nie von Menschen gespielt.
 
@@ -105,7 +124,7 @@ Altes Prototyp-Verhalten (Nacht), noch nicht nach Plan:
 
 Offen:
 - Nacht laut Plan: Guard-Sprint bei Alarm, Rauswurf statt Game Over, Teammate holt den Spieler zurück, verloren erst wenn beide draussen sind
-- Opp-System (Opp-Liste in `Game`, Spawnen pro Level); Deniz als benannter NPC existiert noch nicht, in Level 1 klaut man von beliebigen Erstis mit Bag
+- Opps: Kein Level hat bisher `opp_spots`, die Wiederkehr ist nur mit einem Testlevel geprüft. Offen ist auch, ob der Rucksack in Level 1 die Ersti-Bag ersetzen soll und ob "erwischt ohne Beute = Level verloren" am Tag zu hart ist
 - Level 3 komplett
 - Nichts davon ist auf `main` gemergt; der Pages-Deploy-Workflow baut weiterhin nur den Phaser-Platzhalter
 
@@ -119,6 +138,7 @@ Offen:
 | `cutscene.gd` | Cutscene-Abspieler |
 | `main.gd` | Spielablauf, Split Screen, Interaktion, Aufgaben, Sieg/Niederlage, Level-Hooks |
 | `player.gd`, `student.gd`, `professor.gd` | Spieler, Studierende/Erstis, Guards |
+| `opp.gd` | Leute, die zu Opps werden (Zustände, Kegel, Verdachtsbalken, Rucksack) |
 | `minigame.gd` | alle Minigames |
 | `map_data.gd`, `world.gd` | Kartendaten, Zeichnen, Kollision, Wegfindung |
 | `menu.gd`, `legi_card.gd` | Story-Intro, Charakter-Erstellung, Level-Auswahl |
@@ -133,12 +153,14 @@ So funktioniert die Engine-Seite des Spiels:
 - **Zeichenebenen:** `world.gd` zeichnet Karte und Möbel auf `z_index -10`, Figuren liegen in `main.actors` (nach y sortiert), `fx.gd` auf `z 5`, HUD ist ein `CanvasLayer` (10), Minigames 20, Cutscene 30. Ein Level-Node mit `z_index = -5` zeichnet Bodendeko über der Karte und unter den Figuren.
 - **Möbel, die Figuren verdecken sollen** (Tisch vor den Beinen), müssen eigene kleine Nodes in `main.actors` sein, positioniert an ihrer Vorderkante. Alles, was `world.gd` zeichnet, liegt immer unter den Figuren.
 - **Möbel pro Level:** `md.R(kind, x, y, w, h, extra)` in `build_map`. `world.gd` zeichnet nur Arten, die es kennt (`_draw_obj`); unbekannte Arten bekommen trotzdem Kollision und A*-Sperre und werden vom Level selbst gezeichnet. So muss `world.gd` nicht angefasst werden.
-- **Kollisionslayer:** 1 Wände und Türen, 2 Möbel, 4 Spieler, 8 Professoren, 16 Studierende, 32 Mensa-Schlange. Spieler haben Maske 1|2, laufen also durch NPCs hindurch. Sollen NPCs im Weg stehen, gibt das Level ihnen einen eigenen Layer und setzt ihn in `_ready` in die Maske der Spieler. NPCs, die man direkt per `global_position` bewegt (ohne `move_and_slide`), sind trotzdem feste Hindernisse.
+- **Kollisionslayer:** 1 Wände und Türen, 2 Möbel, 4 Spieler, 8 Professoren, 16 Studierende, 32 Mensa-Schlange, 64 hohe Möbel (nur für die Sicht der Opps, zusätzlich zu 2). Spieler haben Maske 1|2, laufen also durch NPCs hindurch. Sollen NPCs im Weg stehen, gibt das Level ihnen einen eigenen Layer und setzt ihn in `_ready` in die Maske der Spieler. NPCs, die man direkt per `global_position` bewegt (ohne `move_and_slide`), sind trotzdem feste Hindernisse.
 - **Figur in einem Kollisionsrechteck** (Sitzplatz hinter dem Tisch) wird von `move_and_slide` herausgedrückt, auch im Stand. Solange sie sitzt: `collision_layer` und `collision_mask` auf 0, danach zurücksetzen.
 - **`main.state`:** `intro`, `play`, `cutscene`, `caught`, `won`, `lost`. Die Zeit läuft nur in `play`. Studierende und `fx` stehen ausserhalb von `play` still bzw. sind unsichtbar; wer in einer Cutscene weiterlaufen soll, muss `cutscene` selbst zulassen.
 - **Spieler sperren:** `pl.enabled = false`. Achtung: `main.open_minigame` setzt beim Schliessen `enabled = true`. Reihenfolge der Callbacks dort: `on_close`, dann `enabled = true`, dann `on_success`.
 - **Wegfindung:** `main.world.find_path(von_px, nach_px)` liefert Tile-Mittelpunkte ohne exakten Endpunkt, den selbst anhängen. Mit `astar.set_point_weight_scale(tile, 6.0)` hält man Läufer von Bereichen fern, ohne sie zu sperren.
 - **HUD ausblenden:** `main.hud.visible = false`. Kamera für Cutscenes: `main.cams[0].zoom` tweenen.
+- **Aufgabe wieder öffnen:** `main.done[pid].erase(id)`; das HUD zieht den Chip von selbst zurück.
+- **Spielstand:** Alles, was `Game.save_game()` schreibt, landet im echten `user://`-Ordner des Rechners. Tests mit `--nosave` starten oder `Game.save_path` auf eine Testdatei umbiegen und diese am Ende löschen.
 
 GDScript-Fallen, in die ich getreten bin oder die ich umgangen habe:
 - `levels.gd` darf den Autoload `Game` nicht benutzen (`game_state.gd` lädt `levels.gd` per `preload`, das wäre ein Zirkel). Deshalb die statische Variable `LV.current`.
@@ -159,7 +181,8 @@ Damit ein Level zum Rest passt:
 Leveldesign:
 - Das Zeitfenster, um das sich ein Level dreht, sichtbar machen (ablaufender Ring, Markierung am Boden), sonst wirkt Erwischtwerden willkürlich.
 - Den "ehrlichen" Weg nachrechnen: In Level 2 muss Anstehen länger dauern als das Zeitlimit, sonst drängelt niemand.
-- Lösbarkeit garantieren statt hoffen (Gäste lassen immer zwei Plätze an einem Tisch frei).
+- Lösbarkeit garantieren statt hoffen (Gäste lassen immer zwei Plätze an einem Tisch frei; ein lauernder Opp lässt sich durch Lärm vom Rucksack weglocken).
+- Wer direkt neben einem NPC etwas tut und gesehen wird, wäre ohne Schrecksekunde sofort gefangen. Verfolger brauchen eine kurze Verzögerung, sonst gibt es keine Flucht.
 - Alle Stellschrauben als Konstanten oben in `level.gd` und in der Level-README erklären; das Team stellt sie im Spieltest ein.
 
 ## Prüfen ohne Editor
@@ -171,7 +194,8 @@ godot --headless --path godot --fixed-fps 60 --quit-after 600 res://main.tscn --
 ```
 
 - Für echte Abläufe eine temporäre Szene ins Projekt legen (`zz_test.tscn` plus Skript), die `main.tscn` instanziert, `main.start_game()` aufruft und spielt: Tasten über `Input.action_press("p1_left")`, Interaktion über `main._interact(pid)`, Timing-Minigame über `main.minis[pid]._timing_press()`, wenn `pos` in `zone` liegt, Abkürzungen per Teleport. Am Ende `RESULT` ausgeben und `get_tree().quit(code)`. `--fixed-fps 60` lässt das schneller als Echtzeit laufen. Tweens (zum Beispiel das Hinausschieben aus der Schlange) überschreiben einen Teleport kurz, also danach eine Sekunde warten.
-- Mit so einem Bot wurden geprüft: Level 1 gewinnen, "Weiter", Level 2 bis zum Siegbildschirm; Lücken in den Level-Nummern; ein Minimal-Level ohne Hooks; das Gerüst aus der README.
+- Mit so einem Bot wurden geprüft: Level 1 gewinnen, "Weiter", Level 2 bis zum Siegbildschirm; Lücken in den Level-Nummern; ein Minimal-Level ohne Hooks; das Gerüst aus der README; das Opp-System (ungesehen klauen, gesehen werden, Jagd, Beute verlieren, Balken, weglocken, speichern und laden, Wiederkehr in einem Testlevel 3).
+- Fehler in Teleport-Tests sind oft Fehler des Tests: Abstände genau nachrechnen (eine Interaktion mit "kleiner als 1.1" greift bei genau 1.1 nicht), und Zähler gehen bei `reload_current_scene` verloren, weil die Testszene neu entsteht.
 - Screenshots brauchen ein echtes Fenster (headless rendert nicht): ohne `--headless`, mit `--audio-driver Dummy --disable-vsync` und einer temporären `override.cfg` mit `display/window/size/no_focus=true`; speichern mit `get_viewport().get_texture().get_image().save_png(...)`.
 - Temporäre Testdateien (`zz_*`, `override.cfg`, deren `.uid`) vor dem Commit wieder löschen.
 - Der Bot beweist, dass der Ablauf funktioniert, nicht dass er Spass macht oder die Schwierigkeit stimmt.

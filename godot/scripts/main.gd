@@ -16,6 +16,7 @@ const WorldScript = preload("res://scripts/world.gd")
 const PlayerScript = preload("res://scripts/player.gd")
 const ProfScript = preload("res://scripts/professor.gd")
 const StudentScript = preload("res://scripts/student.gd")
+const OppScript = preload("res://scripts/opp.gd")
 const HudScript = preload("res://scripts/hud.gd")
 const FxScript = preload("res://scripts/fx.gd")
 const MiniScript = preload("res://scripts/minigame.gd")
@@ -44,6 +45,7 @@ var players: Array = []
 var player: CharacterBody2D   # = players[0], kept for code that only knows one player
 var profs: Array = []
 var students: Array = []
+var opps: Array = []          # NPCs that can be or become Opps (opp.gd)
 var hud: CanvasLayer
 var fx: Node2D
 var minis: Array = [null, null]       # open minigame per player (same object twice for co-op games)
@@ -89,6 +91,7 @@ func _ready() -> void:
 	randomize()
 	_setup_input()
 	KEYS.setup()
+	Game.begin_level()
 	dept = Game.dept
 	mode = Game.mode
 	night = mode == "night"
@@ -133,6 +136,7 @@ func _ready() -> void:
 		_spawn_students()
 		if lv.has("crowd"):
 			_spawn_crowd(lv)
+	_spawn_npcs()
 	logic = LV.new_logic()
 	if logic != null:
 		logic.main = self
@@ -201,6 +205,33 @@ func _spawn_students() -> void:
 			var st = _new_student(rng, pos, z)
 			actors.add_child(st)
 			students.append(st)
+
+
+## People from the level definition ("npcs") and Opps from earlier levels ("opp_spots"), see opp.gd.
+func _spawn_npcs() -> void:
+	var placed: Array = []
+	for d in lv.get("npcs", []):
+		_add_opp(d)
+		placed.append(String(d.get("id", "")))
+	# whoever became an Opp in an earlier level comes back at the spots this level offers
+	var spots: Array = lv.get("opp_spots", [])
+	var k := 0
+	for id in Game.opps_before(Game.level):
+		if k >= spots.size():
+			break
+		if placed.has(id):
+			continue
+		var sp: Dictionary = spots[k]
+		k += 1
+		_add_opp({"id": id, "pos": sp["pos"], "face": sp.get("face", PI / 2.0), "if_opp": sp.get("mode", "lauert")})
+
+
+func _add_opp(d: Dictionary):
+	var op = OppScript.new()
+	op.setup(d, self)
+	actors.add_child(op)
+	opps.append(op)
+	return op
 
 
 ## The Ersti welcome crowd around the players. Some of them carry an Ersti bag.
@@ -455,6 +486,9 @@ func on_step(pl, radius: float) -> void:
 	fx.sound(pl.global_position, radius, col, 0.8 if pl.gait == "sprint" else 0.6)
 	if not night and pl.gait != "sneak":
 		_alert_erstis(pl.global_position, radius)
+	if pl.gait != "sneak":
+		for op in opps:
+			op.hear(pl.global_position, radius)
 	if logic != null and logic.has_method("on_noise"):
 		logic.on_noise(pl.global_position, radius)
 
@@ -501,6 +535,14 @@ func _update_near(i: int) -> void:
 		if dd < best:
 			best = dd
 			nears[i] = o
+	for op in opps:
+		if op.bag_state != "there":
+			continue
+		var db: float = p.distance_to(op.bag_pos / TS)
+		if db < best and db < 1.1:
+			best = db
+			nears[i] = {"use": "bag", "opp": op, "label": "Rucksack klauen",
+				"rect": Rect2(op.bag_pos / TS - Vector2(0.35, 0.6), Vector2(0.7, 0.75))}
 	if night:
 		return
 	if not done[i].has("ersti") and not LV.task("ersti").is_empty():
@@ -576,6 +618,8 @@ func _interact(i: int) -> void:
 			_highfive(i)
 		"level":
 			logic.interact(i, o)
+		"bag":
+			_steal_bag(i, o["opp"])
 
 
 func _lab_door(i: int) -> void:
@@ -679,6 +723,69 @@ func _highfive(i: int) -> void:
 	var tk: Dictionary = LV.task("highfive")
 	var on_ok := func(): _coop_done("highfive")
 	open_coop_minigame(String(tk["game"]), tk["params"], on_ok)
+
+
+# ------------------------------------------------------------------ opps
+func _bag_task() -> String:
+	for tk in LV.tasks():
+		if String(tk.get("type", "")) == "bag":
+			return tk["id"]
+	return ""
+
+
+func _steal_bag(i: int, op) -> void:
+	var pl = players[i]
+	if (pl.look.get("acc", []) as Array).has("loot"):
+		hud.toast("Hände voll", "Du trägst schon einen Rucksack.", 2.5)
+		return
+	ART.set_acc(pl.look, "loot", true)
+	pl.look["loot_col"] = op.bag_col.to_html(false)
+	pl.queue_redraw()
+	UI.sfx("steal")
+	var id := _bag_task()
+	if id != "":
+		_task_done(i, id)
+	op.bag_taken(i)   # the owner reacts at once if they saw it, otherwise a little later
+
+
+## Somebody turned into an Opp just now (called by opp.gd, or by a level for its own people).
+func on_new_opp(op, seen: bool) -> void:
+	if state != "play":
+		return
+	UI.sfx("doom", -9.0)
+	fx.sound(op.global_position, 3.0 * TS, Color(1.0, 0.4, 0.4, 0.7), 0.8)
+	if seen:
+		hud.toast("Neuer Opp: %s" % op.pname, "%s hat dich gesehen und ist jetzt hinter dir her. Lauf!" % op.pname, 4.0)
+	else:
+		hud.toast("Neuer Opp: %s" % op.pname, "%s hat es bemerkt und sucht dich. Bleib ausser Sicht." % op.pname, 4.0)
+
+
+## An Opp touched a player. With their backpack on you: you lose it. Otherwise the level is over.
+func opp_catch(op, pl) -> void:
+	if state != "play":
+		return
+	var pid := players.find(pl)
+	if logic != null and logic.has_method("on_opp_catch") and logic.on_opp_catch(op, pid):
+		return
+	if op.bag_state == "stolen" and op.bag_thief == pid:
+		mistakes_total += 1
+		ART.set_acc(pl.look, "loot", false)
+		pl.queue_redraw()
+		done[pid].erase(_bag_task())
+		op.take_back()
+		if minis[pid] != null:
+			_abort_mini(pid)
+		pl.enabled = false
+		var tw := create_tween()
+		tw.tween_interval(1.2)
+		tw.tween_callback(func():
+			if state == "play" and not busy(pid):
+				pl.enabled = true)
+		fx.sound(pl.global_position, 3.0 * TS, Color(1.0, 0.4, 0.4, 0.7), 0.8)
+		UI.sfx("fail")
+		hud.toast("Erwischt!", "%s hat den Rucksack zurück und passt jetzt besser auf. Hol ihn dir nochmals, wenn niemand hinschaut." % op.pname, 4.5)
+		return
+	caught(op)
 
 
 func _left(pid: int) -> int:
@@ -844,6 +951,8 @@ func _on_mini_mistake(pid: int) -> void:
 		hud.toast("Zu laut!", "Das hat jemand gehört …", 1.8)
 	else:
 		_alert_erstis(at, 3.0 * TS)
+	for op in opps:
+		op.hear(at, 4.0 * TS)
 	if logic != null and logic.has_method("on_noise"):
 		logic.on_noise(at, 3.0 * TS)
 
@@ -931,6 +1040,10 @@ func goal_positions() -> Array:
 						out.append([st.global_position + Vector2(0, -30), c])
 			"coop":
 				pass
+			"bag":
+				for op in opps:
+					if op.bag_state == "there":
+						out.append([op.bag_pos, c])
 			"level":
 				if logic != null and logic.has_method("goal_positions"):
 					out.append_array(logic.goal_positions(id, n0, n1))
