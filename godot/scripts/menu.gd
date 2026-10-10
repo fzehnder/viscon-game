@@ -280,7 +280,7 @@ func _build_title() -> void:
 
 
 func _new_game() -> void:
-	Game.set_level(1)
+	Game.new_game()   # level 1, and nobody is an Opp yet
 	_go("hack")
 
 

@@ -30,8 +30,17 @@ const LEVEL1 := {
 	"bags": 9,                            # how many of them carry an Ersti bag
 	"gather": 7.0,                        # seconds the crowd stays together after the start
 	"intro": "Willkommen an der ETH! Ihr steht mitten in der Ersti-Menge auf der Polyterrasse. Beide müssen alles erledigen:",
+	# People who can turn into Opps (opp.gd). Two students at a reading table, each with a backpack:
+	# steal it unseen and they notice a little later, get seen and they are after you at once.
+	"npcs": [
+		{"id": "rucksack_a", "name": "Deniz", "pos": Vector2(75.73, 35.95), "face": -PI / 2.0, "mode": "sitzt",
+			"bag": Vector2(76.45, 36.1), "bag_col": "b5523a", "hears": true},
+		{"id": "rucksack_b", "name": "Livia", "pos": Vector2(77.63, 35.95), "face": -PI / 2.0, "mode": "sitzt",
+			"bag": Vector2(78.35, 36.1), "bag_col": "2f7f8f", "hears": true},
+	],
 	"tasks": [
 		{"id": "ersti", "name": "Ersti-Bag klauen", "where": "Erstis mit grüner Bag", "type": "steal"},
+		{"id": "rucksack", "name": "Rucksack klauen", "where": "Lesetisch in der Bibliothek", "type": "bag"},
 		{"id": "legi", "name": "Legi validieren", "where": "Terminals in der Haupthalle", "label": "Legi validieren",
 			"game": "timing", "params": {"title": "Legi validieren", "hits": 3, "verb": "Scan", "speed": 260.0},
 			"kind": "legi_terminal",
