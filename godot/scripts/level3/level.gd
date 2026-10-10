@@ -163,6 +163,8 @@ var panel = null
 var builder := -1                     # who is rebuilding the wristband right now
 var buffet_mg: Array = [null, null]   # the timing minigame at the buffet, while the mouth can snap
 var mouth_open: Array = [false, false]
+var covers: Array = [0, 0]            # how many opaque minigames lie over each half of the screen
+var view_mode: Array = [0, 0]         # how each view was drawn before it was covered
 var marks: Node2D
 
 
@@ -610,6 +612,7 @@ func _open_cam(kind: String, pid: int, on_ok: Callable, on_fallback: Callable = 
 		main.players[j].enabled = false
 	main.add_child(mg)
 	mg.open(kind)
+	_cover(mg, who)
 	# true if this minigame was still the open one and the level is still running
 	var release := func() -> bool:
 		var mine := false
@@ -631,6 +634,23 @@ func _open_cam(kind: String, pid: int, on_ok: Callable, on_fallback: Callable = 
 	mg.fallback.connect(func():
 		if release.call() and on_fallback.is_valid():
 			on_fallback.call())
+
+
+## The halves of the screen that an opaque minigame covers are not drawn while it is open.
+## Drawing the map takes most of a frame (measured on a MacBook: the game draws about 35 pictures
+## per second because of it). Without it, the camera picture and what is drawn on it run
+## smoothly; with it, they stutter along at the pace of the map.
+func _cover(mg: Node, sides: Array) -> void:
+	for sd in sides:
+		if covers[sd] == 0:
+			view_mode[sd] = main.vps[sd].render_target_update_mode
+			main.vps[sd].render_target_update_mode = SubViewport.UPDATE_DISABLED
+		covers[sd] += 1
+	mg.tree_exited.connect(func():
+		for sd in sides:
+			covers[sd] -= 1
+			if covers[sd] == 0 and is_instance_valid(main) and is_instance_valid(main.vps[sd]):
+				main.vps[sd].render_target_update_mode = view_mode[sd])
 
 
 ## The badge: with two fingers in front of the camera, or with the sequence minigame.
@@ -655,6 +675,7 @@ func _watch_mouth(pid: int) -> void:
 	var dim = mg.root.get_child(0)
 	if dim is ColorRect:
 		dim.color = KameraSpiel.LIGHT      # the buffet is brightly lit: the lamp for the camera
+		_cover(mg, [pid])
 
 
 func _snap_with_mouth() -> void:

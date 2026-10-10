@@ -1,7 +1,8 @@
 extends CanvasLayer
 ## Level 3: the two minigames that are played in front of the webcam (autoload Track).
-##   "tanz"   strike the dance pose that is shown, on the beat (body pose). Two people in the
-##            picture: both have to hit it. One person in the picture: that one dances for both.
+##   "tanz"   strike the dance pose that is shown, on the beat (body pose). Whoever puts the
+##            hands up at the start dances: one person for both players, or two, and then both
+##            have to hit. Everybody else in the picture is an onlooker and does not count.
 ##   "badge"  one player pulls the badge out of the coat with two fingers and a steady hand
 ## Same contract as minigame.gd, so that main.gd treats it like any minigame: the signals
 ## `finished(success, mistakes)` and `mistake`, the counter `mistakes`, and it sits in main.minis
@@ -15,6 +16,12 @@ extends CanvasLayer
 ## The camera of a laptop is close: sitting at the keyboard only head and shoulders are in the
 ## picture. So the dance starts with "hands up": whoever can strike that has moved back far
 ## enough for the arms to be seen, and all poses keep the arms up.
+##
+## What the camera recognises is restless: points tremble, people are lost for single frames,
+## and with several people around the laptop it reports now these, now those. Nothing of that
+## is shown or scored raw. Every body in the picture is followed from frame to frame by where it
+## is (class Followed), smoothed over time and kept for a moment when it is lost. Who dances is
+## decided once, by the hands-up, and which hand plays only changes for a good reason.
 
 signal finished(success: bool, mistakes: int)
 signal mistake
@@ -28,15 +35,23 @@ const Posen = preload("res://scripts/level3/posen.gd")
 # ---- tuning
 const CAM_WAIT := 5.0            # seconds without a result from the camera until the keys take over
 const CAM_PATIENCE := 3.0        # ... times this if the camera works but nobody is in the picture
-const LIGHT := Color(1.0, 0.98, 0.93, 0.95)   # the spotlight: how bright the screen gets
+const LIGHT := Color(1.0, 0.98, 0.93)   # the spotlight: the whole screen, nothing shines through
+# how calm the display is
+const SMOOTH := 0.08             # seconds over which recognised points are smoothed (smaller = quicker but shakier)
+const HOLD := 0.5                # seconds somebody the camera lost for a moment stays where they were
+const BAR_SMOOTH := 0.12         # seconds over which the percent bars follow
+const SHOW_VIS := 0.3            # body points the camera is less sure of than this are not drawn
 # tanz
 const POSE_OK := 50.0            # percent the arms have to match the pose (see _arms). Measured in front of a
                                  # laptop camera: a pose struck well gives 50 to 65, another pose under 40
+const OK_SLACK := 6.0            # a pose that sits keeps sitting until it falls this far under POSE_OK: somebody
+                                 # holding a pose wobbles by a few percent, and the bar must not flicker for that
 const READY_OK := 42.0           # percent for the "hands up" that starts the dance
 const ARM_TOLERANCE := 70.0      # degrees an upper arm or forearm may be off before it scores 0
 const READY_HOLD := 0.5          # seconds the hands have to stay up
-const PAIR_ON := 1.0             # seconds two people have to be in the picture before both have to dance (a passer-by does not count)
-const PAIR_MEMORY := 6.0         # seconds a second dancer who left the picture is still expected back (costs a beat), then the other one dances for both
+const JOIN := 1.5                # seconds after the first "hands up" in which a second dancer can still join
+const PAIR_MEMORY := 6.0         # seconds one of two dancers can be gone (costs a beat) before the other one dances for both
+const REACQUIRE := 3.0           # seconds the only dancer can be gone before whoever is closest to the camera takes over
 const BEAT := 3.4                # seconds per pose
 const BEAT_WINDOW := 1.4         # the last seconds of a beat, in which the pose has to sit
 const DANCE_HITS := 4            # poses that have to be hit to get across the floor
@@ -47,6 +62,14 @@ const PULL := 0.16               # how far the hand has to go up, in picture hei
 const JITTER_MAX := 12.0         # a hand shakier than this (TM.Jitter) ...
 const JITTER_TIME := 0.35        # ... for this long makes the coat rustle: mistake, start again
 const HAND_LOST := 0.8           # seconds without a hand in the picture until the badge slips back
+const HAND_REACH := 0.22         # a hand further away than this from the one that plays is another hand
+# who is who in the picture
+const SAME_PERSON := 0.13        # a body further away than this (in picture widths) from where one was is somebody else
+const REJOIN := 0.3              # ... and this far for somebody the camera had lost for a while: they may have moved on
+const SAME_BODY := 0.05          # two bodies closer together than this are one person the camera reports twice
+const KEEP_VIS := 0.3            # somebody who is followed stays followed down to this sureness of the shoulders
+                                 # (somebody new needs TM.POSE_MIN_VIS), so nobody at the edge flickers in and out
+const MAX_BODIES := 6
 
 const INK := Color("23264a")
 const SOFT := Color(0.14, 0.15, 0.29, 0.35)
@@ -82,14 +105,19 @@ var hits := 0
 var hit_now := false
 var pressed: Array = [false, false]
 var match_pc: Array = [0.0, 0.0]
-var dancers: Array = [{}, {}]    # the poses of P1 and P2 this frame ({} = not in the picture)
+var shown_pc: Array = [0.0, 0.0] # what the bars show and what counts: match_pc, following softly
+var sits: Array = [false, false] # the pose sits (bar green): over POSE_OK, and not yet OK_SLACK under it again
+var bodies: Array = []           # everybody the camera follows right now (Followed)
+var team: Array = []             # the dancers among them: one (dances for both) or two (P1 left, P2 right)
+var dancers: Array = [{}, {}]    # the poses of P1 and P2, smoothed ({} = not in the picture for a while)
 var solo := true                 # one person dances for both (false: two dancers, both have to hit)
-var pair_level := 0.0            # 0..1: rises while two people are in the picture, falls while there are fewer
-var ready_t := 0.0
+var join_t := 0.0                # running since the first one had the hands up
 # badge
 var holding := false
 var armed := true                # false after the coat rustled: open the fingers before grabbing again
-var hand: Dictionary = {}        # the hand that is playing ({} = none in the picture)
+var hand: Dictionary = {}        # the hand that is playing, as the camera sees it this frame ({} = none)
+var hand_show := Followed.new()  # the same hand, smoothed, for the display
+var hand_age := 99.0             # seconds since that hand was seen
 var palm := Vector2.ZERO
 var y0 := 0.0
 var progress := 0.0
@@ -97,6 +125,64 @@ var shaky_t := 0.0
 var shake := 0.0
 var lost_t := 0.0
 var jitter = null
+
+
+## Somebody (or a hand) the camera follows. The points are smoothed over time. When the camera
+## loses them for a moment they stay where they were, then fade out; somebody new fades in. So
+## nothing pops in and out, and what the camera sees for a single frame only is never shown.
+class Followed:
+	const FADE_IN := 0.2         # seconds until somebody new is fully drawn
+	var pts: Array = []          # like "pts" of a pose or hand from Track
+	var x := 0.5
+	var age := 99.0              # seconds since the camera last saw them
+	var shown := 0.0             # 0..1: rises while the camera sees them, falls towards the end of the hold
+	var mid := Vector2(0.5, 0.5) # bodies: middle between the shoulders as last seen (not smoothed), to tell who is who
+	var size := 0.0              # bodies: shoulder width in the picture (bigger = closer to the camera)
+	var ready_t := 0.0           # bodies: how long the hands have been up
+	var score := 0.0
+	var matched := false
+
+	func feed(seen: Dictionary, delta: float, smooth: float, hold: float) -> void:
+		if seen.is_empty():
+			age += delta
+			shown = minf(shown, clampf((hold - age) / (hold * 0.6), 0.0, 1.0))   # solid at first, gone when the hold is over
+			return
+		var src: Array = seen["pts"]
+		if pts.size() != src.size() or age > hold:
+			pts = src.duplicate(true)       # new, or back after a while: no gliding in from the old place
+			x = seen["x"]
+			shown = 0.0
+		else:
+			var k := 1.0 - exp(-(delta + age) / maxf(smooth, 0.001))
+			for i in src.size():
+				for c in (src[i] as Array).size():
+					pts[i][c] = lerpf(pts[i][c], src[i][c], k)
+			x = lerpf(x, seen["x"], k)
+		age = 0.0
+		shown = minf(1.0, shown + delta / FADE_IN)
+		if pts.size() == 33:
+			mid = Vector2((src[11][0] + src[12][0]) / 2.0, (src[11][1] + src[12][1]) / 2.0)
+			size = Vector2(pts[11][0] - pts[12][0], pts[11][1] - pts[12][1]).length()
+
+	func there(hold: float) -> bool:
+		return not pts.is_empty() and age <= hold
+
+	func pose(hold: float) -> Dictionary:
+		return {"x": x, "pts": pts} if there(hold) else {}
+
+	## How strongly to draw it, 0..1. Nothing at all for the first moment: a body the camera
+	## reports for one frame only (a coat on a chair, a poster) never shows up.
+	func alpha() -> float:
+		return smoothstep(0.3, 1.0, shown)
+
+	## Bodies: the middle between the shoulders, smoothed like the rest that is drawn.
+	func chest() -> Vector2:
+		return Vector2((pts[11][0] + pts[12][0]) / 2.0, (pts[11][1] + pts[12][1]) / 2.0)
+
+	func clear() -> void:
+		pts = []
+		age = 99.0
+		shown = 0.0
 
 
 func open(k: String) -> void:
@@ -128,7 +214,8 @@ func open(k: String) -> void:
 	canvas.draw.connect(_on_draw)
 	v.add_child(canvas)
 	info = UI.label("", 17, INK, 0, true)
-	info.custom_minimum_size = Vector2(canvas.custom_minimum_size.x, 48)
+	info.custom_minimum_size = Vector2(canvas.custom_minimum_size.x, 52)   # two lines: the layout does not jump when the text changes
+	info.vertical_alignment = VERTICAL_ALIGNMENT_TOP
 	v.add_child(info)
 	if kind == "tanz":
 		poses = Posen.alle()
@@ -237,32 +324,112 @@ func _win() -> void:
 
 
 # ------------------------------------------------------------------ tanz
-## Who is dancing. Two people who stay in the picture are P1 (left) and P2 (right), wherever
-## exactly they sit, and both have to hit the pose. Otherwise the person closest to the middle
-## dances for both: sitting at a laptop the second player is often half out of the picture, and
-## somebody walking past must not stop the dance.
-func _find_dancers(delta: float) -> int:
-	var list: Array = Track.poses if Track.alive else []
-	var n := list.size()
-	if n >= 2:
-		pair_level = minf(1.0, pair_level + delta / PAIR_ON)
-	else:
-		pair_level = maxf(0.0, pair_level - delta / PAIR_MEMORY)
-	if pair_level >= 1.0:
-		solo = false
-	elif pair_level <= 0.0:
-		solo = true
-	if n == 0:
-		dancers = [{}, {}]
-	elif not solo:
-		dancers = TM.pair(list)
-	else:
-		var mid: Dictionary = list[0]
+## Follows every body in the picture from frame to frame. The camera reports up to four people,
+## in no fixed order, not always the same ones and now and then one of them twice. A body stays
+## the same body as long as its shoulders are close to where they were. New people get a new
+## entry, people who are gone for longer than HOLD are dropped (dancers are kept, they may come
+## back, and are looked for in a wider circle the longer they are gone).
+func _follow_bodies(delta: float) -> void:
+	var seen: Array = []             # [entry, middle between the shoulders, how sure the camera is of the shoulders]
+	if Track.alive:
+		var list: Array = Track.poses.duplicate()
+		list.sort_custom(func(a, b): return TM.size_of(a) > TM.size_of(b))
 		for e in list:
-			if absf(e["x"] - 0.5) < absf(mid["x"] - 0.5):
-				mid = e
-		dancers = [mid, mid]
-	return mini(n, 2)
+			var q: Array = e["pts"]
+			var sure: float = minf(q[11][2], q[12][2])
+			if sure < KEEP_VIS:
+				continue
+			var m := Vector2((q[11][0] + q[12][0]) / 2.0, (q[11][1] + q[12][1]) / 2.0)
+			var twice := false
+			for o in seen:
+				if (o[1] as Vector2).distance_to(m) < SAME_BODY:
+					twice = true         # the same person again: the bigger one came first and stays
+					break
+			if not twice:
+				seen.append([e, m, sure])
+	var pairs: Array = []            # [distance, body, entry]: closest first
+	for bi in bodies.size():
+		var b: Followed = bodies[bi]
+		b.matched = false
+		var reach: float = lerpf(SAME_PERSON, REJOIN, clampf(b.age / HOLD, 0.0, 1.0))
+		for si in seen.size():
+			var d: float = b.mid.distance_to(seen[si][1])
+			if d < reach:
+				pairs.append([d, bi, si])
+	pairs.sort_custom(func(a, b): return a[0] < b[0])
+	var used := {}
+	for pr in pairs:
+		var b: Followed = bodies[pr[1]]
+		if b.matched or used.has(pr[2]):
+			continue
+		b.matched = true
+		used[pr[2]] = true
+		b.feed(seen[pr[2]][0], delta, SMOOTH, HOLD)
+	for b in bodies:
+		if not (b as Followed).matched:
+			(b as Followed).feed({}, delta, SMOOTH, HOLD)
+	for si in seen.size():
+		if not used.has(si) and seen[si][2] >= TM.POSE_MIN_VIS and bodies.size() < MAX_BODIES:
+			var nb := Followed.new()
+			nb.feed(seen[si][0], delta, SMOOTH, HOLD)
+			bodies.append(nb)
+	bodies = bodies.filter(func(b): return b.age <= HOLD or team.has(b))
+
+
+## Before the dance: whoever puts the hands up is in. That also shows that their arms are in the
+## picture. The first one opens a short window in which a second one can join; onlookers who
+## keep their hands down never count, however many of them stand around the laptop.
+func _ready_up(delta: float) -> void:
+	for b in bodies:
+		b.score = _arms(b.pose(HOLD), ready_pose)
+		b.ready_t = minf(READY_HOLD, b.ready_t + delta) if b.score >= READY_OK else maxf(0.0, b.ready_t - 2.0 * delta)
+		if b.ready_t >= READY_HOLD and not team.has(b) and team.size() < 2:
+			team.append(b)
+			UI.sfx("tick", -6.0)
+	team = team.filter(func(b): return b.age <= HOLD)
+	if team.is_empty():
+		join_t = 0.0
+		return
+	join_t += delta
+	if team.size() == 2 or join_t >= JOIN or bodies.size() == 1:
+		team.sort_custom(func(a, b): return a.mid.x < b.mid.x)
+		solo = team.size() == 1
+		state = "play"
+		beat_t = BEAT + 0.6
+		flash = 0.4
+		flash_ok = true
+		UI.sfx("pop", -6.0)
+
+
+## During the dance: the poses of the dancers. Returns how many of them are there.
+func _team_poses() -> int:
+	if team.size() == 2:
+		for b in team:
+			if b.age > PAIR_MEMORY:
+				team.erase(b)        # gone for good: the other one dances for both from now on
+				break
+	solo = team.size() < 2
+	if team.is_empty():
+		dancers = [{}, {}]
+		return 0
+	if solo:
+		if (team[0] as Followed).age > REACQUIRE:
+			# the dancer has left: whoever is closest to the camera goes on
+			var best: Followed = null
+			for b in bodies:
+				if b.age <= HOLD and (best == null or b.size > best.size):
+					best = b
+			if best != null:
+				team = [best]
+		var p: Dictionary = (team[0] as Followed).pose(HOLD)
+		dancers = [p, p]
+		return 0 if p.is_empty() else 1
+	var n := 0
+	for j in 2:
+		dancers[j] = (team[j] as Followed).pose(HOLD)
+		if not (dancers[j] as Dictionary).is_empty():
+			n += 1
+	return n
 
 
 ## How well somebody's arms match the target pose, 0..100. Per arm: upper arm and forearm are
@@ -297,32 +464,30 @@ func _arms(pose: Dictionary, target: Dictionary) -> float:
 func _tanz(delta: float) -> void:
 	var n := 0
 	if not use_keys:
-		n = _find_dancers(delta)
+		_follow_bodies(delta)
+		if state == "play":
+			n = _team_poses()
+			var target: Dictionary = poses[round_i % poses.size()]
+			for j in 2:
+				match_pc[j] = _arms(dancers[j], target)
+				# what is shown is what counts: the bar follows softly, and green means the pose sits
+				shown_pc[j] = lerpf(shown_pc[j], match_pc[j], 1.0 - exp(-delta / BAR_SMOOTH))
+				sits[j] = shown_pc[j] >= POSE_OK - (OK_SLACK if sits[j] else 0.0)
+		else:
+			n = bodies.size()
 		no_cam = 0.0 if n > 0 else no_cam + delta
-		var target: Dictionary = poses[round_i % poses.size()] if state == "play" else ready_pose
-		for j in 2:
-			match_pc[j] = _arms(dancers[j], target)
 		if no_cam > CAM_WAIT * (CAM_PATIENCE if Track.alive else 1.0):
 			_to_keys()
-	var both: float = minf(match_pc[0], match_pc[1])
 	if state == "warm":
 		if n > 0:
 			state = "ready"
 		return
 	if state == "ready":
-		# hands up: that starts the dance, and it shows that the arms are in the picture
-		# (the camera loses people for a frame now and then: that must not start the count again)
-		ready_t = ready_t + delta if (n > 0 and both >= READY_OK) else maxf(0.0, ready_t - 2.0 * delta)
-		if ready_t >= READY_HOLD:
-			state = "play"
-			beat_t = BEAT + 0.6
-			flash = 0.4
-			flash_ok = true
-			UI.sfx("pop", -6.0)
+		_ready_up(delta)
 		return
 	beat_t -= delta
 	if beat_t <= BEAT_WINDOW and not hit_now:
-		var ok: bool = (pressed[0] and pressed[1]) if use_keys else (n > 0 and both >= POSE_OK)
+		var ok: bool = (pressed[0] and pressed[1]) if use_keys else (n > 0 and sits[0] and sits[1])
 		if ok:
 			hit_now = true
 			hits += 1
@@ -340,28 +505,41 @@ func _tanz(delta: float) -> void:
 		beat_t = BEAT
 		hit_now = false
 		pressed = [false, false]
+		shown_pc = [0.0, 0.0]     # a new pose: the bars start again, the old pose does not count for it
+		sits = [false, false]
 
 
 # ------------------------------------------------------------------ badge
-## The hand that plays. Any hand in the picture will do (only one player steals at a time): the
-## one that is pinching hardest, and once it holds the badge, the one closest to where it was.
-func _find_hand() -> void:
-	hand = {}
-	if not Track.alive:
-		return
-	var best := INF
-	for h in Track.hands:
+## The hand that plays. Any hand in the picture will do (only one player steals at a time), but it
+## stays the same hand: the one that was playing a moment ago, as long as it is there. Another
+## hand only takes over when the first one is gone, or is open while the other one pinches.
+func _find_hand(delta: float) -> void:
+	var list: Array = Track.hands if Track.alive else []
+	var mine := {}
+	var other := {}                  # the hand that pinches hardest
+	for h in list:
 		var p := Vector2(h["palm"][0], h["palm"][1])
-		var score: float = p.distance_to(palm) if holding else float(h["pinch"])
-		if score < best:
-			best = score
-			hand = h
-	if not hand.is_empty():
+		if hand_age < HAND_LOST and p.distance_to(palm) < HAND_REACH:
+			if mine.is_empty() or p.distance_to(palm) < Vector2(mine["palm"][0], mine["palm"][1]).distance_to(palm):
+				mine = h
+		if other.is_empty() or float(h["pinch"]) < float(other["pinch"]):
+			other = h
+	if mine.is_empty() and not holding:
+		mine = other
+	elif not mine.is_empty() and not holding and other != mine and TM.pinch01(mine) > PINCH_DROP and TM.pinch01(other) < PINCH_GRAB:
+		mine = other
+		hand_show.clear()
+	hand = mine
+	if hand.is_empty():
+		hand_age += delta
+	else:
+		hand_age = 0.0
 		palm = Vector2(hand["palm"][0], hand["palm"][1])
+	hand_show.feed(hand, delta, SMOOTH, HOLD)
 
 
 func _badge(delta: float) -> void:
-	_find_hand()
+	_find_hand(delta)
 	var seen := not hand.is_empty()
 	no_cam = 0.0 if seen else no_cam + delta
 	if no_cam > CAM_WAIT * (CAM_PATIENCE if Track.alive else 1.0):
@@ -380,7 +558,7 @@ func _badge(delta: float) -> void:
 	lost_t = 0.0
 	var p := TM.pinch01(hand)
 	if not holding:
-		shake = 0.0
+		shake = lerpf(shake, 0.0, 1.0 - exp(-delta / BAR_SMOOTH))
 		if p > PINCH_DROP:
 			armed = true
 		if armed and p < PINCH_GRAB:
@@ -419,16 +597,9 @@ func _update_info() -> void:
 		elif state == "warm":
 			s = ("Niemand im Bild. Rückt vom Bildschirm weg, bis Kopf, Schultern und erhobene Arme zu sehen sind." if Track.alive else "Kamera startet …") + with_keys
 		elif state == "ready":
-			if solo:
-				s = "Wer in der Mitte sitzt, tanzt für beide. Rück so weit zurück, dass deine erhobenen Hände im Bild sind. Dann: Hände hoch! Sind zwei ganz im Bild, tanzen beide." + with_keys
-			else:
-				s = "Zwei im Bild: Ihr tanzt beide. Rückt so weit zurück, dass eure erhobenen Hände im Bild sind. Dann beide: Hände hoch!" + with_keys
+			s = "Wer tanzt, rückt so weit zurück, dass die erhobenen Hände im Bild sind, und dann: Hände hoch! Zu zweit beide gleichzeitig. Wer zuschaut, zählt nicht." + with_keys
 		else:
 			s = "Macht die Pose nach, solange der Balken grün ist. Getroffen: %d von %d." % [hits, DANCE_HITS]
-			if not solo:
-				for j in 2:
-					if (dancers[j] as Dictionary).is_empty():
-						s += "   %s ist nicht im Bild!" % Game.name_of(j)
 	else:
 		if state == "done":
 			s = "Der Badge ist draussen."
@@ -443,7 +614,8 @@ func _update_info() -> void:
 			s = "Zugedrückt lassen und die Hand langsam nach oben ziehen. Ruhige Hand, sonst raschelt der Mantel!"
 	if mistakes > 0 and state != "done":
 		s += "   Fehler: %d" % mistakes
-	info.text = s
+	if info.text != s:
+		info.text = s
 
 
 # ------------------------------------------------------------------ drawing
@@ -495,21 +667,24 @@ func _figure(pose: Dictionary, r: Rect2, col: Color, width: float) -> void:
 		canvas.draw_circle(b, width * 0.62, col)
 
 
-## What the camera recognises of somebody, drawn onto the camera picture in `view`.
-func _skeleton(pose: Dictionary, view: Rect2, col: Color) -> void:
+## What the camera recognises of somebody, drawn onto the camera picture in `view`. Parts the
+## camera is less sure of fade out instead of popping in and out.
+func _skeleton(pose: Dictionary, view: Rect2, col: Color, width: float = 5.0) -> void:
 	var pts: Array = pose["pts"]
-	for limb in [[11, 13], [13, 15], [12, 14], [14, 16], [11, 12]]:
-		var a: Array = pts[limb[0]]
-		var b: Array = pts[limb[1]]
-		if minf(a[2], b[2]) < TM.POSE_MIN_VIS:
+	var at := func(i: int) -> Vector2: return view.position + Vector2(pts[i][0], pts[i][1]) * view.size
+	var sure := func(v: float) -> float: return clampf(inverse_lerp(SHOW_VIS, TM.POSE_MIN_VIS + 0.2, v), 0.0, 1.0)
+	for limb in [[11, 12], [11, 13], [13, 15], [12, 14], [14, 16]]:
+		var s: float = sure.call(minf(pts[limb[0]][2], pts[limb[1]][2]))
+		if s <= 0.0:
 			continue
-		var pa := view.position + Vector2(a[0], a[1]) * view.size
-		var pb := view.position + Vector2(b[0], b[1]) * view.size
-		canvas.draw_line(pa, pb, Color(1, 1, 1, 0.9), 7.0)
-		canvas.draw_line(pa, pb, col, 4.0)
+		var pa: Vector2 = at.call(limb[0])
+		var pb: Vector2 = at.call(limb[1])
+		canvas.draw_line(pa, pb, Color(1, 1, 1, 0.9 * s * col.a), width + 3.0, true)
+		canvas.draw_line(pa, pb, Color(col, s * col.a), width, true)
 	for i in [11, 12, 13, 14, 15, 16]:
-		if pts[i][2] >= TM.POSE_MIN_VIS:
-			canvas.draw_circle(view.position + Vector2(pts[i][0], pts[i][1]) * view.size, 5.0, col)
+		var s: float = sure.call(pts[i][2])
+		if s > 0.0:
+			canvas.draw_circle(at.call(i), width + 1.0, Color(col, s * col.a))
 
 
 func _arrow(c: Vector2, d: int, size: float, col: Color) -> void:
@@ -528,9 +703,25 @@ func _on_draw() -> void:
 		_draw_badge()
 
 
+## One dancer's line under the camera picture: name, bar with the mark it has to reach, and a
+## word under it. The line keeps its shape whatever happens, and there is no number that runs.
+func _draw_score(x: float, w: float, who: String, col: Color, j: int, limit: float) -> void:
+	_txt(Vector2(x, 414), who, 18, col.darkened(0.15))
+	if use_keys:
+		var done: bool = pressed[j] or hit_now
+		_txt(Vector2(x, 446), "gedrückt" if done else "…", 24, UI.GREEN.darkened(0.25) if done else SOFT)
+		return
+	var ok: bool = sits[j] or hit_now
+	_bar(Rect2(x, 426, w, 18), shown_pc[j] / 100.0, UI.GREEN if ok else col)
+	canvas.draw_line(Vector2(x + w * limit / 100.0, 421), Vector2(x + w * limit / 100.0, 449), INK, 2.0)
+	if (dancers[j] as Dictionary).is_empty():
+		_txt(Vector2(x, 474), "nicht im Bild", 18, UI.RED)
+	elif ok:
+		_txt(Vector2(x, 474), "passt", 18, UI.GREEN.darkened(0.25))
+
+
 func _draw_tanz() -> void:
 	var playing := state == "play" or state == "done"
-	var limit := POSE_OK if playing else READY_OK
 	# left: the camera picture as a mirror with what is recognised, or the direction to press
 	var pic := Rect2(10, 10, 500, 375)
 	canvas.draw_rect(pic, Color(0.14, 0.15, 0.29, 0.1))
@@ -546,30 +737,38 @@ func _draw_tanz() -> void:
 			canvas.draw_texture_rect(Track.preview, view, false)
 		else:
 			_txt(pic.get_center(), "Kamera startet …" if not Track.alive else "kein Bild", 20, MUTED, true)
-		var drawn: Array = []
-		for j in 2:
-			var pose: Dictionary = dancers[j]
-			if pose.is_empty() or drawn.has(pose):
-				continue
-			drawn.append(pose)
-			_skeleton(pose, view, BOTH if solo else Color(String(KEYS.TAG_COLORS[j])))
-	canvas.draw_rect(pic, INK, false, 3.0)
-	# under it: how well each of the two matches
-	for j in 2:
-		var col := Color(String(KEYS.TAG_COLORS[j]))
-		var x := 10.0 + j * 256.0
-		var v: float = match_pc[j]
-		var there: bool = not (dancers[j] as Dictionary).is_empty()
-		_txt(Vector2(x, 414), Game.name_of(j), 18, col.darkened(0.15))
-		if use_keys:
-			var done: bool = pressed[j] or hit_now
-			_txt(Vector2(x, 446), "gedrückt" if done else "…", 24, UI.GREEN.darkened(0.25) if done else SOFT)
-		elif not there:
-			_txt(Vector2(x, 446), "nicht im Bild", 20, UI.RED if state != "warm" else MUTED)
+		if not playing:
+			# everybody the camera follows, thin; whoever puts the hands up turns to colour, with a ring that fills
+			for b in bodies:
+				var p: Dictionary = (b as Followed).pose(HOLD)
+				if p.is_empty():
+					continue
+				var up: float = 1.0 if team.has(b) else b.ready_t / READY_HOLD
+				var a: float = b.alpha()
+				_skeleton(p, view, Color(Color(1, 1, 1).lerp(BOTH, up), lerpf(0.75, 1.0, up) * a), lerpf(3.0, 5.0, up))
+				if up > 0.0:
+					var c: Vector2 = view.position + b.chest() * view.size + Vector2(0, 26)
+					canvas.draw_arc(c, 13.0, -PI / 2.0, -PI / 2.0 + TAU * up, 24, Color(UI.GREEN, a), 5.0, true)
 		else:
-			_bar(Rect2(x, 426, 244, 18), v / 100.0, UI.GREEN if v >= limit else col)
-			canvas.draw_line(Vector2(x + 244.0 * limit / 100.0, 421), Vector2(x + 244.0 * limit / 100.0, 449), INK, 2.0)
-			_txt(Vector2(x, 474), ("%d %%" % int(v)) + ("   (tanzt für beide)" if solo else ""), 18, UI.GREEN.darkened(0.25) if v >= limit else INK)
+			# only the dancers: one in gold for both, or two in the colours of the players
+			for j in team.size():
+				var d: Followed = team[j]
+				if d.there(HOLD):
+					_skeleton(d.pose(HOLD), view, Color(BOTH if solo else Color(String(KEYS.TAG_COLORS[j])), d.alpha()))
+	canvas.draw_rect(pic, INK, false, 3.0)
+	# under it: who is in, or how well the dancers match
+	if use_keys:
+		for j in 2:
+			_draw_score(10.0 + j * 256.0, 244.0, Game.name_of(j), Color(String(KEYS.TAG_COLORS[j])), j, POSE_OK)
+	elif not playing:
+		_txt(Vector2(10, 414), "Wer die Hände hebt, tanzt mit", 18, INK)
+		var who := "noch niemand" if team.is_empty() else ("eine Person, tanzt für beide" if team.size() == 1 else "zwei Personen")
+		_txt(Vector2(10, 446), "Dabei: %s" % who, 20, UI.GREEN.darkened(0.25) if not team.is_empty() else MUTED)
+	elif solo:
+		_draw_score(10.0, 500.0, "Eine Person tanzt für beide", BOTH, 0, POSE_OK)
+	else:
+		for j in 2:
+			_draw_score(10.0 + j * 256.0, 244.0, Game.name_of(j), Color(String(KEYS.TAG_COLORS[j])), j, POSE_OK)
 	# right: the pose to strike, and the beat
 	var box := Rect2(570, 10, 320, 300)
 	canvas.draw_rect(box, Color(1, 1, 1, 0.7))
@@ -579,7 +778,8 @@ func _draw_tanz() -> void:
 	elif not playing:
 		_figure(ready_pose, box, INK, 11.0)
 		_txt(Vector2(box.get_center().x, 342), "Zum Start: Hände hoch!", 24, INK, true)
-		_bar(Rect2(570, 356, 320, 18), ready_t / READY_HOLD, UI.GREEN)
+		if not team.is_empty():
+			_bar(Rect2(570, 356, 320, 18), join_t / JOIN, UI.GREEN)
 	else:
 		var target: Dictionary = poses[round_i % poses.size()]
 		_figure(target, box, INK, 11.0)
@@ -617,31 +817,36 @@ func _draw_badge() -> void:
 	canvas.draw_rect(Rect2(coat.position.x, slit, coat.size.x, coat.end.y - slit), loden.lightened(0.06))
 	canvas.draw_line(Vector2(80, slit), Vector2(250, slit), loden.darkened(0.4), 4.0)
 	_bar(Rect2(40, 360, 250, 12), progress, UI.GREEN)
-	# the hand: thumb and index finger as the camera sees them, moved into the picture of the coat
-	if not hand.is_empty():
-		var pts: Array = hand["pts"]
+	# the hand: thumb and index finger as the camera sees them (smoothed), on the picture of the coat
+	var mine := Color(String(KEYS.TAG_COLORS[pid])) if pid >= 0 else INK
+	var shown := hand_show.pose(HOLD)
+	var fade := hand_show.alpha()
+	var hc := Color(UI.GREEN, fade) if holding else Color(1, 1, 1, 0.9 * fade)
+	if not shown.is_empty():
+		var pts: Array = shown["pts"]
 		var to := func(q: Array) -> Vector2: return coat.position + Vector2(float(q[0]), float(q[1])) * coat.size
 		var a: Vector2 = to.call(pts[4])
 		var b: Vector2 = to.call(pts[8])
-		var hc := UI.GREEN if holding else Color(1, 1, 1, 0.9)
-		canvas.draw_line(a, b, hc, 3.0)
+		canvas.draw_line(a, b, hc, 3.0, true)
 		canvas.draw_circle(a, 9.0, hc)
 		canvas.draw_circle(b, 9.0, hc)
-		canvas.draw_arc(a, 9.0, 0.0, TAU, 20, INK, 2.0)
-		canvas.draw_arc(b, 9.0, 0.0, TAU, 20, INK, 2.0)
+		canvas.draw_arc(a, 9.0, 0.0, TAU, 20, Color(INK, fade), 2.0, true)
+		canvas.draw_arc(b, 9.0, 0.0, TAU, 20, Color(INK, fade), 2.0, true)
 		if holding:
-			canvas.draw_line((a + b) / 2.0, card.position + Vector2(card.size.x / 2.0, 0), Color("d9b24c"), 2.0)
+			canvas.draw_line((a + b) / 2.0, card.position + Vector2(card.size.x / 2.0, 0), Color(Color("d9b24c"), fade), 2.0, true)
 	# what the camera sees
-	var mine := Color(String(KEYS.TAG_COLORS[pid])) if pid >= 0 else INK
 	var pr := Rect2(330, 20, 290, 218)
 	canvas.draw_rect(pr, Color(0.14, 0.15, 0.29, 0.12))
 	var view := _fit(pr)
 	if Track.preview.get_width() > 0:
 		canvas.draw_texture_rect(Track.preview, view, false)
-		if not hand.is_empty():
-			var hp: Array = hand["pts"]
-			for i in [4, 8]:
-				canvas.draw_circle(view.position + Vector2(hp[i][0], hp[i][1]) * view.size, 5.0, UI.GREEN if holding else mine)
+		if not shown.is_empty():
+			var hp: Array = shown["pts"]
+			var pa := view.position + Vector2(hp[4][0], hp[4][1]) * view.size
+			var pb := view.position + Vector2(hp[8][0], hp[8][1]) * view.size
+			canvas.draw_line(pa, pb, Color(1, 1, 1, 0.9 * fade), 4.0, true)
+			canvas.draw_circle(pa, 6.0, Color(UI.GREEN if holding else mine, fade))
+			canvas.draw_circle(pb, 6.0, Color(UI.GREEN if holding else mine, fade))
 	canvas.draw_rect(pr, INK, false, 2.0)
 	_txt(Vector2(330, 270), "Ruhige Hand", 15, INK)
 	_bar(Rect2(330, 280, 290, 12), shake / JITTER_MAX, UI.RED if shake > JITTER_MAX else mine)
