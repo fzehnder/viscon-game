@@ -31,12 +31,15 @@ const UI = preload("res://scripts/ui.gd")
 const TS := 32.0
 const START := Vector2(12.5, 43.5)
 const STATION := Rect2(0, 41, 10.2, 5)
-const HG_ZONES := ["Hauptgebäude (HG)", "Haupthalle", "ETH-Bibliothek", "Lounge", "Seminarraum", "Labor · Robotik"]
+const HG_ZONES := ["Hauptgebäude (HG)", "Haupthalle", "Rotunde", "ETH-Bibliothek", "Lounge", "Seminarraum", "Labor · Robotik",
+	"E Nord", "E Süd", "Hörsaal E1", "Hörsaal E3", "Hörsaal E5", "Hörsaal E7"]
 const CAM_OFFSET := Vector2(0, -18)
 const ZOOM_MIN := 1.5
 const ZOOM_MAX := 3.6
-const SPLIT_AT := 0.7      # split when the players are further apart than this share of the screen
+const SPLIT_AT := 0.7      # split when the players are further apart than this share of the screen width
 const MERGE_AT := 0.45     # merge again when closer than this share
+const SPLIT_AT_Y := 0.42   # the same for the height: earlier, so that nobody ends up behind the
+const MERGE_AT_Y := 0.28   # timer (top centre) or the mini map (bottom centre)
 const SPLIT_TIME := 0.7    # seconds for the two views to drift apart or back together
 const CAM_FOLLOW := 9.0    # how quickly the cameras follow (higher = tighter)
 const STEAL_BEHIND := 1.9  # rad: you must be at least this far from where the Ersti is looking
@@ -358,9 +361,9 @@ func _update_cameras(delta: float = 0.0, snap: bool = false) -> void:
 	if _solo_minigame_open():
 		split = true
 	elif split:
-		if d.x < vs.x * MERGE_AT / zoom and d.y < vs.y * MERGE_AT / zoom:
+		if d.x < vs.x * MERGE_AT / zoom and d.y < vs.y * MERGE_AT_Y / zoom:
 			split = false
-	elif d.x > vs.x * SPLIT_AT / zoom or d.y > vs.y * SPLIT_AT / zoom:
+	elif d.x > vs.x * SPLIT_AT / zoom or d.y > vs.y * SPLIT_AT_Y / zoom:
 		split = true
 	var goal := 1.0 if split else 0.0
 	split_k = goal if snap else move_toward(split_k, goal, delta / SPLIT_TIME)
@@ -1039,7 +1042,7 @@ func _need_color(n0: bool, n1: bool) -> Color:
 func goal_positions() -> Array:
 	if night:
 		if not entered_hg:
-			return [Vector2(57.5, 63.5) * TS]
+			return [Vector2(53.5, 69.5) * TS]   # the south entrance, open at night
 		if not has_prep:
 			return _obj_center(func(o): return o.get("use", "") in ["prep", "moodle_prep"])
 		if not lab_open:

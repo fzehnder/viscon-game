@@ -1,10 +1,10 @@
 extends CanvasLayer
 ## Screen overlay in the playful style: one task card per player on that player's side of the
-## screen (P1 left, P2 right), level and timer bottom centre, mini map bottom right,
+## screen (P1 left, P2 right), level and timer top centre, mini map bottom centre,
 ## interaction prompts, bouncy toasts, big "done!" celebrations with confetti, and the
 ## start / win / lose screens.
-## Nothing sits in the top centre: while the players share one picture, the one further up can
-## be anywhere along the top between the two task cards.
+## The middle column (timer above, mini map below) stays clear of the players because main.gd
+## splits the screen early when they move apart vertically (SPLIT_AT_Y).
 
 const CH = preload("res://scripts/characters.gd")
 const KEYS = preload("res://scripts/controls.gd")
@@ -242,19 +242,15 @@ func _ready() -> void:
 		v.add_child(box)
 		cards.append([card, zl, cl, box])
 
-	# ---- bottom centre: level and timer (or the visibility meter at night). Yellow = for both.
+	# ---- top centre: level and timer (or the visibility meter at night). Yellow = for both.
 	timer_card = UI.panel(UI.NAVY, UI.YELLOW, 16, 8)
 	root.add_child(timer_card)
 	timer_card.anchor_left = 0.5
 	timer_card.anchor_right = 0.5
-	timer_card.anchor_top = 1.0
-	timer_card.anchor_bottom = 1.0
 	timer_card.offset_left = -125
 	timer_card.offset_right = 125
-	timer_card.offset_top = -88
-	timer_card.offset_bottom = -14
+	timer_card.offset_top = 14
 	timer_card.grow_horizontal = Control.GROW_DIRECTION_BOTH
-	timer_card.grow_vertical = Control.GROW_DIRECTION_BEGIN
 	var v2 := VBoxContainer.new()
 	v2.add_theme_constant_override("separation", 0)
 	timer_card.add_child(v2)
@@ -283,18 +279,18 @@ func _ready() -> void:
 	status_l = UI.label("", 10, UI.MUTED)
 	side.add_child(status_l)
 
-	# ---- bottom right: mini map of the campus with both players and what is still to do
+	# ---- bottom centre: mini map of the campus with both players and what is still to do
 	var mp := UI.panel(UI.NAVY, UI.YELLOW, 12, 4)
 	root.add_child(mp)
-	mp.anchor_left = 1.0
-	mp.anchor_right = 1.0
+	mp.anchor_left = 0.5
+	mp.anchor_right = 0.5
 	mp.anchor_top = 1.0
 	mp.anchor_bottom = 1.0
-	mp.offset_left = -226
-	mp.offset_right = -14
+	mp.offset_left = -106
+	mp.offset_right = 106
 	mp.offset_top = -171
 	mp.offset_bottom = -14
-	mp.grow_horizontal = Control.GROW_DIRECTION_BEGIN
+	mp.grow_horizontal = Control.GROW_DIRECTION_BOTH
 	mp.grow_vertical = Control.GROW_DIRECTION_BEGIN
 	minimap = MiniMap.new()
 	minimap.main = main
@@ -323,8 +319,8 @@ func _ready() -> void:
 		var pc := Color(KEYS.TAG_COLORS[i])
 		var pp := UI.panel(UI.NAVY, pc, 16, 8)
 		root.add_child(pp)
-		pp.anchor_left = 0.3 + 0.4 * i   # between the timer in the middle and the corners
-		pp.anchor_right = 0.3 + 0.4 * i
+		pp.anchor_left = 0.25 + 0.5 * i   # under the middle of each player's half
+		pp.anchor_right = 0.25 + 0.5 * i
 		pp.anchor_top = 1.0
 		pp.anchor_bottom = 1.0
 		pp.offset_top = -74
@@ -350,8 +346,8 @@ func _ready() -> void:
 	toast_p.anchor_bottom = 1.0
 	toast_p.offset_left = -270
 	toast_p.offset_right = 270
-	toast_p.offset_bottom = -104
-	toast_p.offset_top = -202
+	toast_p.offset_bottom = -112   # shows in front of the mini map for a few seconds
+	toast_p.offset_top = -210
 	toast_p.grow_vertical = Control.GROW_DIRECTION_BEGIN
 	var tv := VBoxContainer.new()
 	toast_p.add_child(tv)

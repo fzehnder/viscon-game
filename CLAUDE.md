@@ -41,6 +41,37 @@ Regeln:
 - Opps: `"npcs"` und `"opp_spots"` in `DEF`, `Game.add_opp(...)` für eigene Auslöser, optionaler Hook `on_opp_catch(opp, pid) -> bool`. Siehe Abschnitt "Opp-System".
 - Ein lauffähiges Gerüst für ein neues Level steht in `godot/README.md` (getestet), die ausführliche Vorlage ist `scripts/level2/level.gd` auf `level2-mensa`.
 
+## Karte
+
+Vorgabe des Teams: Das Hauptgebäude soll sich am echten Grundriss orientieren (`Übersichtsplan_HG_ E-Stock.pdf` im Ordner über dem Repo, Fluchtwegplan E-Geschoss), kleiner und mit weniger Räumen, aber Form und Aufteilung sollen stimmen. Gebaut in `map_data.gd` (`_hauptgebaeude`, Möbel in `_furniture`). Norden oben, Polyterrasse im Westen, Rämistrasse im Osten. Die Südhälfte ist die gespiegelte Nordhälfte (`mfill`, `mdoor`: Zeile y entspricht 91 - y; für Möbel mit Höhe h gilt y' = 92 - y - h).
+
+| Ort | Tiles (x, y) | Zugang |
+|---|---|---|
+| Polyterrasse | 10..37, 20..62 | Start von Level 1 |
+| Westeingang und Eingangshalle | 39..45, 43..48 | Tür bei x 38, y 44..47 |
+| Haupthalle | 46..67, 43..48 | von der Eingangshalle, vom Korridor-Ring, aus E Nord und E Süd |
+| Rotunde | 69..74, 39..52 | Durchgang bei x 68, y 44..47; Tür zum Vorhof bei x 74, y 45..46 |
+| Vorhof Rämistrasse | 69..89, 36..55 | Tor im Zaun bei y 44..47 |
+| Korridor-Ring | Nord y 27..28, Süd y 63..64, West x 44..45, Ost x 66..67 | |
+| Nordeingang, Südeingang | x 52..54, y 22 und y 69 | Vorraum bis zum Korridor |
+| E Nord (Foyer) | 47..59, 30..41 | Durchgänge bei x 47..48 und 58..59 nach Norden (Korridor) und Süden (Haupthalle) |
+| Hörsaal E1 | 50..56, 30..34 | Türen bei x 49 und x 57, y 32 |
+| Hörsaal E3 | 50..56, 39..41 | Tür vom Foyer (53, 38) und zur Haupthalle (54, 42) |
+| E Süd, Hörsaal E5, Hörsaal E7 | gespiegelt: Zeile y entspricht 91 - y | |
+| Seminarraum | 39..42, 23..27 | Tür (43, 27) |
+| Lounge | 39..42, 64..68 | Tür (43, 64) |
+| Büros West | 40..42, 29..33 / 35..41 / 50..56 / 58..62 | Türen bei x 43 |
+| Räume Nord und Süd | 44..50, 56..60, 62..67 bei y 23..25 und y 66..68 | Türen zum Korridor |
+| Räume am Ostkorridor | 61..64, 30..34 / 36..41 / 50..55 / 57..61 | Türen bei x 65 |
+| ETH-Bibliothek | 69..86, 27..34 und Pavillon 78..86, 21..25 | Tür vom Korridor (68, 27..28), Ausgang Rämistrasse (87, 30..31) |
+| Labor · Robotik | 69..86, 57..64 und Pavillon 78..86, 66..70 | Tür vom Korridor (68, 63..64) |
+| Mensa | 13..32, 65..76 | Tür bei x 21..24, y 64 |
+
+- Massstab: etwa 21 px im Plan pro Tile. Die Ostflügel sind tiefer als im Original (8 statt 6 Tiles innen), damit Bibliothek und Labor Platz haben; im echten Gebäude sind dort Büros, die Bibliothek liegt im H-Stock.
+- Wegen des grösseren Gebäudes liegt die Künstlergasse 6 Tiles weiter südlich (y 72..77 statt 66..71), die Uni Zürich ist nur noch ein schmaler Streifen. Mensa und Polyterrasse sind unverändert, Level 2 ist nicht betroffen.
+- Strassenmarkierungen (Zebrastreifen vor Nordeingang und Vorhof, Mittellinien) stehen fest in `world.gd` `_draw` und müssen bei Kartenänderungen mitziehen.
+- Wer Möbel stellt: Die Wegfindung rechnet in ganzen Tiles. Ein Möbel, das in eine Tile-Zeile hineinragt, sperrt für NPCs die ganze Kachel. Deshalb Möbel an Wände rücken und Türkacheln (die Kachel vor jeder Tür) frei lassen. Der Test unten findet abgeschnittene Bereiche.
+
 ## Opp-System (gebaut, auf `level-base`)
 
 Vorgabe des Teams: Die meisten NPCs sind zuerst neutral, ein Ereignis macht sie zum Opp, der Status bleibt über Levels gespeichert. Level 1: zwei Studis am Lesetisch, Rucksack (gemeint ist die Ersti-Bag) geklaut, Opp verfolgt dich. Level 2: Person in der Schlange, vor die man sich drängelt. Ab Level 3: Opps aus früheren Levels tauchen wieder auf, jagen direkt oder lauern.
@@ -108,7 +139,8 @@ Level 3:
 Auf `level-base`:
 - Koop-Steuerung (`controls.gd`, physische Tastenpositionen): P1 WASD / E / Shift Sprint / Ctrl Schleichen / Esc / 1 2 3; P2 Pfeile / Enter / `.` Sprint / `-` Schleichen / Backspace / 8 9 0
 - Dynamischer Split Screen (`main.gd`, `SPLIT_AT` / `MERGE_AT`), auch wenn jemand im Minigame ist, mit fliessendem Übergang (`split_k`, `SPLIT_TIME`)
-- HUD: Aufgaben pro Person auf ihrer Seite (P1 links, P2 rechts), Level und Zeit unten Mitte, Minimap unten rechts
+- HUD: Aufgaben pro Person auf ihrer Seite (P1 links, P2 rechts), Level und Zeit oben Mitte, Minimap unten Mitte
+- Karte: Hauptgebäude nach dem echten Grundriss des E-Geschosses (siehe "Karte")
 - Schleichen / Gehen / Sprinten, Stamina (2 s Sprint, ca. 3 s Regeneration), Geräuschkreise pro Schritt (`player.gd`, `fx.gd`)
 - Story-Intro im Menü: Startseite, Hack der Bewerbungsseite, Namen, Legi-Foto, Charakter-Editor; Level-Auswahl «Direkt zu»
 - Level 1 "Ersti-Tag" (Tag, 7 min): Ersti-Bag klauen (bei Deniz und Livia am Lesetisch, macht sie zu Opps), Legi validieren, Moodle & Code Expert einrichten, Koop-High-Five, Note 1 bis 6
@@ -161,7 +193,7 @@ So funktioniert die Engine-Seite des Spiels:
 - **Wegfindung:** `main.world.find_path(von_px, nach_px)` liefert Tile-Mittelpunkte ohne exakten Endpunkt, den selbst anhängen. Mit `astar.set_point_weight_scale(tile, 6.0)` hält man Läufer von Bereichen fern, ohne sie zu sperren.
 - **HUD ausblenden:** `main.hud.visible = false`.
 - **Kamera und Split Screen:** Es gibt immer zwei halbe Viewports. Sind die Figuren zusammen, stehen die beiden Kameras nebeneinander und die Hälften ergeben ein Bild; zum Teilen gleitet jede Kamera zu ihrer Figur (`split_k` 0 bis 1, `split` ist nur das Ziel). Deshalb: Kamerapositionen setzt ausschliesslich `main._update_cameras`, Zoom nur über `main.zoom` (auch in Tweens: `tween_property(main, "zoom", 3.5, 0.9)`), nie an einer einzelnen Kamera, sonst passen die Hälften nicht mehr zusammen. Die eingebaute Kameraglättung ist aus, geglättet wird in `_update_cameras` (`CAM_FOLLOW`).
-- **HUD-Plätze:** oben links und rechts die Aufgabenkarten, unten Mitte die Zeit, unten rechts die Minimap, unten links die Nacht-Fähigkeit, Eingabehinweise unten bei 30 % und 70 % der Breite, Toast darüber. Oben in der Mitte bleibt frei: Im gemeinsamen Bild kann die obere Figur dort stehen (bis zu 0.35 Bildschirmhöhen über der Mitte). Neue feste Anzeigen gehören in eine Ecke oder an den unteren Rand.
+- **HUD-Plätze** (so vom Team gewünscht): oben links und rechts die Aufgabenkarten, oben Mitte Level und Zeit, unten Mitte die Minimap, unten links die Nacht-Fähigkeit, Eingabehinweise unten bei 25 % und 75 % der Breite, der Toast erscheint für ein paar Sekunden vor der Minimap. Damit im gemeinsamen Bild niemand hinter Zeit-Karte oder Minimap gerät, teilt sich der Bildschirm vertikal früher (`SPLIT_AT_Y` 0.42 statt 0.7 wie horizontal). Wer eine dieser Anzeigen grösser macht, muss `SPLIT_AT_Y` nachrechnen: Füsse der oberen Figur bei `360 - SPLIT_AT_Y * 360` px, eine Figur ist bei Zoom 2.5 etwa 115 px hoch.
 - **Minimap:** Klasse `MiniMap` in `hud.gd`, Kacheln einmal als Textur, Markierungen aus `main.goal_positions()`. Was ein Level dort zeigen will, liefert es über `goal_positions`.
 - **Aufgabe wieder öffnen:** `main.done[pid].erase(id)`; das HUD zieht den Chip von selbst zurück.
 - **Spielstand:** Alles, was `Game.save_game()` schreibt, landet im echten `user://`-Ordner des Rechners. Tests mit `--nosave` starten oder `Game.save_path` auf eine Testdatei umbiegen und diese am Ende löschen.
@@ -202,6 +234,8 @@ godot --headless --path godot --fixed-fps 60 --quit-after 600 res://main.tscn --
 
 - Für echte Abläufe eine temporäre Szene ins Projekt legen (`zz_test.tscn` plus Skript), die `main.tscn` instanziert, `main.start_game()` aufruft und spielt: Tasten über `Input.action_press("p1_left")`, Interaktion über `main._interact(pid)`, Timing-Minigame über `main.minis[pid]._timing_press()`, wenn `pos` in `zone` liegt, Abkürzungen per Teleport. Am Ende `RESULT` ausgeben und `get_tree().quit(code)`. `--fixed-fps 60` lässt das schneller als Echtzeit laufen. Tweens (zum Beispiel das Hinausschieben aus der Schlange) überschreiben einen Teleport kurz, also danach eine Sekunde warten.
 - Mit so einem Bot wurden geprüft: Level 1 gewinnen, "Weiter", Level 2 bis zum Siegbildschirm; Lücken in den Level-Nummern; ein Minimal-Level ohne Hooks; das Gerüst aus der README; das Opp-System (ungesehen klauen, gesehen werden, Jagd, Beute verlieren, Balken, weglocken, speichern und laden, Wiederkehr in einem Testlevel 3).
+- Karte prüfen: von der Startkachel aus alle begehbaren Kacheln fluten (`world.astar.is_point_solid`) und melden, welche freien Kacheln im Gebäude nicht erreicht werden und ob jedes Objekt mit `use` eine erreichbare Kachel in 1.25 Tiles Abstand hat. Das hat tote Ecken hinter Pulten und einen vom Hörsaal abgeschnittenen Bühnenbereich gefunden. Für die Optik: `main.zoom = 0.43` und HUD aus zeigt das ganze Hauptgebäude in einem Screenshot.
+- PDF ohne Zusatzprogramme lesen: Windows kann Seiten selbst rendern (`Windows.Data.Pdf.PdfDocument` per PowerShell, `RenderToStreamAsync` schreibt PNG), danach das Bild ansehen und mit PIL zuschneiden.
 - Kamerabewegung nur mit echtem Laufen messen (`Input.action_press`), ein Teleport ist selbst ein Sprung. Nahtprüfung fürs gemeinsame Bild: rechte Kante der linken Kamera gleich linke Kante der rechten.
 - Fehler in Teleport-Tests sind oft Fehler des Tests: Abstände genau nachrechnen (eine Interaktion mit "kleiner als 1.1" greift bei genau 1.1 nicht), und Zähler gehen bei `reload_current_scene` verloren, weil die Testszene neu entsteht.
 - Screenshots brauchen ein echtes Fenster (headless rendert nicht): ohne `--headless`, mit `--audio-driver Dummy --disable-vsync` und einer temporären `override.cfg` mit `display/window/size/no_focus=true`; speichern mit `get_viewport().get_texture().get_image().save_png(...)`.
