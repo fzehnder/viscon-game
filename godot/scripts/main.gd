@@ -32,6 +32,7 @@ const MiniScript = preload("res://scripts/minigame.gd")
 const CH = preload("res://scripts/characters.gd")
 const ART = preload("res://scripts/character_art.gd")
 const KEYS = preload("res://scripts/controls.gd")
+const LevelDone = preload("res://scripts/level_done.gd")
 const LV = preload("res://scripts/levels.gd")
 const UI = preload("res://scripts/ui.gd")
 const Transcript = preload("res://scripts/transcript.gd")
@@ -1055,21 +1056,28 @@ func _check_win() -> void:
 
 func _win_day() -> void:
 	_close_minis()
-	state = "won"
+	state = "cutscene"            # until the end scene is over: no keys of the win card yet
 	for pl in players:
 		pl.enabled = false
 	var grade := 6.0 - 0.25 * mistakes_total - maxf(0.0, time_played - day_time * 0.5) / 30.0 * 0.25
 	grade = clampf(snappedf(grade, 0.25), 1.0, 6.0)
 	var verdict := "Hervorragend!" if grade >= 5.5 else ("Gut gemacht." if grade >= 4.5 else ("Bestanden." if grade >= 4.0 else "Knapp daneben."))
 	var t := int(time_played)
-	Game.add_grade(Game.level, grade, t, mistakes_total)   # for the transcript in the menu
+	var had: bool = Game.grade_of(Game.level) > 0.0
+	var best: bool = Game.add_grade(Game.level, grade, t, mistakes_total) and had   # kept for the transcript; "best" only if there was a grade before
 	var story: String = String(lv.get("win_text", "%s & %s haben den ersten Tag überlebt.")) % [Game.name_of(0), Game.name_of(1)]
 	var nxt := LV.next_after(Game.level)
 	var more := nxt > 0
-	hud.show_overlay(String(lv.get("win_title", "Ersti-Tag geschafft!")),
-		"%s\n\nNote %s · %s\nZeit: %d:%02d · Fehler: %d\n\nIn der Schweiz ist 6 die Bestnote, ab 4 ist bestanden." % [story, String.num(grade, 2), verdict, t / 60, t % 60, mistakes_total],
-		("Enter weiter · " if more else "") + "R nochmals spielen · M zum Startbildschirm",
-		"Weiter zu Level %d" % nxt if more else "Nochmals spielen", true, "win", "LEVEL %d" % Game.level)
+	# the sheet with the grade and the stamp (level_done.gd), then the card with the buttons
+	var ld = LevelDone.new()
+	add_child(ld)
+	ld.play({"level": Game.level, "tag": "LEVEL %d" % Game.level, "name": String(lv["name"]), "grade": grade, "time": t,
+		"mistakes": mistakes_total, "best": best}, func():
+		state = "won"
+		hud.show_overlay(String(lv.get("win_title", "Ersti-Tag geschafft!")),
+			"%s\n\nNote %s · %s\n\nIn der Schweiz ist 6 die Bestnote, ab 4 ist bestanden." % [story, String.num(grade, 2), verdict],
+			("Enter weiter · " if more else "") + "R nochmals spielen · M zum Startbildschirm",
+			"Weiter zu Level %d" % nxt if more else "Nochmals spielen", true, "win", "LEVEL %d" % Game.level))
 
 
 func _lose_day() -> void:
