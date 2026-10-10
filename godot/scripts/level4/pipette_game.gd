@@ -48,6 +48,7 @@ var sfx = null                 # lab_sfx.gd node of the level, for the drops
 var mode := "wait"             # wait (for the camera), cam, keys
 var wait_t := 0.0
 var lost_t := 0.0
+var chose_keys := false        # somebody pressed K for the keys: do not jump back to the camera
 var t := 0.0
 var closing := -1.0
 var fill := 0.0                # 0..1
@@ -235,6 +236,9 @@ func _update_mode(delta: float) -> void:
 			lost_t = 0.0 if Track.alive else lost_t + delta
 			if lost_t > 2.5:
 				_set_mode("keys")
+		"keys":
+			if Track.alive and not chose_keys:
+				_set_mode("cam")   # the camera was only slow to start
 
 
 func _read_camera(delta: float) -> void:
@@ -347,6 +351,7 @@ func _input(event: InputEvent) -> void:
 			queue_free()
 	elif k == KEY_K and closing < 0.0:
 		get_viewport().set_input_as_handled()
+		chose_keys = mode != "keys"
 		_set_mode("wait" if mode == "keys" else "keys")
 
 
