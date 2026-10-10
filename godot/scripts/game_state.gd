@@ -12,6 +12,9 @@ var dept := "D-INFK"       # internal content set for quiz/Moodle texts and nigh
 # Opps: people you have wronged. They stay Opps in later levels and are saved to disk.
 # opp id -> {"name": String, "look": Dictionary, "level": int, "by": [player ids], "why": String}
 var opps: Dictionary = {}
+# Things the players carry from level to level (e.g. "prof_badge" from the Polyball).
+# item id -> level in which they got it
+var items: Dictionary = {}
 var save_path := "user://save.cfg"
 var persist := true                   # --nosave on the command line: keep everything in memory
 
@@ -82,6 +85,17 @@ func opps_before(n: int) -> Array:
 	return ids
 
 
+# ------------------------------------------------------------------ items
+func has_item(id: String) -> bool:
+	return items.has(id)
+
+
+## Remembers something the players got hold of in the running level, also for later levels.
+func add_item(id: String) -> void:
+	items[id] = level
+	save_game()
+
+
 ## A level starts (again): what happened in it and after it has not happened yet.
 func begin_level() -> void:
 	var changed := false
@@ -89,12 +103,17 @@ func begin_level() -> void:
 		if int(opps[id]["level"]) >= level:
 			opps.erase(id)
 			changed = true
+	for id in items.keys():
+		if int(items[id]) >= level:
+			items.erase(id)
+			changed = true
 	if changed:
 		save_game()
 
 
 func new_game() -> void:
 	opps.clear()
+	items.clear()
 	save_game()
 	set_level(1)
 
@@ -105,21 +124,28 @@ func save_game() -> void:
 	var cfg := ConfigFile.new()
 	for id in opps:
 		cfg.set_value("opps", id, opps[id])
+	for id in items:
+		cfg.set_value("items", id, items[id])
 	cfg.save(save_path)
 
 
 func load_game() -> void:
 	opps.clear()
+	items.clear()
 	if not persist:
 		return
 	var cfg := ConfigFile.new()
-	if cfg.load(save_path) != OK or not cfg.has_section("opps"):
+	if cfg.load(save_path) != OK:
 		return
-	for id in cfg.get_section_keys("opps"):
-		var d = cfg.get_value("opps", id)
-		if d is Dictionary and d.has("name") and d.has("look") and d.has("level"):
-			d["by"] = d.get("by", [])
-			opps[id] = d
+	if cfg.has_section("opps"):
+		for id in cfg.get_section_keys("opps"):
+			var d = cfg.get_value("opps", id)
+			if d is Dictionary and d.has("name") and d.has("look") and d.has("level"):
+				d["by"] = d.get("by", [])
+				opps[id] = d
+	if cfg.has_section("items"):
+		for id in cfg.get_section_keys("items"):
+			items[id] = int(cfg.get_value("items", id))
 
 
 func reset_look(i: int) -> void:
