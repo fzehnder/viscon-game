@@ -9,6 +9,13 @@
 - Remote: `git@github.com:fzehnder/viscon-game.git`.
 - Starten: Godot öffnen, `godot/project.godot` importieren, F5. Startszene ist `menu.tscn`. Direkt in ein Level: auf der Startseite unter «Direkt zu», oder `godot --path godot res://main.tscn -- --level=2`.
 
+## Arbeitsweise (Wunsch des Teams, 10.10.2026)
+
+- **Nicht nach jeder Änderung alles testen.** Getestet wird am Schluss oder wenn etwas nicht funktioniert. Nach einer Änderung reicht ein kurzer Startlauf, der Skriptfehler zeigt (siehe "Prüfen ohne Editor"); Bot-Durchläufe und Screenshots nur auf Wunsch, bei der Fehlersuche oder vor der Abgabe.
+- Änderungen committen und pushen, wenn das Team es sagt ("push bitte"). Allgemeines kommt auf `level-base` und wird danach in die Level-Branches gemergt.
+- Diese Datei nach jeder grösseren Änderung nachführen, damit neue Sessions den Stand kennen.
+- Wünsche zur Platzierung und zum Aussehen gelten so, wie das Team sie sagt. Bedenken kurz nennen und technisch absichern, nicht eigenmächtig anders platzieren.
+
 ## Branches: Levels gleichzeitig bauen
 
 Jedes Level bekommt einen eigenen Branch. Kein Level-Branch hängt von einem anderen ab: alle zweigen vom gemeinsamen Stand `level-base` ab.
@@ -17,8 +24,8 @@ Jedes Level bekommt einen eigenen Branch. Kein Level-Branch hängt von einem and
 |---|---|
 | `main` | nur das alte Phaser-Gerüst |
 | `level1-coop` | Godot-Spiel mit Level 1, Stand vor dem Level-Gerüst |
-| `level-base` | gemeinsamer Stand: `level1-coop` plus Level-Gerüst (siehe unten), ohne weitere Levels |
-| `level2-mensa` | `level-base` plus Ordner `godot/scripts/level2/` |
+| `level-base` | gemeinsamer Stand: `level1-coop` plus Level-Gerüst, Opp-System, neues HUD mit Minimap, fliessender Split Screen und das Hauptgebäude nach echtem Grundriss; ohne weitere Levels |
+| `level2-mensa` | `level-base` (regelmässig hineingemergt) plus Ordner `godot/scripts/level2/` |
 | `level3-...` usw. | `level-base` plus Ordner `godot/scripts/level3/` |
 
 Regeln:
@@ -149,7 +156,9 @@ Auf `level-base`:
 - Level-Gerüst, Cutscene-Abspieler, Übergang zum nächsten Level
 - Opp-System samt Ersti-Bag-Diebstahl in Level 1 (siehe oben). Per Bot geprüft, von Menschen noch nicht gespielt
 
-Auf `level2-mensa`: Level 2 "Mensa-Stau" komplett spielbar (Schlange als Stau, Kassiererin, Menü, Tische, Basisprüfungs-Cutscene). Details, Stellschrauben und Offenes in `godot/scripts/level2/README.md`. Nur per Bot geprüft, noch nie von Menschen gespielt.
+Auf `level2-mensa`: Level 2 "Mensa-Stau" komplett spielbar (Schlange als Stau, Kassiererin, Menü, Tische, Basisprüfungs-Cutscene, Opps durch Vordrängeln). Details, Stellschrauben und Offenes in `godot/scripts/level2/README.md`.
+
+Geprüft (per Bot, nach dem Kartenumbau): Level 1 mit Ersti-Bags und Opps bis zum Sieg, Kamera und HUD, Level 2 von der Schlange bis zum Siegbildschirm, Erreichbarkeit aller Räume bei Tag und Nacht. Von Menschen ist noch nichts davon gespielt worden: Schwierigkeit, Zeiten und das Gefühl des Split-Screen-Übergangs sind offen. Die Nacht ist nach dem Kartenumbau nur auf Erreichbarkeit geprüft, nicht gespielt.
 
 Altes Prototyp-Verhalten (Nacht), noch nicht nach Plan:
 - Professoren als Guards (`professor.gd`): Patrouille, sichtbarer Kegel, hören Geräuschkreise. Volle Anzeige oder Berührung ruft `main.caught()` auf und **beendet das Level sofort für beide**
@@ -158,29 +167,30 @@ Altes Prototyp-Verhalten (Nacht), noch nicht nach Plan:
 Offen:
 - Nacht laut Plan: Guard-Sprint bei Alarm, Rauswurf statt Game Over, Teammate holt den Spieler zurück, verloren erst wenn beide draussen sind
 - Opps: Kein Level hat bisher `opp_spots`, die Wiederkehr ist nur mit einem Testlevel geprüft. Offen ist auch, ob "erwischt ohne Beute = Level verloren" am Tag zu hart ist
-- Level 3 komplett
+- Level 3 komplett. Wer schon Positionen im alten Hauptgebäude verwendet hat, muss sie an die neue Karte anpassen (Tabelle unter "Karte")
+- Die Möblierung der neuen Büros und Hörsäle ist schlicht (Pult, Stuhl, Bankreihen); die Hörsäle sind rechteckig mit Bühnennische statt fächerförmig, die Höfe neben den Hörsälen fehlen
 - Nichts davon ist auf `main` gemergt; der Pages-Deploy-Workflow baut weiterhin nur den Phaser-Platzhalter
 
 ## Code-Orientierung (`godot/scripts/`)
 
 | Datei | Inhalt |
 |---|---|
-| `game_state.gd` | Autoload `Game`: Level, Modus, Namen, Fotos, Looks der beiden Spieler |
+| `game_state.gd` | Autoload `Game`: Level, Modus, Namen, Fotos, Looks der beiden Spieler, Liste der Opps und Spielstand (`user://save.cfg`) |
 | `levels.gd` | findet die Levels, enthält Level 1 (Positionen in Tiles, 1 Tile = 32 px) |
 | `level<N>/` | je ein weiteres Level: `level.gd`, eigene Figuren, `README.md` |
 | `cutscene.gd` | Cutscene-Abspieler |
 | `main.gd` | Spielablauf, Split Screen, Interaktion, Aufgaben, Sieg/Niederlage, Level-Hooks |
 | `player.gd`, `student.gd`, `professor.gd` | Spieler, Studierende/Erstis, Guards |
-| `opp.gd` | Leute, die zu Opps werden (Zustände, Kegel, Verdachtsbalken, Rucksack) |
+| `opp.gd` | Leute, die zu Opps werden (Zustände, Kegel, Verdachtsbalken, klaubare Bag) |
 | `minigame.gd` | alle Minigames |
-| `map_data.gd`, `world.gd` | Kartendaten, Zeichnen, Kollision, Wegfindung |
+| `map_data.gd`, `world.gd` | Kartendaten (Hauptgebäude in `_hauptgebaeude`), Zeichnen, Kollision, Wegfindung, Sichtlinien |
 | `menu.gd`, `legi_card.gd` | Story-Intro, Charakter-Erstellung, Level-Auswahl |
-| `hud.gd`, `ui.gd`, `fx.gd`, `sfx.gd` | Anzeigen, Popup-Stil, Effekte, Sounds |
+| `hud.gd`, `ui.gd`, `fx.gd`, `sfx.gd` | Anzeigen (Aufgabenkarten, Zeit, Minimap), Popup-Stil, Effekte, Sounds |
 | `characters.gd`, `character_art.gd` | Looks, Quiz-/Moodle-Inhalte, Figuren-Zeichnung |
 
 Konventionen: Code-Kommentare auf Englisch, Texte im Spiel auf Deutsch (Schweizer Schreibweise, kein ß). Zeilenenden LF (`godot/.gitattributes`). Godot legt neben jedes Skript eine `.uid`-Datei, die gehört mit ins Repo.
 
-## Learnings aus dem Bau von Level 2
+## Learnings
 
 So funktioniert die Engine-Seite des Spiels:
 - **Zeichenebenen:** `world.gd` zeichnet Karte und Möbel auf `z_index -10`, Figuren liegen in `main.actors` (nach y sortiert), `fx.gd` auf `z 5`, HUD ist ein `CanvasLayer` (10), Minigames 20, Cutscene 30. Ein Level-Node mit `z_index = -5` zeichnet Bodendeko über der Karte und unter den Figuren.
@@ -223,8 +233,12 @@ Leveldesign:
 
 Zusammenarbeit:
 - Begriffe aus einer Vorgabe erst gegen das abgleichen, was es im Spiel schon gibt, bevor etwas Neues daneben entsteht. Der "Rucksack" in der Opp-Vorgabe war die vorhandene Ersti-Bag; ich hatte zuerst eine zweite Aufgabe gebaut.
+- Die Zeit-Karte hatte ich aus Sorge um verdeckte Figuren nach unten gelegt; das Team wollte sie oben und die Minimap unten in der Mitte. Richtig war: so platzieren wie gewünscht und das Verdecken über `SPLIT_AT_Y` lösen.
+- Ausführliches Testen nach jedem Schritt kostet dem Team zu viel Zeit (siehe "Arbeitsweise").
 
 ## Prüfen ohne Editor
+
+Nur so viel wie nötig (siehe "Arbeitsweise"): normalerweise der kurze Startlauf, alles Weitere auf Wunsch, bei der Fehlersuche oder vor der Abgabe.
 
 - Ein kurzer Headless-Lauf findet nur Parse-Fehler und Fehler beim Aufbau, denn das Spiel bleibt im Intro stehen:
 
