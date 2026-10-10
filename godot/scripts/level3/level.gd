@@ -17,6 +17,13 @@ extends Node2D
 ## levels stand at the bar and around the dance floor ("opp_spots"); they do not recognise you in
 ## evening wear either, but if one of them catches you the level is over, as everywhere.
 ##
+## Three tasks can be played in front of the webcam (autoload Track, see tracker/README.md), and
+## each of them works with the keys as well, so the level never depends on a camera:
+##   dance floor  both strike the poses that are shown, on the beat (kamera_spiel.gd, "tanz")
+##   Prof badge   pull it out of the pocket with two fingers and a steady hand ("badge"); the
+##                keyboard version is the sequence minigame
+##   buffet       the timing minigame; opening your mouth wide snaps as well as the key does
+##
 ## All positions are in tiles (1 tile = 32 px) unless a name ends in _px.
 
 const TS := 32.0
@@ -26,6 +33,7 @@ const UI = preload("res://scripts/ui.gd")
 const OPP = preload("res://scripts/opp.gd")
 const Cutscene = preload("res://scripts/cutscene.gd")
 const Vorlage = preload("res://scripts/level3/vorlage.gd")
+const KameraSpiel = preload("res://scripts/level3/kamera_spiel.gd")
 
 # ---- disguise (tuning)
 const FACTOR_WRONG := 1.8               # wrong clothes or hoodie in a zone: the suspicion bar fills this much faster
@@ -40,7 +48,11 @@ const FRACK_SPEED := 300.0
 const ARMBAND_LEN := 6                  # symbols on the wristband
 const BADGE_SEQ := 5                    # length of the sequence for the inner pocket
 const BUFFET_HITS := 3                  # timing minigame at the buffet
-const BUFFET_SPEED := 340.0
+const BUFFET_SPEED := 280.0             # slower than usual: a mouth is not as quick as a key
+const MOUTH_OPEN := 0.45                # buffet with the camera: mouth this far open (Track "mouth", 0..1) = snap
+const MOUTH_SHUT := 0.25                # ... and it has to close this far before the next snap
+const TANZ_RADIUS := 2.6                # tiles around the middle of the dance floor in which both have to stand
+const PREWARM := true                   # start the camera tracker with the level (camera stays off), so it is ready in time
 
 # ---- zones: where which disguise is the right one
 const ZONES := {
@@ -119,6 +131,7 @@ const DEF := {
 	"tasks": [
 		{"id": "abend", "name": "Abendgarderobe organisieren", "where": "Fracks der Kellner in der Küche (Mensa)", "type": "level"},
 		{"id": "armband", "name": "Armband fälschen", "where": "Vorlage am Bändel-Tisch beim Eingang, Bastelecke in der Küche", "type": "level"},
+		{"id": "tanz", "name": "Im Takt über die Tanzfläche", "where": "zu zweit auf der Tanzfläche in der Rotunde", "type": "level"},
 		{"id": "badge", "name": "Prof-Badge holen", "where": "grüner Lodenmantel in der Garderobe", "type": "level"},
 		{"id": "buffet", "name": "Buffet plündern", "where": "Buffettische in der Haupthalle", "type": "level"},
 	],
@@ -145,6 +158,8 @@ var pattern: Array = []               # the wristband: 0 up, 1 down, 2 left, 3 r
 var viewer := -1                      # who is looking at the template right now
 var panel = null
 var builder := -1                     # who is rebuilding the wristband right now
+var buffet_mg: Array = [null, null]   # the timing minigame at the buffet, while the mouth can snap
+var mouth_open: Array = [false, false]
 var marks: Node2D
 
 
@@ -214,6 +229,8 @@ func _ready() -> void:
 			op.angry = true
 			op.state = OPP.LAUERN
 	_dress_guests()
+	if PREWARM:
+		Track.use(self, [], false)     # starts the tracker process, the camera only comes on in a camera minigame
 	marks = Marks.new()
 	marks.level = self
 	marks.z_index = 11                 # relative to this node: above the characters and fx
@@ -433,6 +450,7 @@ func _physics_process(delta: float) -> void:
 			builder = -1
 		elif mg.seq_phase == "show":
 			_blind(mg)
+	_snap_with_mouth()
 
 
 # ================================================================== interaction
@@ -453,6 +471,8 @@ func _spots(pid: int) -> Array:
 	if not d.has("armband"):
 		out.append(_near("vorlage", "Armband-Vorlage ansehen", TISCH))
 		out.append(_near("basteln", "Armband nachbauen", BASTEL))
+	if not d.has("tanz"):
+		out.append(_near("tanz", "Tanzen (zu zweit)", Rect2(DANCE - Vector2(2.0, 2.0), Vector2(4.0, 4.0))))
 	if not d.has("badge"):
 		for k in RACKS.size():
 			out.append(_near("mantel", "Mäntel durchsuchen", RACKS[k], {"rack": k}))
@@ -534,11 +554,22 @@ func interact(pid: int, o: Dictionary) -> void:
 				UI.sfx("tick")
 				main.hud.toast("Falscher Ständer", "Daunenjacken, ein Velohelm, ein vergessener Schal. Der Professor trägt einen grünen Lodenmantel.", 3.0)
 				return
-			var on_badge := func():
-				Game.add_item(BADGE_ITEM)
-				main._coop_done("badge")
-				main.hud.toast("Der Badge!", "Innentasche, Etui, Badge. Der Professor merkt es frühestens beim Heimgehen.", 4.5)
-			main.open_minigame("sequence", {"title": "Mantel · Innentasche · Badge", "length": BADGE_SEQ}, on_badge, pid)
+			_steal_badge(pid)
+		"tanz":
+			if not _has_frack(pid):
+				return
+			var other = main.players[1 - pid]
+			if outfit[pid] != "abend" or outfit[1 - pid] != "abend":
+				UI.sfx("fail")
+				main.hud.toast("So nicht", "Auf die Tanzfläche geht es nur zu zweit und nur in Abendgarderobe.", 3.0)
+				return
+			if main.busy(1 - pid) or (other.global_position / TS).distance_to(DANCE) > TANZ_RADIUS:
+				main.hud.toast("Zu zweit", "%s muss auch auf der Tanzfläche stehen." % Game.name_of(1 - pid), 3.0)
+				return
+			var on_dance := func():
+				main._coop_done("tanz")
+				main.hud.toast("Quer durch den Saal", "Niemand hat gemerkt, dass ihr gar keine Tickets habt.", 4.5)
+			_open_cam("tanz", -1, on_dance)
 		"buffet":
 			if not _has_frack(pid):
 				return
@@ -549,6 +580,97 @@ func interact(pid: int, o: Dictionary) -> void:
 				main._task_done(pid, "buffet")
 				main.hud.toast("Abendessen gesichert", "Drei Lachsbrötli, eine Mini-Quiche und vierzehn Schoggi-Mousses. Rein rechnerisch ist das ein Menü.", 4.5)
 			main.open_minigame("timing", {"title": "Buffet plündern", "hits": BUFFET_HITS, "verb": "Häppchen", "speed": BUFFET_SPEED}, on_buffet, pid)
+			_watch_mouth(pid)
+
+
+# ------------------------------------------------------------------ in front of the camera
+## Opens one of the camera minigames (kamera_spiel.gd) the way main.gd opens its own minigames:
+## it sits in main.minis, so the players are busy, the screen splits for one player and
+## main._abort_mini works. pid -1 = both players, the whole screen.
+func _open_cam(kind: String, pid: int, on_ok: Callable, on_fallback: Callable = Callable()) -> void:
+	var who: Array = [0, 1] if pid < 0 else [pid]
+	var mg = KameraSpiel.new()
+	mg.pid = pid
+	mg.keys = KEYS.keys_for(who[0])
+	mg.labels = KEYS.labels_for(who[0])
+	if pid < 0:
+		mg.keys2 = KEYS.keys_for(1)
+		mg.labels2 = KEYS.labels_for(1)
+	else:
+		mg.accent = Color(String(KEYS.TAG_COLORS[pid]))
+	for j in who:
+		main.minis[j] = mg
+		main.nears[j] = null
+		main.players[j].enabled = false
+	main.add_child(mg)
+	mg.open(kind)
+	# true if this minigame was still the open one and the level is still running
+	var release := func() -> bool:
+		var mine := false
+		for j in who:
+			if main.minis[j] == mg:
+				main.minis[j] = null
+				mine = true
+		return mine and main.state == "play"
+	mg.mistake.connect(func(): main._on_mini_mistake(pid))
+	mg.finished.connect(func(ok: bool, _m: int):
+		if not release.call():
+			return
+		for j in who:
+			main.players[j].enabled = true
+		if ok:
+			on_ok.call()
+		else:
+			main.hud.toast("Abgebrochen", "Das geht jederzeit nochmals.", 2.5))
+	mg.fallback.connect(func():
+		if release.call() and on_fallback.is_valid():
+			on_fallback.call())
+
+
+## The badge: with two fingers in front of the camera, or with the sequence minigame.
+func _steal_badge(pid: int) -> void:
+	var on_badge := func():
+		Game.add_item(BADGE_ITEM)
+		main._coop_done("badge")
+		main.hud.toast("Der Badge!", "Innentasche, Etui, Badge. Der Professor merkt es frühestens beim Heimgehen.", 4.5)
+	var with_keys := func():
+		main.open_minigame("sequence", {"title": "Mantel · Innentasche · Badge", "length": BADGE_SEQ}, on_badge, pid)
+	_open_cam("badge", pid, on_badge, with_keys)
+
+
+## Buffet: the timing minigame stays as it is, the camera only adds a second way to press.
+func _watch_mouth(pid: int) -> void:
+	var mg = main.minis[pid]
+	if mg == null:
+		return
+	buffet_mg[pid] = mg
+	mouth_open[pid] = true                 # has to close once before it counts
+	Track.use(mg, ["face"], false)         # released by itself when the minigame closes
+	var dim = mg.root.get_child(0)
+	if dim is ColorRect:
+		dim.color = KameraSpiel.LIGHT      # the buffet is brightly lit: the lamp for the camera
+
+
+func _snap_with_mouth() -> void:
+	for pid in 2:
+		var mg = buffet_mg[pid]
+		if mg == null:
+			continue
+		if not is_instance_valid(mg) or main.minis[pid] != mg:
+			buffet_mg[pid] = null
+			continue
+		if Track.alive and not (mg.info_l.text as String).contains("Mund"):
+			mg.info_l.text += "   Oder vor der Kamera: Mund weit auf!"
+		var f := Track.face(pid)
+		if f.is_empty():
+			continue
+		var m: float = f["mouth"]
+		if m > MOUTH_OPEN and not mouth_open[pid]:
+			mouth_open[pid] = true
+			if mg.closing < 0.0:
+				mg._timing_press()
+		elif m < MOUTH_SHUT:
+			mouth_open[pid] = false
 
 
 # ------------------------------------------------------------------ wristband: one looks, the other builds
@@ -611,6 +733,8 @@ func task_targets(id: String, pid: int) -> Array:
 			if builder == 1 - pid:
 				return [_c(TISCH)]
 			return [_c(TISCH), _c(BASTEL)]
+		"tanz":
+			return [DANCE * TS]
 		"badge":
 			return [Vector2(42.5, 38.5) * TS]
 		"buffet":
@@ -632,6 +756,8 @@ func goal_positions(id: String, n0: bool, n1: bool) -> Array:
 		"armband":
 			out.append([_c(TISCH), c])
 			out.append([_c(BASTEL), c])
+		"tanz":
+			out.append([DANCE * TS, c])
 		"badge":
 			out.append([_c(GARDEROBE), c])
 		"buffet":
