@@ -572,7 +572,13 @@ func _update_tasks() -> void:
 			var active: bool = true if per_player else o[2]
 			if on:
 				n_done += 1
-			(r[2] as Label).label_settings.font_color = UI.GREEN if on else (UI.WHITE if active else Color(1, 1, 1, 0.35))
+			# half done (bag taken, not out of the room yet): a note behind the name, in yellow
+			var note: String = String(o[3][pid]) if (per_player and o.size() > 3 and not on) else ""
+			var text := String(o[0]) + ("  ·  " + note if note != "" else "")
+			if (r[2] as Label).text != text:
+				(r[2] as Label).text = text
+			var col := UI.GREEN if on else (UI.WHITE if active else Color(1, 1, 1, 0.35))
+			(r[2] as Label).label_settings.font_color = UI.YELLOW if note != "" else col
 			var sel: bool = main.picked[pid] == k
 			if sel != r[4]:
 				r[4] = sel

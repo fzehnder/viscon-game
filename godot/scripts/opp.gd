@@ -51,6 +51,7 @@ var quote := ""
 var look: Dictionary = {}
 var home := Vector2.ZERO            # px
 var home_dir := PI / 2.0
+var home_zone := ""                 # the room they are in: a stolen bag only counts once the thief has left it
 var seated := false
 var hears := false                  # neutral NPCs only react to noise if the level says so
 var range_px := 5.5 * TS
@@ -176,6 +177,7 @@ func _ready() -> void:
 	cone.z_index = -1
 	add_child(cone)
 	last_pos = position
+	home_zone = world.zone_at(home)
 	glance_t = randf_range(4.0, 8.0)
 	t = randf() * 10.0
 	if bag_state == "there":

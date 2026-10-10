@@ -63,7 +63,7 @@ Jeder Schritt sendet einen Geräusch-Kreis aus: schleichen fast lautlos, gehen n
 **Ablauf (Story-Modus, keine Departemente mehr):** Startseite → Hack der Bewerbungsseite → Namen → Legi-Foto pro Person (Kamera des Geräts, sonst gezeichnete Figur) → Figuren gestalten → Level 1.
 
 **Level 1 · Ersti-Tag (Tag):** Ihr startet in der Ersti-Menge auf der Polyterrasse. Beide müssen alles erledigen:
-- Ersti-Bag klauen: Am Lesetisch in der Bibliothek sitzen Deniz und Livia, neben jedem Stuhl steht eine Ersti-Bag. Leise von hinten heran und mit der Interaktionstaste nehmen, die Bag erscheint danach auf eurer Figur. Wer laut ist, wird gehört, und wer beim Klauen gesehen wird, hat sofort einen Opp am Hals (siehe unten).
+- Ersti-Bag klauen: Am Lesetisch in der Bibliothek sitzen Deniz und Livia, neben jedem Stuhl steht eine Ersti-Bag. Leise von hinten heran und mit der Interaktionstaste nehmen, die Bag erscheint danach auf eurer Figur. Erledigt ist die Aufgabe erst, wenn ihr die Bibliothek mit der Bag verlassen habt, ohne erwischt zu werden (auf der Aufgabenkarte steht so lange «raus!»). Wer laut ist, wird gehört, und wer beim Klauen gesehen wird, hat sofort einen Opp am Hals (siehe unten).
 - Legi validieren: an einem der Terminals in der Haupthalle.
 - Moodle & Code Expert einrichten: an einem der PCs (Bibliothek, Seminarraum).
 - High Five: zu zweit, überall, wo ihr nebeneinander steht.
