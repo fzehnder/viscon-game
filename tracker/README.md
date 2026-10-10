@@ -45,9 +45,12 @@ func _ready() -> void:
 ```
 
 - `Track.use(self, [...])` gilt, solange der Node im Baum ist. Wird das Minigame geschlossen, geht die Kamera von selbst wieder aus.
-- `Track.face(pid)`, `Track.hand(pid)`, `Track.pose(pid)` liefern, was in der Bildhälfte dieser Person zu sehen ist: **P1 sitzt links, P2 rechts**. Ist dort nichts, kommt `{}`. Mit `-1` kommt, was der Bildmitte am nächsten ist (eine Person allein).
+- `Track.face(pid)`, `Track.hand(pid)`, `Track.pose(pid)` liefern, was in der Bildhälfte dieser Person zu sehen ist: **P1 sitzt links, P2 rechts**. Ist dort nichts, kommt `{}`. Bei Gesichtern und Körpern zählen dabei nur die beiden grössten im Bild, damit Zuschauer hinter den Spielenden nicht übernehmen. Mit `-1` kommt, was der Bildmitte am nächsten ist (eine Person allein).
 - `Track.faces`, `Track.hands`, `Track.poses` sind alle Treffer, von links nach rechts.
-- `Track.preview` ist das Kamerabild als Textur (gespiegelt, 320 × 240), zum Beispiel für ein `TextureRect`.
+- Wer ist wer, wenn die Leute nicht brav auf ihrer Seite sitzen oder Zuschauer im Bild stehen: Der Tracker meldet bis zu vier Personen. `TM.front(liste, n)` liefert die n grössten Einträge von links nach rechts, also die, die der Kamera am nächsten sind. `TM.mine(Track.faces, pid)` nimmt von den beiden grössten den in der Bildhälfte der Person und sonst den einzigen (wer allein spielt, sitzt selten auf «seiner» Seite). `TM.pair(Track.poses)` liefert für etwas, das beide gleichzeitig tun, `[Person 1, Person 2]`: die beiden grössten, links und rechts.
+- Die Daten der Kamera sind unruhig: Punkte zittern, Leute fehlen für einzelne Bilder, und bei mehreren Personen ist die Reihenfolge nicht fest. Wer etwas davon anzeigt, sollte glätten und kurze Aussetzer überbrücken. Ein fertiges Beispiel ist die Klasse `Followed` in `godot/scripts/level3/kamera_spiel.gd`.
+- Ein Kamera-Minigame, das den Bildschirm deckend füllt, sollte die Karte dahinter solange nicht zeichnen lassen. Sie kostet fast das ganze Bild (auf einem MacBook Pro läuft das Spiel deswegen mit etwa 37 Bildern pro Sekunde), und das Kamerabild stottert dann im selben Takt. Vorbild: `_cover` in `godot/scripts/level3/level.gd` (Tanzen damit 120 statt 32 Bilder pro Sekunde).
+- `Track.preview` ist das Kamerabild als Textur (gespiegelt, 240 Pixel hoch, in der Form des Kamerabilds; `Track.aspect` ist Breite durch Höhe), zum Beispiel für ein `TextureRect`. Es kommt mit jedem Kamerabild neu, also etwa 30-mal pro Sekunde.
 - `Track.alive` ist `true`, solange Ergebnisse ankommen. `Track.status` ist ein kurzer Text dazu («Kamera startet …», «läuft», «keine Kamera …»).
 - Alle Positionen sind 0 bis 1 im gespiegelten Bild: x = 0 links, y = 0 oben. Wer die Hand nach rechts bewegt, bewegt den Punkt nach rechts.
 
@@ -85,7 +88,7 @@ Track.blowing    # true / false
 
 ## Rezepte für die geplanten Minigames
 
-**L1 Passfoto** (Pose nachstellen). Zielpose in `track_debug` hinstellen, `P` drücken, den Inhalt von `pose_target.json` als Konstante ins Level kopieren. Im Sitzen sieht die Kamera nur Oberkörper und Arme, die Zielposen müssen dazu passen.
+**L1 Passfoto** (Pose nachstellen). Zielpose in `track_debug` hinstellen, `P` drücken, den Inhalt von `pose_target.json` als Konstante ins Level kopieren. Wer an der Tastatur sitzt, ist für die Kamera eines Laptops zu nah: Im Bild sind nur Kopf und Schultern. Für Posen muss man zurückrücken, bis die Arme im Bild sind, und zu zweit teilt man sich die Breite. Erfahrungen und Messwerte dazu stehen in `godot/scripts/level3/README.md` (Tanzfläche); dort wird auch erklärt, warum `pose_match` allein eine falsche Pose schlecht von einer richtigen trennt.
 
 ```gdscript
 Track.use(self, ["pose"])
@@ -172,7 +175,7 @@ Die Messwerte zittern von selbst um einige Millimeter. Für Rotlicht-Grünlicht 
 
 - **`Track.status` bleibt auf «Kamera startet …»:** Erster Start, uv lädt noch Pakete. Einmal `uv run tracker/tracker.py --selftest` von Hand laufen lassen.
 - **«keine Kamera (Zugriff erlaubt?)»:** macOS: Systemeinstellungen, Datenschutz & Sicherheit, Kamera, Godot einschalten (wer Godot aus dem Terminal startet: das Terminal). Windows: Einstellungen, Datenschutz, Kamera. Oder ein anderes Programm hält die Kamera fest.
-- **Falsche Kamera** (zum Beispiel das iPhone statt der eingebauten): Umgebungsvariable `VISCON_CAMERA=1` setzen, bevor Godot startet, oder beim Start von Hand `--camera 1`.
+- **Falsche Kamera:** Auf dem Mac nimmt der Tracker von selbst die eingebaute Kamera und nicht ein iPhone, das sich als Kamera anbietet. `uv run tracker/tracker.py --list-cameras` zeigt, welche Kameras es gibt und welche genommen wird. Eine andere wählen: Umgebungsvariable `VISCON_CAMERA` setzen, bevor Godot startet, oder beim Start von Hand `--camera`, je mit einer Nummer oder einem Teil des Namens (`VISCON_CAMERA=iPhone`). Unter Windows und Linux gibt es keine Namen, dort gilt Kamera 0, sonst die Nummer angeben. In `track_debug` steht oben, welche Kamera läuft.
 - **«kein Tracker»:** Weder uv noch eine `tracker/.venv` gefunden. Ein eigenes Python lässt sich mit der Umgebungsvariable `VISCON_PYTHON` angeben.
 - **Pusten reagiert nicht:** `M` in `track_debug` zeigt die rohen Pegel. Steht «tief» fest auf −80 dB, liefert das Mikrofon nichts (Freigabe für Godot, oder `audio/driver/enable_input` fehlt in `project.godot`).
 - **Mac mit Intel-Prozessor:** Für `mediapipe` 1.1.0 gibt es dort kein fertiges Paket. In der Kopfzeile von `tracker.py` eine ältere Version eintragen.
