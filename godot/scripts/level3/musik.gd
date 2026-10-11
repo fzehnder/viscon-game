@@ -14,7 +14,9 @@ const BPM := 128.0
 const BARS := 8
 const BUS := "Polyball"
 # ---- tuning: how loud (dB) and how dull (cut-off of the low-pass, Hz)
-const VOL_FAR := -27.0           # near = 0: a thump from far away
+const VOL_FAR := -36.0           # near = 0: a thump from far away
+const VOL_CURVE := 1.6           # above 1: it stays quiet for longer and rises clearly on the last stretch (was 0.7:
+                                 # loud almost everywhere in the house, the way to the dance floor could hardly be heard)
 const VOL_NEAR := -10.0          # near = 1: on the dance floor
 const VOL_FULL := -5.0           # dance minigame and ending
 const CUT_FAR := 420.0
@@ -90,7 +92,7 @@ func _process(delta: float) -> void:
 		_thread = null
 		_start()
 	var k := clampf(near, 0.0, 1.0)
-	var vol := VOL_FULL if full else lerpf(VOL_FAR, VOL_NEAR, pow(k, 0.7))
+	var vol := VOL_FULL if full else lerpf(VOL_FAR, VOL_NEAR, pow(k, VOL_CURVE))
 	var cut := CUT_FULL if full else exp(lerpf(log(CUT_FAR), log(CUT_NEAR), k))
 	var a := 1.0 - exp(-delta / FOLLOW)
 	_vol = lerpf(_vol, vol, a)
