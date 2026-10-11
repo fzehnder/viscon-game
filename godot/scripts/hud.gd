@@ -9,6 +9,7 @@ extends CanvasLayer
 const CH = preload("res://scripts/characters.gd")
 const KEYS = preload("res://scripts/controls.gd")
 const UI = preload("res://scripts/ui.gd")
+const LV = preload("res://scripts/levels.gd")
 const M = preload("res://scripts/map_data.gd")
 const BAR_W := 132.0
 
@@ -294,7 +295,7 @@ func _ready() -> void:
 	head2.alignment = BoxContainer.ALIGNMENT_CENTER
 	head2.add_theme_constant_override("separation", 8)
 	v2.add_child(head2)
-	head2.add_child(_pill("LEVEL %d" % Game.level, UI.ETH_BLUE, 11)[0])
+	head2.add_child(_pill("LEVEL %d" % LV.shown(Game.level), UI.ETH_BLUE, 11)[0])
 	title_l = UI.label("Nacht" if main.night else String(main.lv["name"]), 16, UI.SKY)
 	head2.add_child(title_l)
 	var row2 := HBoxContainer.new()

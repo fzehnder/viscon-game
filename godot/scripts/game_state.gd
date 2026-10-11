@@ -143,9 +143,9 @@ func add_opp(id: String, pname: String, look: Dictionary, by: Array, why: String
 func opps_before(n: int) -> Array:
 	var ids: Array = []
 	for id in opps:
-		if int(opps[id]["level"]) < n:
+		if LV.order_of(int(opps[id]["level"])) < LV.order_of(n):   # earlier in the story
 			ids.append(id)
-	ids.sort_custom(func(a, b): return int(opps[a]["level"]) < int(opps[b]["level"]) or (int(opps[a]["level"]) == int(opps[b]["level"]) and a < b))
+	ids.sort_custom(func(a, b): return LV.order_of(int(opps[a]["level"])) < LV.order_of(int(opps[b]["level"])) or (int(opps[a]["level"]) == int(opps[b]["level"]) and a < b))
 	return ids
 
 
@@ -166,11 +166,11 @@ func begin_level() -> void:
 		return   # an elective is outside the story, it does not undo anything
 	var changed := false
 	for id in opps.keys():
-		if int(opps[id]["level"]) >= level:
+		if LV.order_of(int(opps[id]["level"])) >= LV.order_of(level):   # this level or later in the story
 			opps.erase(id)
 			changed = true
 	for id in items.keys():
-		if int(items[id]) >= level:
+		if LV.order_of(int(items[id])) >= LV.order_of(level):
 			items.erase(id)
 			changed = true
 	if changed:

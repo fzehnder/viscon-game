@@ -315,9 +315,9 @@ func _overlay() -> void:
 	var nw := name.length() * 6 * sc - sc
 	var nx := (W - nw) / 2
 	var ny := 14
-	for o in [Vector2i(-1, 0), Vector2i(1, 0), Vector2i(0, -1), Vector2i(0, 1), Vector2i(1, 1), Vector2i(2, 2), Vector2i(3, 3)]:
-		_text(name, nx + o.x, ny + o.y, sc, EDGE)   # a dark edge all round and a deep shadow
-	_text(name, nx, ny, sc, TEXT)
+	for o in [Vector2i(-1, 0), Vector2i(1, 0), Vector2i(0, -1), Vector2i(0, 1), Vector2i(-1, -1), Vector2i(1, 1), Vector2i(-1, 1), Vector2i(1, -1)]:
+		_text(name, nx + o.x, ny + o.y, sc, TEXT)   # a light edge all round, so the black reads on the sky
+	_text(name, nx, ny, sc, Color.BLACK)
 	for y in range(150, H):
 		var k := (y - 150) / 30.0
 		for x in W:
