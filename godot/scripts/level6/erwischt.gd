@@ -2,7 +2,7 @@ extends CanvasLayer
 ## Level 6: caught copying at the Basisprüfung. A full-screen scene before the lose card, in the
 ## spirit of the professor's fit of rage in level 4 (level4/prof_rage.gd), but colder: the exam
 ## supervisor has seen everything, gets angrier with every line, opens disciplinary proceedings,
-## takes both Legis away and cuts them in two, and the stamp at the end leaves no doubt that this
+## takes both Legis away (the real ones from the start of the game, legi_card.gd) and cuts them in two, and the stamp at the end leaves no doubt that this
 ## is about being thrown out of ETH.
 ##
 ##   var sc = Erwischt.new();  sc.who = <pid of who was seen>;  main.add_child(sc);  sc.play(done)
@@ -12,12 +12,14 @@ extends CanvasLayer
 const UI = preload("res://scripts/ui.gd")
 const ART = preload("res://scripts/character_art.gd")
 const KEYS = preload("res://scripts/controls.gd")
+const LegiCard = preload("res://scripts/legi_card.gd")
 
 const LOOK := {"skin": "e8b894", "hair": "8d929c", "hair_style": "dutt", "top": "23263a", "top_style": "jacket",
 	"accent": "8c1c2b", "pants": "23263a", "shoes": "111118", "acc": ["glasses"]}
 const TYPE_SPEED := 38.0      # letters per second
 const HOLD := 1.7             # seconds a finished line stays before the next one comes by itself
 const STAMP_RED := Color("d6202f")
+const LEGI := Vector2(300.0, 187.0)   # the size of a Legi in this scene (same shape as legi_card.gd CARD)
 # what happens, one after the other. "anger" 0..1: how red she is by then
 const BEATS := [
 	{"kind": "halt"},
@@ -38,7 +40,11 @@ var shake := 0.0
 var flash := 0.0
 var hit := false              # the stamp or the scissors of this beat have come down
 var finished := false
-var canvas: Control
+var canvas: Control           # the hall, the supervisor, the form, the speech bubble
+var over: Control             # everything that lies above the Legis: marks, the last stamp, the flash
+var pen: Control              # where _text and the helpers draw right now (canvas or over)
+var cards: Array = []         # per player: {"holder", "left", "right"}, the real Legi (legi_card.gd) in two halves
+var cut := 0.0                # 0 whole .. 1 cut in two and apart
 
 
 func play(done: Callable = Callable()) -> void:
@@ -52,7 +58,60 @@ func play(done: Callable = Callable()) -> void:
 	canvas.gui_input.connect(func(ev: InputEvent):
 		if ev is InputEventMouseButton and ev.pressed:
 			_next())
+	over = Control.new()
+	over.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	canvas.add_child(over)
+	over.set_anchors_and_offsets_preset(Control.PRESET_FULL_RECT)
+	over.draw.connect(_draw_over)
+	pen = canvas
 	_go(0)
+
+
+## The Legis of both players, the real ones from the start of the game (legi_card.gd), each as two
+## halves behind a clipping frame, so that it can be cut in two.
+func _make_cards() -> void:
+	for pid in 2:
+		var holder := Control.new()
+		holder.mouse_filter = Control.MOUSE_FILTER_IGNORE
+		canvas.add_child(holder)
+		var halves: Array = []
+		for half in 2:
+			var frame := Control.new()
+			frame.mouse_filter = Control.MOUSE_FILTER_IGNORE
+			frame.clip_contents = true
+			frame.size = Vector2(LEGI.x / 2.0, LEGI.y)
+			frame.pivot_offset = Vector2(LEGI.x / 2.0 if half == 0 else 0.0, LEGI.y / 2.0)   # turns around the cut
+			holder.add_child(frame)
+			var card = LegiCard.new()
+			card.set_player(pid)
+			card.accent = Color(String(KEYS.TAG_COLORS[pid]))
+			card.validated = true
+			card.custom_minimum_size = LEGI
+			card.size = LEGI
+			card.position = Vector2(0.0 if half == 0 else -LEGI.x / 2.0, 0.0)
+			frame.add_child(card)
+			halves.append(frame)
+		cards.append({"holder": holder, "left": halves[0], "right": halves[1]})
+	canvas.move_child(over, -1)      # the marks and the stamp stay above the Legis
+
+
+func _place_cards(s: Vector2, kind: String) -> void:
+	var appear := clampf(bt / 0.4, 0.0, 1.0) if kind == "legi" else 1.0
+	cut = 1.0
+	if kind == "legi":
+		cut = clampf((bt - 1.5) / 0.9, 0.0, 1.0) if hit else 0.0
+	var slide := 1.0 - pow(1.0 - appear, 3.0)
+	for pid in cards.size():
+		var c: Dictionary = cards[pid]
+		var holder: Control = c["holder"]
+		holder.position = Vector2(lerpf(s.x * 1.2, s.x * 0.865, slide), s.y * (0.47 + pid * 0.27))
+		holder.rotation = 0.05 - pid * 0.11
+		var left: Control = c["left"]
+		var right: Control = c["right"]
+		left.position = Vector2(-LEGI.x / 2.0 - cut * 20.0, -LEGI.y / 2.0 + cut * 5.0)
+		left.rotation = -0.17 * cut
+		right.position = Vector2(cut * 20.0, -LEGI.y / 2.0 + cut * 14.0)
+		right.rotation = 0.15 * cut
 
 
 func _beat() -> Dictionary:
@@ -86,6 +145,9 @@ func _go(i: int) -> void:
 			UI.sfx("buzz", -4.0)
 		"stamp":
 			pass
+		"legi":
+			_make_cards()
+			UI.sfx("pop", -10.0)
 		_:
 			UI.sfx("pop", -10.0)
 
@@ -147,7 +209,10 @@ func _process(delta: float) -> void:
 				_finish()
 	if kind in ["say", "form", "legi"] and _typed() and bt >= _line().length() / TYPE_SPEED + HOLD + (1.6 if kind != "say" else 0.0):
 		_go(idx + 1)
+	if not cards.is_empty():
+		_place_cards(canvas.size, kind)
 	canvas.queue_redraw()
+	over.queue_redraw()
 
 
 func _input(event: InputEvent) -> void:
@@ -168,8 +233,8 @@ func _text(pos: Vector2, s: String, size: int, col: Color, centered: bool = fals
 	if centered:
 		p.x -= font.get_string_size(s, HORIZONTAL_ALIGNMENT_LEFT, -1, size).x / 2.0
 	if outline > 0:
-		canvas.draw_string_outline(font, p, s, HORIZONTAL_ALIGNMENT_LEFT, -1, size, outline, UI.DARK)
-	canvas.draw_string(font, p, s, HORIZONTAL_ALIGNMENT_LEFT, -1, size, col)
+		pen.draw_string_outline(font, p, s, HORIZONTAL_ALIGNMENT_LEFT, -1, size, outline, UI.DARK)
+	pen.draw_string(font, p, s, HORIZONTAL_ALIGNMENT_LEFT, -1, size, col)
 
 
 ## The supervisor, big, in front of the hall: the usual figure, with a face that leaves no
@@ -177,60 +242,69 @@ func _text(pos: Vector2, s: String, size: int, col: Color, centered: bool = fals
 func _draw_supervisor(s: Vector2) -> void:
 	var k := s.y / 120.0 * 1.3
 	var at := Vector2(s.x * 0.2, s.y * 1.02) + Vector2(sin(t * 47.0), cos(t * 53.0)) * (shake * 10.0 + anger * 1.5)
-	ART.draw_character(canvas, LOOK, ART.FRONT, 0.0, false, at, k)
-	canvas.draw_set_transform(at, 0.0, Vector2(k, k))
+	ART.draw_character(pen, LOOK, ART.FRONT, 0.0, false, at, k)
+	pen.draw_set_transform(at, 0.0, Vector2(k, k))
 	var ink := Color("15162b")
-	canvas.draw_circle(Vector2(0, -34.6), 8.0, Color(0.9, 0.08, 0.08, 0.3 * anger))           # she turns red
-	canvas.draw_line(Vector2(-6.5, -41.2), Vector2(-1.4, -41.2 + 2.6 * anger), ink, 1.3)      # eyebrows, down in the middle
-	canvas.draw_line(Vector2(6.5, -41.2), Vector2(1.4, -41.2 + 2.6 * anger), ink, 1.3)
+	pen.draw_circle(Vector2(0, -34.6), 8.0, Color(0.9, 0.08, 0.08, 0.3 * anger))           # she turns red
+	pen.draw_line(Vector2(-6.5, -41.2), Vector2(-1.4, -41.2 + 2.6 * anger), ink, 1.3)      # eyebrows, down in the middle
+	pen.draw_line(Vector2(6.5, -41.2), Vector2(1.4, -41.2 + 2.6 * anger), ink, 1.3)
 	var talking := String(_beat()["kind"]) != "stamp" and not _typed()
-	canvas.draw_rect(Rect2(-2.6, -30.6, 5.2, 1.2 + (2.6 * absf(sin(t * 17.0)) if talking else 0.0)), ink)   # the mouth
+	pen.draw_rect(Rect2(-2.6, -30.6, 5.2, 1.2 + (2.6 * absf(sin(t * 17.0)) if talking else 0.0)), ink)   # the mouth
 	if anger > 0.5:      # a vein on the forehead
 		var v := Vector2(6.2, -44.5)
 		var vc := Color(0.75, 0.05, 0.1, clampf((anger - 0.5) * 2.0, 0.0, 1.0))
-		canvas.draw_line(v + Vector2(-1.6, -1.6), v + Vector2(1.6, 1.6), vc, 1.0)
-		canvas.draw_line(v + Vector2(1.6, -1.6), v + Vector2(-1.6, 1.6), vc, 1.0)
-	canvas.draw_set_transform(Vector2.ZERO, 0.0, Vector2.ONE)
+		pen.draw_line(v + Vector2(-1.6, -1.6), v + Vector2(1.6, 1.6), vc, 1.0)
+		pen.draw_line(v + Vector2(1.6, -1.6), v + Vector2(-1.6, 1.6), vc, 1.0)
+	pen.draw_set_transform(Vector2.ZERO, 0.0, Vector2.ONE)
 
 
 func _draw_all() -> void:
+	pen = canvas
 	var s := canvas.size
 	var kind := String(_beat()["kind"])
 	# the exam hall, dark; rows of desks; the alarm light turns
-	canvas.draw_rect(Rect2(Vector2.ZERO, s), Color("14141f"))
+	pen.draw_rect(Rect2(Vector2.ZERO, s), Color("14141f"))
 	for row in 4:
 		var y := s.y * (0.42 + row * 0.11)
-		canvas.draw_rect(Rect2(0.0, y, s.x, 5.0), Color(1, 1, 1, 0.03))
+		pen.draw_rect(Rect2(0.0, y, s.x, 5.0), Color(1, 1, 1, 0.03))
 		for d in 9:
-			canvas.draw_rect(Rect2(s.x * (0.04 + d * 0.11) + row * 14.0, y - 26.0, s.x * 0.075, 24.0), Color("23263a"))
-			canvas.draw_rect(Rect2(s.x * (0.055 + d * 0.11) + row * 14.0, y - 46.0, s.x * 0.045, 18.0), Color(0.4, 0.55, 0.9, 0.12))
+			pen.draw_rect(Rect2(s.x * (0.04 + d * 0.11) + row * 14.0, y - 26.0, s.x * 0.075, 24.0), Color("23263a"))
+			pen.draw_rect(Rect2(s.x * (0.055 + d * 0.11) + row * 14.0, y - 46.0, s.x * 0.045, 18.0), Color(0.4, 0.55, 0.9, 0.12))
 	var siren := 0.5 + 0.5 * sin(t * 5.0)
-	canvas.draw_rect(Rect2(Vector2.ZERO, s), Color(0.85, 0.05, 0.08, (0.05 + 0.12 * siren) * maxf(anger, 0.25)))
+	pen.draw_rect(Rect2(Vector2.ZERO, s), Color(0.85, 0.05, 0.08, (0.05 + 0.12 * siren) * maxf(anger, 0.25)))
 	if kind == "halt":
 		var pop := minf(1.0, bt / 0.12)
 		_text(Vector2(s.x / 2.0, s.y * 0.56) + Vector2(sin(t * 60.0), cos(t * 71.0)) * shake * 14.0, UI.T("HALT!"), int(210 * (0.6 + 0.4 * pop)), STAMP_RED, true, 26)
 	else:
 		_draw_supervisor(s)
 		_draw_form(s, kind)
-		_draw_legis(s, kind)
 		if kind != "stamp":
 			_draw_bubble(s)
+
+
+## Above the Legis: what is printed across them, the last stamp, the flash.
+func _draw_over() -> void:
+	pen = over
+	var s := over.size
+	var kind := String(_beat()["kind"])
+	_draw_marks()
 	if kind == "stamp":
 		_draw_stamp(s)
 	if flash > 0.0:
-		canvas.draw_rect(Rect2(Vector2.ZERO, s), Color(1, 1, 1, flash * 0.7))
+		pen.draw_rect(Rect2(Vector2.ZERO, s), Color(1, 1, 1, flash * 0.7))
 	_text(Vector2(s.x - 24.0 - 330.0, s.y - 16.0), UI.T("E / Enter: weiter  ·  Esc: überspringen"), 15, Color(1, 1, 1, 0.5))
+	pen = canvas
 
 
 func _draw_bubble(s: Vector2) -> void:
 	var r := Rect2(s.x * 0.4, s.y * 0.07, s.x * 0.55, s.y * 0.2)
-	canvas.draw_rect(r.grow(5.0), UI.DARK)
-	canvas.draw_rect(r, UI.PAPER)
-	canvas.draw_colored_polygon(PackedVector2Array([Vector2(r.position.x + 30.0, r.end.y), Vector2(r.position.x + 78.0, r.end.y), Vector2(r.position.x - 16.0, r.end.y + 46.0)]), UI.PAPER)
+	pen.draw_rect(r.grow(5.0), UI.DARK)
+	pen.draw_rect(r, UI.PAPER)
+	pen.draw_colored_polygon(PackedVector2Array([Vector2(r.position.x + 30.0, r.end.y), Vector2(r.position.x + 78.0, r.end.y), Vector2(r.position.x - 16.0, r.end.y + 46.0)]), UI.PAPER)
 	_text(r.position + Vector2(22.0, 34.0), UI.T("Prüfungsaufsicht"), 18, STAMP_RED)
 	var line := _line()
 	var shown := line.substr(0, int(bt * TYPE_SPEED))
-	canvas.draw_multiline_string(ThemeDB.fallback_font, r.position + Vector2(22.0, 74.0), shown, HORIZONTAL_ALIGNMENT_LEFT, r.size.x - 44.0, 28, -1, UI.INK)
+	pen.draw_multiline_string(ThemeDB.fallback_font, r.position + Vector2(22.0, 74.0), shown, HORIZONTAL_ALIGNMENT_LEFT, r.size.x - 44.0, 28, -1, UI.INK)
 
 
 ## The form of the disciplinary proceedings slides in; the stamp makes the exam void.
@@ -242,91 +316,72 @@ func _draw_form(s: Vector2, kind: String) -> void:
 	var at := Vector2(lerpf(s.x * 1.1, s.x * 0.44, 1.0 - pow(1.0 - slide, 3.0)), s.y * 0.36)
 	var w := s.x * 0.3
 	var h := s.y * 0.5
-	canvas.draw_set_transform(at, -0.035, Vector2.ONE)
-	canvas.draw_rect(Rect2(8.0, 10.0, w, h), Color(0, 0, 0, 0.35))
-	canvas.draw_rect(Rect2(0.0, 0.0, w, h), UI.PAPER)
-	canvas.draw_rect(Rect2(0.0, 0.0, w, 10.0), UI.ETH_BLUE)
+	pen.draw_set_transform(at, -0.035, Vector2.ONE)
+	pen.draw_rect(Rect2(8.0, 10.0, w, h), Color(0, 0, 0, 0.35))
+	pen.draw_rect(Rect2(0.0, 0.0, w, h), UI.PAPER)
+	pen.draw_rect(Rect2(0.0, 0.0, w, 10.0), UI.ETH_BLUE)
 	var font := ThemeDB.fallback_font
-	canvas.draw_string(font, Vector2(20.0, 44.0), UI.T("ETH Zürich · Rektorat"), HORIZONTAL_ALIGNMENT_LEFT, -1, 16, UI.ETH_BLUE)
-	canvas.draw_string(font, Vector2(20.0, 80.0), UI.T("DISZIPLINARVERFAHREN"), HORIZONTAL_ALIGNMENT_LEFT, -1, 25, UI.INK)
-	canvas.draw_string(font, Vector2(20.0, 104.0), "Nr. 2026-0042", HORIZONTAL_ALIGNMENT_LEFT, -1, 15, UI.INK)
-	canvas.draw_line(Vector2(20.0, 116.0), Vector2(w - 20.0, 116.0), UI.INK, 1.5)
+	pen.draw_string(font, Vector2(20.0, 44.0), UI.T("ETH Zürich · Rektorat"), HORIZONTAL_ALIGNMENT_LEFT, -1, 16, UI.ETH_BLUE)
+	pen.draw_string(font, Vector2(20.0, 80.0), UI.T("DISZIPLINARVERFAHREN"), HORIZONTAL_ALIGNMENT_LEFT, -1, 25, UI.INK)
+	pen.draw_string(font, Vector2(20.0, 104.0), "Nr. 2026-0042", HORIZONTAL_ALIGNMENT_LEFT, -1, 15, UI.INK)
+	pen.draw_line(Vector2(20.0, 116.0), Vector2(w - 20.0, 116.0), UI.INK, 1.5)
 	var rows := [
 		[UI.T("Betrifft"), "%s, %s" % [Game.name_of(0), Game.name_of(1)]],
 		[UI.T("Vergehen"), UI.T("Abschreiben an der Basisprüfung")],
 		[UI.T("Antrag"), UI.T("Ausschluss vom Studium")],
 	]
 	for i in rows.size():
-		canvas.draw_string(font, Vector2(20.0, 148.0 + i * 54.0), String(rows[i][0]), HORIZONTAL_ALIGNMENT_LEFT, -1, 13, Color("6b7088"))
-		canvas.draw_string(font, Vector2(20.0, 170.0 + i * 54.0), String(rows[i][1]), HORIZONTAL_ALIGNMENT_LEFT, w - 40.0, 19, UI.INK if i < 2 else STAMP_RED)
+		pen.draw_string(font, Vector2(20.0, 148.0 + i * 54.0), String(rows[i][0]), HORIZONTAL_ALIGNMENT_LEFT, -1, 13, Color("6b7088"))
+		pen.draw_string(font, Vector2(20.0, 170.0 + i * 54.0), String(rows[i][1]), HORIZONTAL_ALIGNMENT_LEFT, w - 40.0, 19, UI.INK if i < 2 else STAMP_RED)
 	if kind != "form" or hit:
 		var punch := 1.0 if kind != "form" else 1.0 + 1.2 * maxf(0.0, 1.0 - (bt - 1.7) / 0.14)
-		canvas.draw_set_transform(at + Vector2(w * 0.5, h * 0.9).rotated(-0.035), -0.2, Vector2(punch, punch))
+		pen.draw_set_transform(at + Vector2(w * 0.5, h * 0.9).rotated(-0.035), -0.2, Vector2(punch, punch))
 		var word := UI.T("PRÜFUNG UNGÜLTIG")
 		var tw := font.get_string_size(word, HORIZONTAL_ALIGNMENT_LEFT, -1, 26).x
-		canvas.draw_rect(Rect2(-tw / 2.0 - 12.0, -30.0, tw + 24.0, 44.0), Color(STAMP_RED, 0.9), false, 4.0)
-		canvas.draw_string(font, Vector2(-tw / 2.0, 2.0), word, HORIZONTAL_ALIGNMENT_LEFT, -1, 26, Color(STAMP_RED, 0.9))
-	canvas.draw_set_transform(Vector2.ZERO, 0.0, Vector2.ONE)
+		pen.draw_rect(Rect2(-tw / 2.0 - 12.0, -30.0, tw + 24.0, 44.0), Color(STAMP_RED, 0.9), false, 4.0)
+		pen.draw_string(font, Vector2(-tw / 2.0, 2.0), word, HORIZONTAL_ALIGNMENT_LEFT, -1, 26, Color(STAMP_RED, 0.9))
+	pen.draw_set_transform(Vector2.ZERO, 0.0, Vector2.ONE)
 
 
-## Both Legis lie on the table; then they are cut in two.
-func _draw_legis(s: Vector2, kind: String) -> void:
-	var beat_i := BEATS.find(_beat())
-	if beat_i < 4:
+## Across each Legi that has been cut: taken away.
+func _draw_marks() -> void:
+	if cards.is_empty() or cut < 0.3:
 		return
-	var cut := 0.0 if (kind == "legi" and not hit) else (clampf((bt - 1.5) / 0.9, 0.0, 1.0) if kind == "legi" else 1.0)
-	var appear := clampf(bt / 0.35, 0.0, 1.0) if kind == "legi" else 1.0
 	var font := ThemeDB.fallback_font
-	for pid in 2:
-		var c := Vector2(s.x * 0.86, s.y * (0.47 + pid * 0.25)) + Vector2((1.0 - appear) * s.x * 0.3, 0.0)
-		var col := Color(String(KEYS.TAG_COLORS[pid]))
-		for half in 2:
-			var dir := -1.0 if half == 0 else 1.0
-			canvas.draw_set_transform(c + Vector2(dir * cut * 26.0, cut * (8.0 + half * 10.0)), 0.05 - pid * 0.1 + dir * cut * 0.22, Vector2.ONE)
-			var x0 := -110.0 if half == 0 else 0.0
-			canvas.draw_rect(Rect2(x0, -68.0, 110.0, 136.0), Color("f3f1ea"))
-			canvas.draw_rect(Rect2(x0, -68.0, 110.0, 26.0), col)
-			if half == 0:
-				canvas.draw_string(font, Vector2(-100.0, -49.0), "ETH · Legi", HORIZONTAL_ALIGNMENT_LEFT, -1, 15, Color.WHITE)
-				canvas.draw_rect(Rect2(-98.0, -30.0, 52.0, 64.0), Color("c9ccd6"))
-				canvas.draw_circle(Vector2(-72.0, -6.0), 13.0, Color("9aa1ad"))
-				canvas.draw_rect(Rect2(-90.0, 10.0, 36.0, 24.0), Color("9aa1ad"))
-			else:
-				canvas.draw_string(font, Vector2(8.0, -6.0), Game.name_of(pid).left(10), HORIZONTAL_ALIGNMENT_LEFT, -1, 19, UI.INK)
-				canvas.draw_string(font, Vector2(8.0, 18.0), "D-INFK", HORIZONTAL_ALIGNMENT_LEFT, -1, 13, Color("6b7088"))
-			if cut > 0.0:      # the cut edge
-				canvas.draw_line(Vector2(0.0, -68.0), Vector2(0.0, 68.0), Color(STAMP_RED, 0.8), 2.0)
-		if cut > 0.3:
-			canvas.draw_set_transform(c + Vector2(0.0, 12.0), -0.12, Vector2.ONE)
-			var word := UI.T("EINGEZOGEN")
-			var tw := font.get_string_size(word, HORIZONTAL_ALIGNMENT_LEFT, -1, 24).x
-			canvas.draw_string_outline(font, Vector2(-tw / 2.0, 0.0), word, HORIZONTAL_ALIGNMENT_LEFT, -1, 24, 6, UI.PAPER)
-			canvas.draw_string(font, Vector2(-tw / 2.0, 0.0), word, HORIZONTAL_ALIGNMENT_LEFT, -1, 24, STAMP_RED)
-	canvas.draw_set_transform(Vector2.ZERO, 0.0, Vector2.ONE)
+	var word := UI.T("EINGEZOGEN")
+	var tw := font.get_string_size(word, HORIZONTAL_ALIGNMENT_LEFT, -1, 34).x
+	var pop := 1.0 + 0.8 * maxf(0.0, 1.0 - (cut - 0.3) / 0.15)
+	for c in cards:
+		var holder: Control = c["holder"]
+		pen.draw_set_transform(holder.position + Vector2(0.0, 14.0), -0.14, Vector2(pop, pop))
+		pen.draw_rect(Rect2(-tw / 2.0 - 12.0, -34.0, tw + 24.0, 48.0), Color(UI.PAPER, 0.9))
+		pen.draw_rect(Rect2(-tw / 2.0 - 12.0, -34.0, tw + 24.0, 48.0), STAMP_RED, false, 4.0)
+		pen.draw_string(font, Vector2(-tw / 2.0, 2.0), word, HORIZONTAL_ALIGNMENT_LEFT, -1, 34, STAMP_RED)
+	pen.draw_set_transform(Vector2.ZERO, 0.0, Vector2.ONE)
 
 
 ## The last word: the stamp over everything.
 func _draw_stamp(s: Vector2) -> void:
-	canvas.draw_rect(Rect2(Vector2.ZERO, s), Color(0.03, 0.02, 0.05, clampf(bt / 0.4, 0.0, 1.0) * 0.72))
+	pen.draw_rect(Rect2(Vector2.ZERO, s), Color(0.03, 0.02, 0.05, clampf(bt / 0.4, 0.0, 1.0) * 0.72))
 	if not hit:
 		return
 	var font := ThemeDB.fallback_font
 	var punch := 1.0 + 1.6 * maxf(0.0, 1.0 - (bt - 0.45) / 0.16)
 	var jitter := Vector2(sin(t * 60.0), cos(t * 71.0)) * shake * 12.0
-	canvas.draw_set_transform(s / 2.0 + Vector2(0.0, -s.y * 0.04) + jitter, -0.1, Vector2(punch, punch))
+	pen.draw_set_transform(s / 2.0 + Vector2(0.0, -s.y * 0.04) + jitter, -0.1, Vector2(punch, punch))
 	var lines := [UI.T("EXMATRIKULATION"), UI.T("BEANTRAGT")]
 	var size := int(s.y * 0.125)
 	var widest := 0.0
 	for l in lines:
 		widest = maxf(widest, font.get_string_size(l, HORIZONTAL_ALIGNMENT_LEFT, -1, size).x)
 	var box := Rect2(-widest / 2.0 - 36.0, -size * 1.25, widest + 72.0, size * 2.55)
-	canvas.draw_rect(box, Color(STAMP_RED, 0.12))
-	canvas.draw_rect(box, STAMP_RED, false, 10.0)
-	canvas.draw_rect(box.grow(-14.0), STAMP_RED, false, 3.0)
+	pen.draw_rect(box, Color(STAMP_RED, 0.12))
+	pen.draw_rect(box, STAMP_RED, false, 10.0)
+	pen.draw_rect(box.grow(-14.0), STAMP_RED, false, 3.0)
 	for i in lines.size():
 		var tw := font.get_string_size(lines[i], HORIZONTAL_ALIGNMENT_LEFT, -1, size).x
-		canvas.draw_string(font, Vector2(-tw / 2.0, -size * 0.12 + i * size * 1.08), lines[i], HORIZONTAL_ALIGNMENT_LEFT, -1, size, STAMP_RED)
-	canvas.draw_set_transform(Vector2.ZERO, 0.0, Vector2.ONE)
+		pen.draw_string(font, Vector2(-tw / 2.0, -size * 0.12 + i * size * 1.08), lines[i], HORIZONTAL_ALIGNMENT_LEFT, -1, size, STAMP_RED)
+	pen.draw_set_transform(Vector2.ZERO, 0.0, Vector2.ONE)
 	if bt > 1.2:
 		_text(Vector2(s.x / 2.0, s.y * 0.84), UI.T("Disziplinarausschuss der ETH  ·  Der Entscheid folgt per Einschreiben"), 22, Color(1, 1, 1, 0.85), true, 6)
 	if bt > 1.6:
