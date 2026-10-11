@@ -29,6 +29,7 @@ const ART = preload("res://scripts/character_art.gd")
 const CH = preload("res://scripts/characters.gd")
 const KEYS = preload("res://scripts/controls.gd")
 const UI = preload("res://scripts/ui.gd")
+const Scold = preload("res://scripts/scold.gd")
 const Cutscene = preload("res://scripts/cutscene.gd")
 const Person = preload("lab_person.gd")
 const Quiz = preload("chem_quiz.gd")
@@ -155,6 +156,12 @@ const COATS := Rect2(69.0, 57.4, 0.5, 2.9)
 const SHOWER := Rect2(85.45, 57.15, 1.4, 1.4)
 const BOARD := Rect2(73.4, 56.1, 8.2, 0.85)   # on the north wall
 const PTABLE := Rect2(69.7, 56.12, 3.3, 0.8)
+# what the professor says in the telling-off card when somebody runs in the lab
+const RUN_LINES := [
+	"Rennen im Labor? Wollen Sie die Notdusche von innen sehen?",
+	"Hier wird geschritten, nicht gerannt. Wie in der Oper.",
+	"Noch ein Sprint, und Sie putzen die Kapellen. Alle.",
+]
 const PROF_LOOK := {"skin": "f1c9a5", "hair": "ece8e0", "hair_style": "locken", "top": "f3f3f0", "top_style": "labcoat",
 	"accent": "b7352d", "pants": "3b3f46", "shoes": "1f1f24", "acc": ["glasses", "beard"]}
 const BOTTLES := ["8c5a2b", "2f5d8c", "e9ece8", "3e7d4f", "b7352d", "d9a441", "5d3f7a", "e9ece8"]
@@ -1015,6 +1022,7 @@ func on_noise(at: Vector2, radius: float) -> void:
 		main.fx.sound(prof.global_position, 2.6 * TS, Color(1.0, 0.4, 0.4, 0.7), 0.6)
 		UI.sfx("fail")
 		main.hud.toast("Nicht rennen!", "%s: «%s! Im Labor wird NICHT gerannt! Das gibt einen Strich.»" % [PROF_NAME, Game.name_of(pid)], 3.5)
+		Scold.tell(main, pid, prof.look, PROF_NAME, Scold.line(RUN_LINES), "run")   # and he has a word with you (scripts/scold.gd)
 		return
 
 
