@@ -18,7 +18,7 @@ const LV = preload("res://scripts/levels.gd")
 const PASS := 4.0                 # credits from this grade on
 const SESSION := "W27"            # the game plays in autumn 2026, that counts for the winter session
 const DEFAULT_ECTS := 6
-const PROGRAMME := "Bachelor-Studiengang Tag & Nacht"
+const PROGRAMME := "Bachelor-Studiengang Bib Bob"
 const URL := "lehrbetrieb.ethz.ch"
 # study years the game does not reach: [category, required credits]
 const LATER := [

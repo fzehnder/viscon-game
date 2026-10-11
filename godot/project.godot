@@ -14,7 +14,7 @@ compatibility/default_parent_skeleton_in_mesh_instance_3d=true
 
 [application]
 
-config/name="ETH Zentrum – Tag & Nacht"
+config/name="Bib Bob"
 config/description="Story-Modus zu zweit: vom Ersti-Tag bis zum nächtlichen Einbruch ins Labor."
 run/main_scene="res://menu.tscn"
 config/features=PackedStringArray("4.7")

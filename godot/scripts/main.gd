@@ -1,5 +1,5 @@
 extends Node2D
-## ETH Zentrum – Tag & Nacht. Story mode for two players on one keyboard.
+## Bib Bob (ETH Zentrum). Story mode for two players on one keyboard.
 ## The level comes from the Game autoload (levels.gd). Level 1 is the Ersti-Tag (day).
 ## Later levels bring their own logic node (`logic`, see levels.gd) for tasks of type "level".
 ## Hooks that this script calls on it, all optional:

@@ -11,6 +11,7 @@ signal to_menu
 
 const KEYS = preload("res://scripts/controls.gd")
 const UI = preload("res://scripts/ui.gd")
+const Logo = preload("res://scripts/logo.gd")
 
 const ENTRIES := [["Weiter", "resume"], ["Level neu starten", "restart"], ["Leistungsüberblick", "transcript"],
 	["Startbildschirm", "to_menu"]]
@@ -56,7 +57,14 @@ func _ready() -> void:
 	var v := VBoxContainer.new()
 	v.add_theme_constant_override("separation", 10)
 	card.add_child(v)
-	var head := UI.label("Pause", 38, UI.SKY)
+	# the name of the game on top, in light blue so that it reads on the dark glass
+	var logo := Logo.new()
+	logo.col = UI.SKY
+	logo.edge = Color("0b1a3a")
+	logo.custom_minimum_size = Vector2(320, 84)
+	logo.size_flags_horizontal = Control.SIZE_SHRINK_CENTER
+	v.add_child(logo)
+	var head := UI.label("Pause", 30, UI.ON_GLASS)
 	head.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
 	v.add_child(head)
 	if title != "":

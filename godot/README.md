@@ -1,4 +1,4 @@
-# ETH Zentrum – Tag & Nacht
+# Bib Bob – ETH Zentrum
 
 Ein 2D-Spiel für **Godot 4.3 oder neuer**. Du wählst dein Departement, gestaltest deine Figur und spielst entweder tagsüber Aufgaben gegen die Uhr oder brichst nachts ins Labor ein, ohne dass dich die Professoren erwischen.
 

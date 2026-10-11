@@ -40,8 +40,12 @@ const TEXT := Color("fff8e7")
 const TEXT_DIM := Color("b9bde6")
 const EDGE := Color("23264a")
 
-## 5 x 7 pixel letters for the loading label.
+## 5 x 7 pixel letters for the name on the boot splash.
 const GLYPHS := {
+	"B": ["11110", "10001", "10001", "11110", "10001", "10001", "11110"],
+	"i": ["00100", "00000", "01100", "00100", "00100", "00100", "01110"],
+	"b": ["10000", "10000", "10110", "11001", "10001", "10001", "11110"],
+	"o": ["00000", "00000", "01110", "10001", "10001", "10001", "01110"],
 	"L": ["10000", "10000", "10000", "10000", "10000", "10000", "11111"],
 	"A": ["01110", "10001", "10001", "11111", "10001", "10001", "10001"],
 	"D": ["11110", "10001", "10001", "10001", "10001", "10001", "11110"],
@@ -54,7 +58,9 @@ const GLYPHS := {
 var img: Image
 
 
-## Returns the picture at 320 x 180. With `loading`, a "LADEN..." label and a bar sit at the bottom.
+## Returns the picture at 320 x 180. With `loading` (the boot splash), the name of the game sits in the
+## sky and an empty loading bar at the bottom. No words in a language: the splash comes before the
+## language is known.
 static func render(loading := false) -> Image:
 	var e := new()
 	e.img = Image.create(W, H, false, Image.FORMAT_RGBA8)
@@ -302,18 +308,22 @@ func _text(s: String, x: int, y: int, scale: int, c: Color) -> void:
 		x += 6 * scale
 
 
-## "LADEN..." and an empty bar on a dark strip at the bottom.
+## The name "Bib Bob" big in the sky, and an empty bar on a dark strip at the bottom.
 func _overlay() -> void:
+	var name := "Bib Bob"
+	var sc := 3
+	var nw := name.length() * 6 * sc - sc
+	var nx := (W - nw) / 2
+	var ny := 14
+	for o in [Vector2i(-1, 0), Vector2i(1, 0), Vector2i(0, -1), Vector2i(0, 1), Vector2i(1, 1), Vector2i(2, 2), Vector2i(3, 3)]:
+		_text(name, nx + o.x, ny + o.y, sc, EDGE)   # a dark edge all round and a deep shadow
+	_text(name, nx, ny, sc, TEXT)
 	for y in range(150, H):
 		var k := (y - 150) / 30.0
 		for x in W:
 			img.set_pixel(x, y, img.get_pixel(x, y).lerp(EDGE, 0.35 + k * 0.5))
-	var label := "LADEN..."
-	var lx := (W - (label.length() * 6 - 1)) / 2
-	_text(label, lx + 1, 159, 1, EDGE)
-	_text(label, lx, 158, 1, TEXT)
 	var bw := 90
 	var bx := (W - bw) / 2
-	_r(bx, 169, bw, 4, TEXT_DIM)
-	_r(bx + 1, 170, bw - 2, 2, EDGE)
-	_r(bx + 1, 170, 14, 2, TEXT)
+	_r(bx, 163, bw, 4, TEXT_DIM)
+	_r(bx + 1, 164, bw - 2, 2, EDGE)
+	_r(bx + 1, 164, 14, 2, TEXT)
