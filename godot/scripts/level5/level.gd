@@ -48,6 +48,7 @@ const BUS_DOOR := Rect2(44.5, 73.4, 3.0, 1.4)    # step in here
 
 const DEF := {
 	"name": "Nacht im HIL",
+	"noise_rings": true,   # rings that show how far footsteps carry (fx.gd); only this level has them
 	"sky": "night",      # the loading screen: the ETH-Link drives up at night ...
 	"ride": "ethlink",   # ... to Hönggerberg instead of the Polybahn
 	"tag": "LEVEL 5 · NACHT",

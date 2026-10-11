@@ -45,3 +45,7 @@ Gemeinsame Dateien sind nicht angefasst.
 
 - Per Bot geprüft (mit `--exam-keys`): Ein Bot, der nur spickt, wenn beide Wächter ruhig sind, besteht in etwa einer Minute Prüfungszeit mit Note 6; einer, der immer spickt, fliegt nach wenigen Sekunden. Ohne Kamera bleibt die Prüfung in der Kalibrierung. Screenshots: Halle, Lesen (Streber-Bildschirm in der Mitte), Aufsicht mit «!», Streber von vorne beim Blick zu P1.
 - Nicht geprüft: die Kopfsteuerung mit der echten Kamera (Schwellen `LOOK_DEG`, `FORWARD_DEG`), ob die Warnzeiten für Menschen reichen.
+
+## Musik
+
+Während der Prüfung läuft «Flight of the Bumblebee» (Hummelflug, Rimsky-Korsakow 1900, gemeinfrei) als Klavierstück, im Code erzeugt (`hummel.gd`: Noten als MIDI-Nummern, ein synthetisches Klavier pro Tonhöhe, in einem Thread gerendert, etwa 21 s Schleife). Startet in `_open_exam`, blendet in `_on_exam_done` aus. Die allgemeine Musik von `ambience.gd` ist in diesem Level aus (`"ambience": {"music": false}`). Tempo, Lautstärke und Klang sind ein erster Wurf (`SIXTEENTH`, `VOL` in `hummel.gd`); noch von niemandem im Spiel gehört.

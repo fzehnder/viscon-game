@@ -9,9 +9,11 @@ extends Node2D
 const ExamScript = preload("res://scripts/level7/exam.gd")
 const Cutscene = preload("res://scripts/cutscene.gd")
 const Erwischt = preload("res://scripts/level7/erwischt.gd")
+const Hummel = preload("res://scripts/level7/hummel.gd")
 
 const DEF := {
 	"name": "Basisprüfung",
+	"ambience": {"music": false},   # the exam has its own music: Flight of the Bumblebee (hummel.gd)
 	"tag": "LEVEL 7 · FINALE",
 	"mode": "day",
 	"time": 900.0,   # the exam has its own clock (exam.gd EXAM_TIME)
@@ -31,6 +33,7 @@ var main            # main.gd, set before _ready
 var layer: CanvasLayer
 var exam = null
 var started := false
+var music = null       # Flight of the Bumblebee while the exam runs (hummel.gd)
 
 
 func _process(_delta: float) -> void:
@@ -62,9 +65,14 @@ func _open_exam() -> void:
 	exam.main = main
 	exam.finished.connect(_on_exam_done)
 	layer.add_child(exam)
+	music = Hummel.new()
+	main.add_child(music)
 
 
 func _on_exam_done(won: bool, info: Dictionary) -> void:
+	if music != null:
+		music.stop()   # fades out
+		music = null
 	if not won:
 		main.state = "lost"
 		var who: int = info["who"]

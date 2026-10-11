@@ -40,7 +40,8 @@ const BlowGame = preload("blow_game.gd")
 
 const DEF := {
 	"name": "Chemiepraktikum",
-	"tag": "LEVEL 4",
+	"order": 2.5, "block": "A", "course": "252-0003-00 L",   # in the story before the Polyball (level 3), in exam block A (levels.gd order_of)
+	"tag": "LEVEL 3",   # third in the story, before the Polyball ("order" above)
 	"mode": "day",
 	"time": 360.0,
 	"start": Vector2(69.9, 63.2),   # just inside the lab door
@@ -899,7 +900,7 @@ func _after_rage(pid: int, k: int, got: int, why: String) -> void:
 		tip = "Wenn ihr brennt: sofort unter die Notdusche oben rechts im Labor, gleich neben Kapelle 1, und dort ziehen."
 	main.hud.show_overlay(title,
 		"%s\n\n%s hat ebenfalls 100 °C erreicht, das Siedler-Meter ist geplatzt, und das Praktikum beginnt für euch beide von vorne.\n\nDas war Versuch %d. %s" % [what, PROF_NAME, attempts, tip],
-		"R nochmals versuchen · M zum Startbildschirm", "Nochmals versuchen", true, "lose", "LEVEL %d" % Game.level)
+		"R nochmals versuchen · M zum Startbildschirm", "Nochmals versuchen", true, "lose", String(DEF["tag"]))
 
 
 # ================================================================== hooks called by main.gd

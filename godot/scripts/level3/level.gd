@@ -110,7 +110,8 @@ const LOOK_KOCH := {"skin": "e0ac85", "hair": "3b2a1e", "hair_style": "cap", "to
 
 const DEF := {
 	"name": "Polyball",
-	"tag": "LEVEL 3",
+	"course": "252-0004-00 L",
+	"tag": "LEVEL 4",   # fourth in the story: the chemistry lab (level 4) comes first (levels.gd order_of)
 	"mode": "day",
 	"time": 480.0,
 	"start": Vector2(27.0, 51.0),   # on the Polyterrasse, between the west entrance and the Mensa
