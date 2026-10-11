@@ -7,8 +7,11 @@ extends Node
 ##
 ## It works by itself: it reads the room of each player from world.zone_at() and maps the name to
 ## a kind of room by keywords (ROOMS). Two players in different rooms hear both, each half as
-## loud. While a minigame is open it is silent (minigames have their own sounds, and some listen
-## to the microphone).
+## loud. Everything comes and goes in a crossfade (FADE_TIME).
+## While a minigame is open, the room steps back and a light tune for working fades in ("task").
+## A minigame with its own music has a variable `ambience` with "none" (or the name of another
+## tune); while the microphone is listening, everything from here is silent.
+## On the loading screen the ride is heard: the Polybahn or the ETH-Link bus.
 ##
 ## A level can steer it in its DEF (optional):
 ##   "ambience": false                                  nothing at all in this level
@@ -24,29 +27,33 @@ const LV = preload("res://scripts/levels.gd")
 const RATE := 22050
 const BUS := "Ambience"        # beds and music
 const ROOM_BUS := "Room"       # the effects of the game (Sfx) and the single sounds: with the echo of the room
-const FADE := 45.0             # dB per second when something comes or goes
+const FADE_TIME := 1.6         # seconds in which something comes or goes (a crossfade in loudness)
 const OFF := -60.0
+const TASK_DUCK := -8.0        # the room behind an open minigame: this much quieter
+const RIDE_DB := -17.0         # the ride on the loading screen
 const GAIN_DB := 10.0          # everything from here, louder or quieter: the one knob to turn
 const MUSIC_DB := -21.0
 const DUCK_STATE := -7.0       # start card, cutscene, win and lose card: this much quieter
 const QUIET := {3: "own music (level3/musik.gd)", 19: "listens to the microphone", 20: "own scene"}
 
 # kind of room -> beds {name: dB}, single sounds [name, shortest gap s, longest gap s, dB], echo 0..1, music
+# The beds are kept low on purpose (first round of listening: too much rustling, above all in the
+# lab): what makes a room is its single sounds, the bed is only the air under them.
 const KINDS := {
-	"outside": {"beds": {"wind": -27.0}, "shots": [["bird", 3.0, 8.0, -19.0], ["bird2", 5.0, 13.0, -21.0], ["tram", 20.0, 45.0, -25.0]], "wet": 0.0, "music": "day"},
-	"street": {"beds": {"wind": -28.0}, "shots": [["car", 5.0, 12.0, -19.0], ["tram", 12.0, 28.0, -21.0], ["bird", 7.0, 16.0, -22.0]], "wet": 0.0, "music": "day"},
-	"polybahn": {"beds": {"wind": -28.0}, "shots": [["tram", 6.0, 13.0, -19.0], ["bird", 5.0, 12.0, -21.0]], "wet": 0.0, "music": "day"},
-	"hall": {"beds": {"murmur": -29.0, "roomtone": -32.0}, "shots": [["steps", 4.0, 10.0, -20.0], ["door", 11.0, 26.0, -22.0]], "wet": 0.45},
-	"corridor": {"beds": {"roomtone": -30.0, "murmur": -38.0}, "shots": [["steps", 5.0, 12.0, -21.0], ["door", 9.0, 22.0, -22.0]], "wet": 0.35},
-	"lecture": {"beds": {"roomtone": -30.0}, "shots": [["chalk", 4.0, 9.0, -21.0], ["page", 6.0, 14.0, -23.0], ["steps", 12.0, 26.0, -25.0]], "wet": 0.3},
-	"library": {"beds": {"roomtone": -34.0}, "shots": [["page", 3.0, 8.0, -22.0], ["clock", 2.0, 2.0, -31.0], ["keys", 8.0, 20.0, -27.0]], "wet": 0.22},
-	"lab": {"beds": {"hood": -27.0}, "shots": [["bubble", 2.0, 5.0, -21.0], ["glass", 4.0, 10.0, -23.0], ["keys", 10.0, 22.0, -26.0]], "wet": 0.14},
-	"canteen": {"beds": {"murmur": -24.0, "kitchen": -29.0}, "shots": [["plates", 2.0, 5.0, -20.0], ["glass", 1.5, 4.0, -24.0], ["bell", 13.0, 28.0, -22.0]], "wet": 0.22},
-	"office": {"beds": {"fan": -31.0}, "shots": [["keys", 2.0, 6.0, -23.0], ["clock", 2.0, 2.0, -30.0], ["page", 10.0, 22.0, -25.0]], "wet": 0.05},
-	"lounge": {"beds": {"roomtone": -36.0}, "shots": [["glass", 6.0, 14.0, -25.0]], "wet": 0.1, "music": "lounge"},
+	"outside": {"beds": {"wind": -35.0}, "shots": [["bird", 3.0, 8.0, -18.0], ["bird2", 5.0, 13.0, -20.0], ["tram", 20.0, 45.0, -24.0]], "wet": 0.0, "music": "day"},
+	"street": {"beds": {"wind": -36.0}, "shots": [["car", 6.0, 14.0, -24.0], ["tram", 12.0, 28.0, -21.0], ["bird", 7.0, 16.0, -21.0]], "wet": 0.0, "music": "day"},
+	"polybahn": {"beds": {"wind": -36.0}, "shots": [["tram", 6.0, 13.0, -19.0], ["bird", 5.0, 12.0, -20.0]], "wet": 0.0, "music": "day"},
+	"hall": {"beds": {"murmur": -33.0, "roomtone": -42.0}, "shots": [["steps", 4.0, 10.0, -20.0], ["door", 11.0, 26.0, -22.0]], "wet": 0.45},
+	"corridor": {"beds": {"roomtone": -42.0, "murmur": -41.0}, "shots": [["steps", 5.0, 12.0, -21.0], ["door", 9.0, 22.0, -22.0]], "wet": 0.35},
+	"lecture": {"beds": {"roomtone": -42.0}, "shots": [["chalk", 5.0, 11.0, -27.0], ["page", 8.0, 18.0, -29.0], ["steps", 12.0, 26.0, -24.0], ["clock", 2.0, 2.0, -31.0]], "wet": 0.3},
+	"library": {"beds": {"roomtone": -44.0}, "shots": [["page", 5.0, 12.0, -29.0], ["clock", 2.0, 2.0, -29.0], ["keys", 8.0, 20.0, -27.0]], "wet": 0.22},
+	"lab": {"beds": {"hood": -43.0}, "shots": [["bubble", 2.0, 5.0, -19.0], ["glass", 4.0, 10.0, -22.0], ["beep", 9.0, 20.0, -25.0], ["keys", 12.0, 26.0, -27.0]], "wet": 0.14},
+	"canteen": {"beds": {"murmur": -31.0, "kitchen": -42.0}, "shots": [["cutlery", 1.2, 3.2, -16.0], ["plates", 2.5, 6.0, -18.0], ["drop", 8.0, 18.0, -14.0], ["glass", 3.0, 7.0, -23.0], ["bell", 14.0, 30.0, -22.0]], "wet": 0.25},
+	"office": {"beds": {"fan": -42.0}, "shots": [["keys", 2.0, 6.0, -23.0], ["clock", 2.0, 2.0, -29.0], ["page", 12.0, 26.0, -30.0]], "wet": 0.05},
+	"lounge": {"beds": {"roomtone": -44.0}, "shots": [["glass", 6.0, 14.0, -24.0]], "wet": 0.1, "music": "lounge"},
 	# at night
-	"outside_night": {"beds": {"night": -25.0}, "shots": [["owl", 13.0, 30.0, -23.0]], "wet": 0.0},
-	"inside_night": {"beds": {"roomtone": -31.0}, "shots": [["clock", 2.0, 2.0, -30.0], ["door", 18.0, 40.0, -27.0]], "wet": 0.4},
+	"outside_night": {"beds": {"night": -31.0}, "shots": [["owl", 13.0, 30.0, -23.0]], "wet": 0.0},
+	"inside_night": {"beds": {"roomtone": -42.0}, "shots": [["clock", 2.0, 2.0, -29.0], ["door", 18.0, 40.0, -27.0]], "wet": 0.4},
 	"none": {"beds": {}, "shots": [], "wet": 0.0},
 }
 # the name of a zone contains ... -> kind of room (the first that fits)
@@ -58,9 +65,10 @@ const ROOMS := [
 	["polybahn", "polybahn"], ["strasse", "street"], ["gasse", "street"], ["haltestelle", "street"],
 ]
 const OUTSIDE := ["outside", "street", "polybahn"]
-const BEDS := ["wind", "night", "roomtone", "murmur", "kitchen", "hood", "fan"]
-const SHOTS := ["bird", "bird2", "tram", "car", "steps", "door", "chalk", "page", "clock", "keys", "bubble", "glass", "plates", "bell", "owl"]
-const SONGS := ["menu", "day", "suspense", "chase", "lounge"]
+const BEDS := ["wind", "night", "roomtone", "murmur", "kitchen", "hood", "fan", "ride", "bus"]
+const SHOTS := ["bird", "bird2", "tram", "car", "steps", "door", "chalk", "page", "clock", "keys", "bubble", "glass", "plates", "bell", "owl",
+	"cutlery", "drop", "beep", "arrive", "hiss"]
+const SONGS := ["menu", "day", "suspense", "chase", "lounge", "task"]
 
 var enabled := true
 # Rendered sounds. Static, so that a worker thread that is still rendering does not reach into a
@@ -78,6 +86,10 @@ var wet := 0.0
 var rng := RandomNumberGenerator.new()
 var now_kinds := {}            # kind -> weight, for whoever wants to look (debug)
 var now_music := ""
+var gains := {}                # layer -> how loud it is right now (linear)
+var aims := {}                 # layer -> where it is fading to, and ...
+var steps := {}                # ... how fast, so that every fade takes FADE_TIME
+var riding := false            # a loading screen is up
 var hunt_states := {}          # script of an Opp -> the number of its state JAGD
 
 
@@ -140,16 +152,24 @@ func _process(delta: float) -> void:
 	var duck := 0.0
 	var scene := get_tree().current_scene
 	var main = scene if scene != null and "players" in scene and "world" in scene and "minis" in scene else null
-	if main == null:
+	var loading := get_tree().get_first_node_in_group("loading_screen")
+	var in_game := false       # single sounds only while the players walk around
+	if loading != null:
+		# the ride up: the Polybahn on its rails, or the ETH-Link bus
+		var bus_ride: bool = String(LV.level().get("ride", "polybahn")) == "ethlink"
+		want["bus" if bus_ride else "ride"] = RIDE_DB
+		if not riding:
+			_once("hiss" if bus_ride else "tram", -15.0)
+		main = null
+	elif main == null:
 		if scene != null and String(scene.scene_file_path).contains("menu"):
 			music = "menu"
 	else:
 		var lv: Dictionary = LV.level()
 		var opt = lv.get("ambience", not QUIET.has(LV.current))
-		if opt is bool and not opt:
+		var task := _task(main)
+		if (opt is bool and not opt) or task == "none" or main.world == null:
 			main = null
-		elif main.minis[0] != null or main.minis[1] != null or main.world == null:
-			main = null        # a minigame is open: silence
 		else:
 			var o: Dictionary = opt if opt is Dictionary else {}
 			var night: bool = String(lv.get("mode", "day")) == "night" or String(lv.get("sky", "")) == "night"
@@ -158,17 +178,25 @@ func _process(delta: float) -> void:
 					continue
 				var kind := _kind(String(main.world.zone_at(pl.global_position)), o, night)
 				kinds[kind] = float(kinds.get(kind, 0.0)) + 1.0 / maxf(1.0, main.players.size())
-			if bool(o.get("music", true)):
+			if bool(o.get("music", true)) or task != "":
 				if _chased(main):
 					music = "chase"
+				elif task != "":
+					music = task       # a minigame is open: the room steps back, the tune for working comes
 				elif night:
 					music = "suspense"
 				else:
 					for kind in kinds:
 						if (KINDS[kind] as Dictionary).has("music") and (music == "" or float(kinds[kind]) > 0.5):
 							music = String(KINDS[kind]["music"])
-			if String(main.state) != "play":
+			if task != "":
+				duck = TASK_DUCK
+			elif String(main.state) != "play":
 				duck = DUCK_STATE
+			in_game = task == "" and String(main.state) == "play"
+	if riding and loading == null:
+		_once("arrive", -16.0)     # there
+	riding = loading != null
 	if get_tree().paused:
 		duck -= 8.0
 	# beds: every kind of room the players are in, quieter for a room only one of them is in
@@ -180,9 +208,9 @@ func _process(delta: float) -> void:
 		for bed in d["beds"]:
 			var db: float = float(d["beds"][bed]) + linear_to_db(w) + duck
 			want[bed] = maxf(float(want.get(bed, OFF)), db)
-		_shots(kind, d, w, delta, main != null and String(main.state) == "play")
+		_shots(kind, d, w, delta, in_game)
 	if music != "":
-		want[music] = MUSIC_DB + duck + (3.0 if music == "chase" else 0.0)
+		want[music] = MUSIC_DB + (3.0 if music in ["chase", "menu"] else 0.0) + (0.0 if music == "task" else duck)
 	now_kinds = kinds
 	now_music = music
 	for name in want:
@@ -195,15 +223,47 @@ func _process(delta: float) -> void:
 			layers[name] = p
 	for name in layers:
 		var p: AudioStreamPlayer = layers[name]
-		var to: float = float(want.get(name, OFF))
-		p.volume_db = move_toward(p.volume_db, to, FADE * delta)
-		if to > OFF and not p.playing:
+		var to: float = db_to_linear(float(want[name])) if want.has(name) else 0.0
+		var g: float = gains.get(name, 0.0)
+		if not is_equal_approx(float(aims.get(name, -1.0)), to):
+			aims[name] = to
+			steps[name] = absf(to - g) / FADE_TIME
+		g = move_toward(g, to, float(steps.get(name, 1.0)) * delta)
+		gains[name] = g
+		p.volume_db = linear_to_db(maxf(g, 0.00001))
+		if to > 0.0 and not p.playing:
 			p.play(0.0 if name in SONGS else rng.randf() * p.stream.get_length())
-		elif to <= OFF and p.volume_db <= OFF + 0.5 and p.playing:
+		elif to <= 0.0 and g <= 0.0001 and p.playing:
 			p.stop()
 	wet = move_toward(wet, target_wet, delta * 0.8)
 	if reverb != null:
 		reverb.wet = wet
+
+
+## What an open minigame wants to hear: "" none is open, "none" silence, else the name of a tune.
+func _task(main) -> String:
+	var mg = main.minis[0] if main.minis[0] != null else main.minis[1]
+	if mg == null or not is_instance_valid(mg):
+		return ""
+	if "_mic_users" in Track and not (Track._mic_users as Dictionary).is_empty():
+		return "none"          # the microphone is listening: nothing from the speakers
+	if "ambience" in mg:
+		var a := String(mg.ambience)
+		return a if a == "none" or a in SONGS else "task"
+	return "task"
+
+
+## One single sound right now (the bell before the ride, the gong on arrival).
+func _once(sound: String, db: float) -> void:
+	var st := _stream(sound)
+	if st == null:
+		return
+	var p: AudioStreamPlayer = shot_players[shot_next]
+	shot_next = (shot_next + 1) % shot_players.size()
+	p.stream = st
+	p.volume_db = db + GAIN_DB
+	p.pitch_scale = 1.0
+	p.play()
 
 
 func _kind(zone: String, o: Dictionary, night: bool) -> String:
@@ -321,10 +381,14 @@ static func make(sound: String, r: RandomNumberGenerator) -> PackedFloat32Array:
 		"kitchen":
 			return _norm(_kitchen(6.0, r), 0.8)
 		"hood":
-			return _norm(_air(4.0, r, 450.0, 1.0, 1800.0, 100.0), 0.8)
+			return _norm(_air(4.0, r, 230.0, 1.0, 600.0, 100.0), 0.8)
 		"fan":
-			return _norm(_air(4.0, r, 950.0, 0.5, 2600.0, 120.0), 0.8)
-		"menu", "day", "suspense", "chase", "lounge":
+			return _norm(_air(4.0, r, 380.0, 0.6, 800.0, 120.0), 0.8)
+		"ride":
+			return _norm(_ride(4.8, r, false), 0.8)
+		"bus":
+			return _norm(_ride(4.0, r, true), 0.8)
+		"menu", "day", "suspense", "chase", "lounge", "task":
 			return _norm(_song(sound), 0.8)
 	return _norm(_shot(sound, r), 0.8)
 
@@ -389,7 +453,7 @@ static func _wind(secs: float, r: RandomNumberGenerator, a: float, gusts: float)
 	for i in m:
 		var t := float(i) / n
 		var swell := 0.62 + gusts * (0.24 * sin(TAU * t) + 0.14 * sin(TAU * 3.0 * t + 1.0))
-		b[i] = deep[i] * 9.0 * swell + high[i] * 0.22 * (0.4 + 0.3 * sin(TAU * 2.0 * t + 2.0))
+		b[i] = deep[i] * 9.0 * swell + high[i] * 0.06 * (0.4 + 0.3 * sin(TAU * 2.0 * t + 2.0))
 	return _wrap(b, n)
 
 
@@ -417,11 +481,11 @@ static func _night(secs: float, r: RandomNumberGenerator) -> PackedFloat32Array:
 static func _roomtone(secs: float, r: RandomNumberGenerator) -> PackedFloat32Array:
 	var n := int(secs * RATE)
 	var m := n + (RATE >> 1)
-	var air := _low(m, r, 0.03)
+	var air := _low(m, r, 0.012)
 	var b := _zeros(m)
 	for i in m:
 		var t := float(i) / RATE
-		b[i] = air[i] * 4.0 + 0.05 * sin(TAU * 50.0 * t) + 0.03 * sin(TAU * 100.0 * t)
+		b[i] = air[i] * 6.0 + 0.05 * sin(TAU * 50.0 * t) + 0.03 * sin(TAU * 100.0 * t)
 	return _wrap(b, n)
 
 
@@ -469,7 +533,7 @@ static func _kitchen(secs: float, r: RandomNumberGenerator) -> PackedFloat32Arra
 			crackle = r.randf_range(0.5, 1.0)
 		crackle *= 0.994
 		b[i] = 0.25 * sin(TAU * 100.0 * t) + 0.12 * sin(TAU * 200.0 * t) + 0.05 * sin(TAU * 300.0 * t) \
-			+ air[i] * 0.16 + hiss * (0.05 + 0.2 * crackle)
+			+ air[i] * 0.05 + hiss * (0.008 + 0.05 * crackle)
 	return _wrap(b, n)
 
 
@@ -481,8 +545,33 @@ static func _air(secs: float, r: RandomNumberGenerator, fc: float, damp: float, 
 	var a2 := _band(m, r, fc2, 0.7)
 	var b := _zeros(m)
 	for i in m:
-		b[i] = a[i] * 0.5 + a2[i] * 0.1 + 0.06 * sin(TAU * hum * i / RATE)
+		b[i] = a[i] * 0.5 + a2[i] * 0.04 + 0.1 * sin(TAU * hum * i / RATE)
 	return _wrap(b, n)
+
+
+## The ride on the loading screen. Polybahn: a low rumble and the wheels over the joints of the
+## rails, two knocks at a time. Bus: the engine and the road.
+static func _ride(secs: float, r: RandomNumberGenerator, bus: bool) -> PackedFloat32Array:
+	var n := int(secs * RATE)
+	var m := n + (RATE >> 1)
+	var road := _low(m, r, 0.02)
+	var b := _zeros(m)
+	var f := 62.0 if bus else 48.0
+	for i in m:
+		var t := float(i) / RATE
+		var purr := 0.75 + 0.25 * sin(TAU * (8.0 if bus else 3.0) * t)
+		b[i] = road[i] * (5.0 if bus else 7.0) + purr * (0.3 * sin(TAU * f * t) + 0.16 * sin(TAU * 2.0 * f * t) + (0.1 if bus else 0.03) * sin(TAU * 3.0 * f * t))
+	b = _wrap(b, n)
+	if not bus:
+		var every := secs / 6.0
+		for k in 6:
+			for knock in 2:
+				var i0 := int((k * every + knock * 0.13) * RATE)
+				var cnt := int(0.07 * RATE)
+				for j in cnt:
+					var x := float(j) / cnt
+					b[(i0 + j) % n] += (sin(TAU * 140.0 * j / RATE) * 0.5 + r.randf_range(-0.25, 0.25)) * exp(-x * 6.0) * (0.55 - knock * 0.15)
+	return b
 
 
 # ------------------------------------------------------------------ single sounds
@@ -562,8 +651,8 @@ static func _shot(sound: String, r: RandomNumberGenerator) -> PackedFloat32Array
 				t2 += d + r.randf_range(0.05, 0.14)
 			end = t2 + 0.05
 		"page":       # a page is turned
-			_puff(b, r, 0.0, 0.32, 2400.0, 1.1, 0.5)
-			_puff(b, r, 0.2, 0.12, 4200.0, 0.9, 0.35)
+			_puff(b, r, 0.0, 0.3, 1300.0, 1.2, 0.5)
+			_puff(b, r, 0.2, 0.1, 2000.0, 1.0, 0.2)
 			end = 0.4
 		"clock":      # one tick
 			_puff(b, r, 0.0, 0.012, 2600.0, 0.5, 0.7, 5.0)
@@ -602,6 +691,44 @@ static func _shot(sound: String, r: RandomNumberGenerator) -> PackedFloat32Array
 			_tone(b, 0.0, 1.3, 2093.0, 2093.0, 0.5, 5.0)
 			_tone(b, 0.0, 1.0, 4186.0, 4186.0, 0.15, 7.0)
 			end = 1.3
+		"cutlery":    # knives and forks against each other and against the plate
+			var t6 := 0.0
+			for i in r.randi_range(3, 6):
+				var f5 := r.randf_range(2900.0, 4300.0)
+				var loud := r.randf_range(0.3, 0.6)
+				_tone(b, t6, 0.14, f5, f5, loud, 9.0)
+				_tone(b, t6, 0.11, f5 * 1.51, f5 * 1.51, loud * 0.6, 11.0)
+				_tone(b, t6, 0.08, f5 * 2.18, f5 * 2.18, loud * 0.35, 13.0)
+				t6 += r.randf_range(0.05, 0.19)
+			end = t6 + 0.2
+		"drop":       # a fork falls on the floor and dances until it lies still
+			var t7 := 0.0
+			var gap := r.randf_range(0.2, 0.27)
+			var loud2 := 0.7
+			var f6 := r.randf_range(2300.0, 2900.0)
+			_puff(b, r, 0.0, 0.05, 260.0, 0.6, 0.5, 5.0)
+			for i in 10:
+				var ff := f6 * r.randf_range(0.96, 1.05)
+				_tone(b, t7, 0.2, ff, ff, loud2, 8.0)
+				_tone(b, t7, 0.17, ff * 1.59, ff * 1.59, loud2 * 0.7, 9.0)
+				_tone(b, t7, 0.12, ff * 2.71, ff * 2.71, loud2 * 0.4, 11.0)
+				t7 += gap
+				gap *= 0.72
+				loud2 *= 0.8
+			end = t7 + 0.3
+		"beep":       # some instrument in the lab reports
+			_tone(b, 0.0, 0.09, 1568.0, 1568.0, 0.4, 0.5)
+			_tone(b, 0.16, 0.09, 1568.0, 1568.0, 0.4, 0.5)
+			end = 0.3
+		"arrive":     # the gong on arrival: two notes
+			for h3 in [[0.0, 784.0], [0.38, 587.33]]:
+				_tone(b, h3[0], 1.1, h3[1], h3[1], 0.5, 4.0)
+				_tone(b, h3[0], 0.8, h3[1] * 2.0, h3[1] * 2.0, 0.12, 6.0)
+			end = 1.5
+		"hiss":       # the doors of the bus close
+			_puff(b, r, 0.0, 0.55, 1700.0, 1.2, 0.4)
+			_puff(b, r, 0.5, 0.06, 180.0, 0.5, 0.6, 5.0)
+			end = 0.7
 		"owl":
 			for h2 in [[0.0, 0.34], [0.6, 0.18], [0.82, 0.4]]:
 				_tone(b, h2[0], h2[1], 392.0, 370.0, 0.6, 1.2)
@@ -652,6 +779,16 @@ static func _note(b: PackedFloat32Array, t0: float, dur: float, midi: float, vol
 				var x := float(k) / len6
 				ph += TAU * lerpf(110.0, 42.0, minf(1.0, x * 2.5)) / RATE
 				b[(i0 + k) % n] += sin(ph) * vol * exp(-x * 5.0)
+		"snare":
+			var len8 := int(0.16 * RATE)
+			var prev2 := 0.0
+			var sd2 := int(t0 * 1000.0) * 6113 + 7
+			for k in len8:
+				sd2 = (sd2 * 1103515245 + 12345) & 0x7fffffff
+				var white2 := float(sd2) / 1073741824.0 - 1.0
+				var x := float(k) / len8
+				b[(i0 + k) % n] += ((white2 + prev2) * 0.35 + sin(TAU * 190.0 * k / RATE) * 0.5 * exp(-x * 9.0)) * vol * exp(-x * 5.0)
+				prev2 = white2
 		"hat":
 			var len7 := int(0.05 * RATE)
 			var prev := 0.0
@@ -666,23 +803,52 @@ static func _note(b: PackedFloat32Array, t0: float, dur: float, midi: float, vol
 ## The tunes of the game, all written for it. `beat` in seconds; times below are in beats.
 static func _song(sound: String) -> PackedFloat32Array:
 	match sound:
-		"menu":       # calm and a little curious: the start page
-			var beat := 60.0 / 84.0
-			var b := _zeros(int(16.0 * beat * RATE))
-			var chords := [[45, [57, 60, 64, 67]], [41, [57, 60, 64, 65]], [48, [55, 60, 64, 67]], [43, [55, 59, 62, 67]]]
-			var arp := [0, 1, 2, 3, 2, 1, 2, 3]
+		"menu":       # the start page: up and going, a beat and a tune that climbs (was too calm at first)
+			var beat := 60.0 / 122.0
+			var b := _zeros(int(32.0 * beat * RATE))
+			var chords := [[38, [62, 65, 69]], [34, [62, 65, 70]], [41, [60, 65, 69]], [36, [60, 64, 67]]]
+			var arp := [0, 1, 2, 1, 0, 1, 2, 1]
+			var hook := [[0.0, 74], [0.75, 77], [1.5, 81], [2.5, 79], [3.0, 77]]
+			for bar in 8:
+				var t0 := bar * 4.0
+				var c: int = bar % 4
+				var ch: Array = chords[c][1]
+				for q in 4:
+					_note(b, (t0 + q) * beat, 0.2, 0, 0.5, "kick")
+					_note(b, (t0 + q + 0.5) * beat, 0.1, 0, 0.12, "hat")
+					if q % 2 == 1:
+						_note(b, (t0 + q) * beat, 0.2, 0, 0.3, "snare")
+				for e in 8:
+					_note(b, (t0 + e * 0.5) * beat, 0.4 * beat, chords[c][0] + (12 if e % 2 == 1 else 0), 0.3, "bass")
+					_note(b, (t0 + e * 0.5) * beat, 0.3 * beat, ch[arp[e]] + 12, 0.11, "pluck")
+				for off in [1.5, 3.5]:
+					for m in ch:
+						_note(b, (t0 + off) * beat, 0.4 * beat, m, 0.09, "ep")
+				if bar >= 4:      # the tune comes in the second half, a step higher every bar
+					for h in hook:
+						_note(b, (t0 + h[0]) * beat, 0.5 * beat, h[1] + [0, 0, -2, -2][c], 0.2, "pluck")
+				elif bar == 3:
+					for h in [[2.0, 72], [2.5, 74], [3.0, 76], [3.5, 79]]:
+						_note(b, (t0 + h[0]) * beat, 0.4 * beat, h[1], 0.18, "pluck")
+			return b
+		"task":       # for working on a task: light, keeps the pace, stays out of the way
+			var beat6 := 60.0 / 100.0
+			var b6 := _zeros(int(16.0 * beat6 * RATE))
+			var chords6 := [[43, [59, 62, 67]], [40, [59, 64, 67]], [36, [60, 64, 67]], [38, [57, 62, 66]]]
+			var pat := [0, 2, 1, 2, 0, 2, 1, 2]
 			for bar in 4:
 				var t0 := bar * 4.0
-				var ch: Array = chords[bar][1]
-				for m in ch:
-					_note(b, t0 * beat, 4.0 * beat, m, 0.07, "pad")
-				_note(b, t0 * beat, 1.8 * beat, chords[bar][0], 0.3, "bass")
-				_note(b, (t0 + 2.0) * beat, 1.6 * beat, chords[bar][0] + 7, 0.2, "bass")
+				_note(b6, t0 * beat6, 1.8 * beat6, chords6[bar][0], 0.28, "bass")
+				_note(b6, (t0 + 2.0) * beat6, 1.4 * beat6, chords6[bar][0] + 7, 0.2, "bass")
+				_note(b6, t0 * beat6, 0.2, 0, 0.3, "kick")
+				_note(b6, (t0 + 2.5) * beat6, 0.2, 0, 0.2, "kick")
 				for e in 8:
-					_note(b, (t0 + e * 0.5) * beat, 0.4 * beat, ch[arp[e]] + 12, 0.16, "pluck")
-			for m2 in [[2.0, 76], [4.5, 72], [9.5, 79], [11.0, 76], [12.0, 74]]:
-				_note(b, m2[0] * beat, beat, m2[1], 0.14, "bell")
-			return b
+					_note(b6, (t0 + e * 0.5) * beat6, 0.3 * beat6, chords6[bar][1][pat[e]], 0.16, "pluck")
+					if e % 2 == 1:
+						_note(b6, (t0 + e * 0.5) * beat6, 0.1, 0, 0.07, "hat")
+			for m2 in [[1.0, 79], [3.0, 78], [5.5, 76], [9.0, 79], [10.5, 76], [13.0, 74], [14.5, 78]]:
+				_note(b6, m2[0] * beat6, beat6, m2[1], 0.11, "bell")
+			return b6
 		"day":        # light and bouncy: outside by day
 			var beat2 := 60.0 / 108.0
 			var b2 := _zeros(int(16.0 * beat2 * RATE))
