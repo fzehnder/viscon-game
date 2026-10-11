@@ -237,7 +237,7 @@ func _ready() -> void:
 	if night:
 		var d: Dictionary = CH.DEPTS[dept]
 		hud.show_overlay("Nacht", "Es ist 00:30. %s\n\nBleibt nicht zu lange im Lichtkegel der Professoren." % d["night_text"],
-			controls, "Los geht's!", false, "info", "LEVEL %d" % Game.level)
+			controls, "Los geht's!", false, "info", "LEVEL %d" % LV.shown(Game.level))
 	else:
 		var lines := String(lv["intro"]) + "\n"
 		for tk in LV.tasks():
@@ -1157,7 +1157,7 @@ func opp_catch(op, pl) -> void:
 func _opp_of_this_level(op) -> bool:
 	if op.opp_id == "" or not Game.opps.has(op.opp_id):
 		return true
-	return int(Game.opps[op.opp_id]["level"]) >= Game.level
+	return LV.order_of(int(Game.opps[op.opp_id]["level"])) >= LV.order_of(Game.level)   # this level or later in the story
 
 
 ## Caught: whatever minigame is open closes, and the player cannot move for a moment.
@@ -1228,13 +1228,13 @@ func _win_day() -> void:
 	# the sheet with the grade and the stamp (level_done.gd), then the card with the buttons
 	var ld = LevelDone.new()
 	add_child(ld)
-	ld.play({"level": Game.level, "tag": "LEVEL %d" % Game.level, "name": String(lv["name"]), "grade": grade, "time": t,
+	ld.play({"level": Game.level, "tag": "LEVEL %d" % LV.shown(Game.level), "name": String(lv["name"]), "grade": grade, "time": t,
 		"mistakes": mistakes_total, "best": best}, func():
 		state = "won"
 		hud.show_overlay(String(lv.get("win_title", "Ersti-Tag geschafft!")),
 			"%s\n\nNote %s · %s" % [story, String.num(grade, 2), verdict],
 			("Enter weiter · " if more else "") + "R nochmals spielen · M zum Startbildschirm",
-			"Weiter zu Level %d" % nxt if more else "Nochmals spielen", true, "win", "LEVEL %d" % Game.level))
+			"Weiter zu Level %d" % LV.shown(nxt) if more else "Nochmals spielen", true, "win", "LEVEL %d" % LV.shown(Game.level)))
 
 
 func _lose_day() -> void:
@@ -1245,7 +1245,7 @@ func _lose_day() -> void:
 	var total := LV.tasks().size()
 	hud.show_overlay(String(lv.get("lose_title", "Zeit abgelaufen")),
 		"%s\n\n%s: %d von %d\n%s: %d von %d" % [lv.get("lose_text", "Der erste Tag ist vorbei, und es ist noch nicht alles erledigt."), Game.name_of(0), done[0].size(), total, Game.name_of(1), done[1].size(), total],
-		"R nochmals versuchen · M zum Startbildschirm", "Nochmals versuchen", true, "lose", "LEVEL %d" % Game.level)
+		"R nochmals versuchen · M zum Startbildschirm", "Nochmals versuchen", true, "lose", "LEVEL %d" % LV.shown(Game.level))
 
 
 # ------------------------------------------------------------------ minigames

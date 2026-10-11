@@ -406,7 +406,7 @@ func _rows() -> Array:
 			if g >= PASS:
 				obt += e
 			order.append(n)
-			lines.append({"x": 58.0, "code": c["code"], "text": "Level %d · %s" % [n, LV.level(n)["name"]],
+			lines.append({"x": 58.0, "code": c["code"], "text": "Level %d · %s" % [LV.shown(n), LV.level(n)["name"]],
 				"sess": SESSION if g > 0.0 else "", "grade": grade_text(g) if g > 0.0 else "", "wgt": str(e), "level": n})
 		got += obt
 		# like the real block: the average of its grades, weighted
@@ -443,7 +443,7 @@ func _select(n: int) -> void:
 	sel = n
 	table.sel = n
 	table.queue_redraw()
-	start_btn.text = "Wahlfach starten" if LV.is_elective(n) else "Level %d starten" % n
+	start_btn.text = "Wahlfach starten" if LV.is_elective(n) else "Level %d starten" % LV.shown(n)
 	# keep the chosen course in view when the list is longer than the screen
 	var y := table.global_position.y - inner.global_position.y + table.row_y(n)
 	if y < scroll.scroll_vertical:

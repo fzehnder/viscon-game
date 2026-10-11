@@ -60,10 +60,9 @@ func _ready() -> void:
 	var v := VBoxContainer.new()
 	v.add_theme_constant_override("separation", 10)
 	card.add_child(v)
-	# the name of the game on top, in light blue so that it reads on the dark glass
+	# the name of the game on top, in white so that it reads on the dark glass
 	var logo := Logo.new()
-	logo.col = UI.SKY
-	logo.edge = Color("0b1a3a")
+	logo.col = UI.ON_GLASS
 	logo.custom_minimum_size = Vector2(320, 84)
 	logo.size_flags_horizontal = Control.SIZE_SHRINK_CENTER
 	v.add_child(logo)

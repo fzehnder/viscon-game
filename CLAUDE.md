@@ -1,6 +1,6 @@
 # VIScon Hackathon Game: Bib Bob
 
-**Bib Bob** heisst das Spiel (seit 11.10.2026, vorher «Tag & Nacht»). Logo im Code: `scripts/logo.gd` (Schriftzug «Bib Bob» in ETH-Blau mit 3D-Kante, so geschrieben, nicht in Grossbuchstaben), auf der Startseite; im Startbild (`splash.png`, aus `eth_front.gd` mit `tools/make_splash.gd` erzeugt) in Pixelschrift. Der Name wird nicht übersetzt.
+**Bib Bob** heisst das Spiel (seit 11.10.2026, vorher «Tag & Nacht»). Logo im Code: `scripts/logo.gd` (Schriftzug «Bib Bob», so geschrieben, schwarz, in der ETH-Hausschrift DIN Next, wenn installiert, sonst DIN Alternate auf dem Mac, Bahnschrift auf Windows, zuletzt Arial; DIN Next ist lizenzpflichtig und liegt deshalb nicht im Repo), auf der Startseite und weiss im Pausenmenü; im Startbild (`splash.png`, aus `eth_front.gd` mit `tools/make_splash.gd` erzeugt) in Pixelschrift. Der Name wird nicht übersetzt.
 
 2-Spieler-Koop-Schleichspiel an der ETH (lokal, eine Tastatur). Team aus 5 Leuten, Hackathon-Ende **So 11.10.2026 12:55**, Feature Freeze So 06:00 (siehe `docs/TEAM.md`).
 
@@ -53,6 +53,8 @@ Regeln:
 - Vor der Arbeit an einem Level dessen `godot/scripts/level<N>/README.md` lesen.
 
 ## Level-Gerüst
+
+- **Reihenfolge der Story ≠ Ordnernummer** (seit 11.10.2026): Ein Level kann mit `"order"` im DEF woanders in der Story stehen, ohne seinen Ordner umzubenennen. Das Chemiepraktikum (`level4/`) hat `"order": 2.5` und `"block": "A"`: Es kommt nach der Mensa und vor dem Polyball (`level3/`). `LV.numbers()` ist nach der Story sortiert, `LV.next_after`, Opps und Gegenstände (`game_state.gd`) folgen ihr, `LV.shown(n)` ist die angezeigte Nummer («LEVEL 3» für das Chemiepraktikum). Wer eine Levelnummer anzeigt, nimmt `LV.shown(n)`, nicht `n`.
 
 - `scripts/levels.gd` findet Levels selbst: Es prüft `res://scripts/level<N>/level.gd` für N = 2 bis 20 (`LV.numbers()`), Level 1 steht direkt in `levels.gd` (`LEVEL1`). Nichts muss registriert werden. Fehlt eine Nummer (Branch mit Level 1 und 3), wird sie übersprungen: `LV.next_after(n)`.
 - `LV.current` ist das laufende Level, gesetzt vom Autoload `Game` (`Game.set_level(n)`). `LV.level()` liefert die Beschreibung, `LV.tasks()` / `LV.task(id)` die Aufgaben.
@@ -230,7 +232,7 @@ Auf `level-base`:
 - HUD: Aufgaben pro Person auf ihrer Seite (P1 links, P2 rechts), Level und Zeit oben Mitte, Minimap unten Mitte
 - Karte: Hauptgebäude nach dem echten Grundriss des E-Geschosses (siehe "Karte")
 - Aufgabe wählen (Tab für P1, Komma für P2, oder Klick auf die Aufgabe): ein Pfeil in der Farbe der Person kreist um die Figur und zeigt zur nächsten Tür oder Ecke (`main.route_aim`: der weiteste Punkt des Wegs, den man geradeaus erreicht; `fx.gd` `_draw_arrow`, folgt wie an einer Feder: `SPRING`, `DAMP`; grosse Richtungswechsel erst, wenn sie `TURN_WAIT` lang bestehen; ein neuer Weg ersetzt den gezeigten nur, wenn er `ROUTE_SWITCH` Tiles bzw. 15 % kürzer ist; der ganze Weg wird nirgends mehr gezeichnet, auch nicht auf der Minimap) auf dem kürzesten Weg zum nächsten Ort, an dem die Aufgabe lösbar ist, auch auf der Minimap. `main.picked` / `main.routes`, Ziele aus `main.task_targets(id, pid)` (Stationen, Bags, bei Koop-Aufgaben die andere Person, bei Level-Aufgaben der Hook `task_targets` oder ersatzweise `goal_positions`), gezeichnet in `fx.gd` (`_draw_route`). Nur auf Skriptfehler und einen kurzen Lauf geprüft, nicht gespielt Der Weg wird geglättet (`world.smooth_path`: gerade, wo die Gerade im A*-Raster frei ist, Ecken gerundet, alle 8 px ein Punkt), alle 0.2 s neu gesucht und dazwischen nur an den Füssen gekürzt; gezeichnet wird vom Ziel her gemessen (`fx._draw_route`), damit das Muster am Boden stehen bleibt, während man läuft.
-- Schleichen / Gehen / Sprinten, Stamina (2 s Sprint, ca. 3 s Regeneration), Geräuschkreise pro Schritt (`player.gd`, `fx.gd`)
+- Schleichen / Gehen / Sprinten, Stamina (2 s Sprint, ca. 3 s Regeneration), Geräusche pro Schritt (`player.gd`). Die Kreise, die zeigen, wie weit ein Geräusch reicht (`fx.sound`), sieht man seit 11.10.2026 nur noch in Levels mit `"noise_rings": true` im DEF (nur «Nacht im HIL», Wunsch von Finn); wer was hört, ist davon unabhängig
 - Story-Intro im Menü: Startseite, Hack der Bewerbungsseite, Namen (nur der Vorname, seit dem 10.10.2026 ohne Nachname), Legi-Foto von P1, dann P2, Charakter-Editor mit Studiengang, am Schluss beide Legis nebeneinander im Layout der echten ETH-Legi (`legi_card.gd`, Daten aus `Game`: `legi_ids`, `birthdays`, `programme_of`); Level-Auswahl als «Leistungsüberblick» im Aussehen von myStudies (ersetzt die Zeile «Direkt zu»), mit den besten Noten pro Level. START beginnt ein neues Studium und löscht Opps und Noten. Nur per Startlauf und einem Screenshot geprüft, nicht gespielt
 - Level 1 "Ersti-Tag" (Tag, 7 min): Ersti-Bag klauen (bei Deniz und Livia am Lesetisch, macht sie zu Opps), Legi validieren, Moodle & Code Expert einrichten, Koop-High-Five, Note 1 bis 6
 - Minigames (`minigame.gd`): Timing, Kabel, Sequenz, Quiz, Moodle, Setup, High Five

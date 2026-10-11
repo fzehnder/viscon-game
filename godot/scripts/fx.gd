@@ -37,8 +37,10 @@ func throw(from: Vector2, to: Vector2) -> void:
 
 
 ## A sound ring that grows from `at` to `radius` px. Footsteps, mistakes, thrown objects.
+## A ring that shows how far a noise carries. Only drawn in levels that ask for it in their DEF
+## ("noise_rings": true, the night at the HIL); the noise itself (who hears it) is main.gd's business.
 func sound(at: Vector2, radius: float, col: Color = Color(1, 1, 1, 0.45), dur: float = 0.7) -> void:
-	if radius <= 0.0:
+	if radius <= 0.0 or not bool(main.lv.get("noise_rings", false)):
 		return
 	rings.append([at, radius, 0.0, dur, col])
 

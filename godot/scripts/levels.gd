@@ -69,6 +69,7 @@ const SETUP_STEPS := [
 
 
 ## Level numbers that exist in this checkout, ascending. Level 1 is always there.
+## All levels in the order of the story (see order_of), electives after them by number.
 static func numbers() -> Array:
 	if _numbers.is_empty():
 		_numbers = [1]
@@ -76,11 +77,35 @@ static func numbers() -> Array:
 			if ResourceLoader.exists(LEVEL_PATH % n):
 				_scripts[n] = load(LEVEL_PATH % n)
 				_numbers.append(n)
+		_numbers.sort_custom(func(a, b): return order_of(a) < order_of(b))
 	return _numbers
+
+
+## Where a level stands in the story. Normally its number; a level can move without renaming its
+## folder with "order" in DEF (the chemistry lab, level 4, has 2.5: it comes before the Polyball).
+static func order_of(n: int) -> float:
+	if n == 1:
+		return float(LEVEL1.get("order", 1))
+	var sc := _script_of(n)   # loads the levels first if needed
+	return float(sc.DEF.get("order", n)) if sc != null else float(n)
 
 
 static func has_level(n: int) -> bool:
 	return numbers().has(n)
+
+
+## The number a level is shown with ("LEVEL 3"): its place in the story, which can differ from
+## its folder (order_of). Electives keep their number.
+static func shown(n: int) -> int:
+	if is_elective(n):
+		return n
+	var k := 0
+	for m in numbers():
+		if not is_elective(m):
+			k += 1
+			if m == n:
+				return k
+	return n
 
 
 ## The story level that follows `n`, or -1 if `n` is the last one. Electives are never next,
@@ -89,7 +114,7 @@ static func next_after(n: int) -> int:
 	if is_elective(n):
 		return -1
 	for k in numbers():
-		if k > n and not is_elective(k):
+		if order_of(k) > order_of(n) and not is_elective(k):
 			return k
 	return -1
 
