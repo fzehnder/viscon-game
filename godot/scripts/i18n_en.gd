@@ -404,7 +404,6 @@ const EN := {
 	"> UPDATE bewerbungen SET frist = 'egal';": "> UPDATE applications SET deadline = 'whatever';",
 	"> spuren verwischen ": "> covering tracks ",
 	">>> ZUGANG ERTEILT <<<": ">>> ACCESS GRANTED <<<",
-	"Tag & Nacht": "Day & Night",
 	"Ein Story-Abenteuer für zwei an einer Tastatur": "A story adventure for two at one keyboard",
 	"Weiterspielen als %s & %s": "Continue as %s & %s",
 	"Figuren ändern": "Change characters",
@@ -435,7 +434,7 @@ const EN := {
 	"Eure Legis sind da!": "Your Legis are here!",
 	"Ab zum Ersti-Tag!": "Off to Ersti Day!",
 	# ---------------------------------------------------------------- transcript.gd
-	"Bachelor-Studiengang Tag & Nacht": "Bachelor's programme Day & Night",
+	"Bachelor-Studiengang Bib Bob": "Bachelor's programme Bib Bob",
 	"Obligatorische Fächer des 2. und 3. Studienjahres": "Compulsory subjects of the 2nd and 3rd year",
 	"Projekt": "Project",
 	"Wahlfächer": "Electives",

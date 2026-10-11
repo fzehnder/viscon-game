@@ -1,4 +1,6 @@
-# VIScon Hackathon Game
+# VIScon Hackathon Game: Bib Bob
+
+**Bib Bob** heisst das Spiel (seit 11.10.2026, vorher «Tag & Nacht»). Logo im Code: `scripts/logo.gd` (Schriftzug «Bib Bob» in ETH-Blau mit 3D-Kante, so geschrieben, nicht in Grossbuchstaben), auf der Startseite; im Startbild (`splash.png`, aus `eth_front.gd` mit `tools/make_splash.gd` erzeugt) in Pixelschrift. Der Name wird nicht übersetzt.
 
 2-Spieler-Koop-Schleichspiel an der ETH (lokal, eine Tastatur). Team aus 5 Leuten, Hackathon-Ende **So 11.10.2026 12:55**, Feature Freeze So 06:00 (siehe `docs/TEAM.md`).
 
