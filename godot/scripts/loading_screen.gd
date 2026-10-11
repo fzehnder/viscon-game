@@ -390,7 +390,9 @@ func _draw_hoengg(o: Vector2, k: float, lit: bool) -> void:
 		draw_rect(wr, Color("15162b"), false, 1.5)
 	draw_rect(Rect2(70.0, -24.0, 8.0, 22.0), Color("ffe7a8") if lit else Color("cfeaf7"))   # windscreen
 	draw_rect(Rect2(46.0, -30.0, 30.0, 5.0), Color("15162b"))
-	_text(Vector2(-6.0, 11.0), "ETH-LINK", 8, bus, HORIZONTAL_ALIGNMENT_CENTER)
+	# the lettering sits in the middle of the white band (y 2 .. 8): capitals are about 0.71 of the
+	# font size high, so the baseline is half of that below the middle of the band
+	_text(Vector2(-6.0, 5.0 + 0.357 * 7.0), "ETH-LINK", 7, bus, HORIZONTAL_ALIGNMENT_CENTER)
 	for wx3: float in [-52.0, 50.0]:
 		draw_circle(Vector2(wx3, 13.0), 8.0, Color("15162b"))
 		draw_circle(Vector2(wx3, 13.0), 3.0, Color("9aa1ad"))
