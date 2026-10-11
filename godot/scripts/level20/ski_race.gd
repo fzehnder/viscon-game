@@ -590,7 +590,7 @@ func _draw_lines(ci: Control, cam: Vector2, w: float, h: float) -> void:
 		ci.draw_rect(Rect2(x0 + SLOPE_W * 2.0 - 2.0, sy - 70.0, 8, 72), INK)
 		ci.draw_rect(Rect2(x0, sy - 70.0, SLOPE_W * 2.0, 26), RED if which == 1 else BLUE)
 		var txt := "ZIEL" if which == 1 else "START"
-		ci.draw_string(font, Vector2(x0, sy - 50.0), txt, HORIZONTAL_ALIGNMENT_CENTER, SLOPE_W * 2.0, 20, Color.WHITE)
+		ci.draw_string(font, Vector2(x0, sy - 50.0), tr(txt), HORIZONTAL_ALIGNMENT_CENTER, SLOPE_W * 2.0, 20, Color.WHITE)
 
 
 func _draw_trail(ci: Control, s: Dictionary, cam: Vector2) -> void:
@@ -660,14 +660,14 @@ func _draw_skier(ci: Control, pid: int, cam: Vector2, mine: bool) -> void:
 	if not mine:
 		var tag := Game.name_of(pid)
 		var tp := p + Vector2(-60, -46.0 * sc - 10.0)
-		ci.draw_string_outline(font, tp, tag, HORIZONTAL_ALIGNMENT_CENTER, 120, 13, 4, INK)
-		ci.draw_string(font, tp, tag, HORIZONTAL_ALIGNMENT_CENTER, 120, 13, col)
+		ci.draw_string_outline(font, tp, tr(tag), HORIZONTAL_ALIGNMENT_CENTER, 120, 13, 4, INK)
+		ci.draw_string(font, tp, tr(tag), HORIZONTAL_ALIGNMENT_CENTER, 120, 13, col)
 
 
 func _text(ci: CanvasItem, pos: Vector2, text: String, fs: int, col: Color, width: float = -1.0,
 		align := HORIZONTAL_ALIGNMENT_LEFT) -> void:
-	ci.draw_string_outline(font, pos, text, align, width, fs, 6, INK)
-	ci.draw_string(font, pos, text, align, width, fs, col)
+	ci.draw_string_outline(font, pos, tr(text), align, width, fs, 6, INK)
+	ci.draw_string(font, pos, tr(text), align, width, fs, col)
 
 
 func _draw_hud(ci: Control, pid: int) -> void:

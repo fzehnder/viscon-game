@@ -130,8 +130,8 @@ func _bubble_at(c: Vector2) -> void:
 	draw_circle(c, 10.0, Color(0.08, 0.09, 0.17, 0.92))
 	draw_arc(c, 10.0, 0.0, TAU, 24, bubble_col, 2.0)
 	var font := ThemeDB.fallback_font
-	var w := font.get_string_size(bubble, HORIZONTAL_ALIGNMENT_LEFT, -1, 15).x
-	draw_string(font, c + Vector2(-w / 2.0, 5.5), bubble, HORIZONTAL_ALIGNMENT_LEFT, -1, 15, bubble_col)
+	var w := font.get_string_size(tr(bubble), HORIZONTAL_ALIGNMENT_LEFT, -1, 15).x
+	draw_string(font, c + Vector2(-w / 2.0, 5.5), tr(bubble), HORIZONTAL_ALIGNMENT_LEFT, -1, 15, bubble_col)
 
 
 ## The comic-book vein that pops up when somebody is really angry.

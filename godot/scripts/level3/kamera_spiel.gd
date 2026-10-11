@@ -645,8 +645,8 @@ func _update_info() -> void:
 func _txt(pos: Vector2, s: String, size: int, col: Color, centered: bool = false) -> void:
 	var font := ThemeDB.fallback_font
 	if centered:
-		pos.x -= font.get_string_size(s, HORIZONTAL_ALIGNMENT_LEFT, -1, size).x / 2.0
-	canvas.draw_string(font, pos, s, HORIZONTAL_ALIGNMENT_LEFT, -1, size, col)
+		pos.x -= font.get_string_size(tr(s), HORIZONTAL_ALIGNMENT_LEFT, -1, size).x / 2.0
+	canvas.draw_string(font, pos, tr(s), HORIZONTAL_ALIGNMENT_LEFT, -1, size, col)
 
 
 ## The eight beats of a pose as eight fields that fill one after the other. On the last three

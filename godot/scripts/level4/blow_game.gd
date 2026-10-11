@@ -189,8 +189,8 @@ func _input(event: InputEvent) -> void:
 func _text(pos: Vector2, s: String, size: int, col: Color, outline: int = 0) -> void:
 	var font := ThemeDB.fallback_font
 	if outline > 0:
-		canvas.draw_string_outline(font, pos, s, HORIZONTAL_ALIGNMENT_LEFT, -1, size, outline, UI.DARK)
-	canvas.draw_string(font, pos, s, HORIZONTAL_ALIGNMENT_LEFT, -1, size, col)
+		canvas.draw_string_outline(font, pos, tr(s), HORIZONTAL_ALIGNMENT_LEFT, -1, size, outline, UI.DARK)
+	canvas.draw_string(font, pos, tr(s), HORIZONTAL_ALIGNMENT_LEFT, -1, size, col)
 
 
 func _ell(c: Vector2, rx: float, ry: float, col: Color) -> void:
@@ -307,7 +307,7 @@ func _draw_scene() -> void:
 		c.draw_circle(kc, 19.0, pc if lit else Color(0.2, 0.25, 0.3))
 		c.draw_arc(kc, 19.0, 0.0, TAU, 28, pc, 3.0)
 		var key: String = KEYS.LABELS[pid]["ok"]
-		var kw := ThemeDB.fallback_font.get_string_size(key, HORIZONTAL_ALIGNMENT_LEFT, -1, 13).x
+		var kw := ThemeDB.fallback_font.get_string_size(tr(key), HORIZONTAL_ALIGNMENT_LEFT, -1, 13).x
 		_text(kc + Vector2(-kw / 2.0, 5.0), key, 13, UI.DARK if lit else UI.WHITE)
 	# the microphone: how hard the blowing arrives
 	var bar := Rect2(170.0, 276.0, 220.0, 18.0)
@@ -343,6 +343,6 @@ func _draw_thermo() -> void:
 	c.draw_rect(Rect2(tube.position.x - 4.0, y2 - 1.5, tube.size.x + 8.0, 3.0), UI.WHITE)
 	c.draw_colored_polygon(PackedVector2Array([Vector2(tube.position.x - 18.0, y2 - 8.0), Vector2(tube.position.x - 18.0, y2 + 8.0), Vector2(tube.position.x - 5.0, y2)]), UI.WHITE)
 	var txt := "%d °C" % int(round(temp))
-	var w := ThemeDB.fallback_font.get_string_size(txt, HORIZONTAL_ALIGNMENT_LEFT, -1, 30).x
+	var w := ThemeDB.fallback_font.get_string_size(tr(txt), HORIZONTAL_ALIGNMENT_LEFT, -1, 30).x
 	var tc := UI.GREEN if temp <= SAFE else (UI.YELLOW if temp < 60.0 else UI.RED)
 	_text(Vector2(tube.get_center().x - w / 2.0, tube.end.y + 38.0), txt, 30, tc, 7)

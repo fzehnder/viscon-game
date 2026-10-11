@@ -1133,8 +1133,8 @@ func _draw_floor() -> void:
 		draw_rect(Rect2(z.end.x - 2.0, y, 2.0, h), col)
 		y += 15.0
 	var font := ThemeDB.fallback_font
-	var tw := font.get_string_size("TESTAT", HORIZONTAL_ALIGNMENT_LEFT, -1, 10).x
-	draw_string(font, Vector2(z.get_center().x - tw / 2.0, z.end.y - 6.0), "TESTAT", HORIZONTAL_ALIGNMENT_LEFT, -1, 10, Color(UI.YELLOW, alpha + 0.1))
+	var tw := font.get_string_size(tr("TESTAT"), HORIZONTAL_ALIGNMENT_LEFT, -1, 10).x
+	draw_string(font, Vector2(z.get_center().x - tw / 2.0, z.end.y - 6.0), tr("TESTAT"), HORIZONTAL_ALIGNMENT_LEFT, -1, 10, Color(UI.YELLOW, alpha + 0.1))
 	# yellow line in front of the fume hoods
 	for h in HOODS:
 		var hp: Vector2 = h
@@ -1171,17 +1171,17 @@ func _draw_walls() -> void:
 	draw_rect(b.grow(2.0), Color("6b4a2f"))
 	draw_rect(b, Color("26493a"))
 	var chalk := Color(1, 1, 1, 0.88)
-	draw_string(font, b.position + Vector2(6, 12), "TESTAT HEUTE!", HORIZONTAL_ALIGNMENT_LEFT, -1, 11, UI.YELLOW)
-	draw_string(font, b.position + Vector2(6, 23), "Serie A + B", HORIZONTAL_ALIGNMENT_LEFT, -1, 9, chalk)
-	draw_string(font, b.position + Vector2(98, 11), "pH = -log c(H+)", HORIZONTAL_ALIGNMENT_LEFT, -1, 9, chalk)
-	draw_string(font, b.position + Vector2(98, 22), "c = n / V    n = m / M", HORIZONTAL_ALIGNMENT_LEFT, -1, 9, chalk)
+	draw_string(font, b.position + Vector2(6, 12), tr("TESTAT HEUTE!"), HORIZONTAL_ALIGNMENT_LEFT, -1, 11, UI.YELLOW)
+	draw_string(font, b.position + Vector2(6, 23), tr("Serie A + B"), HORIZONTAL_ALIGNMENT_LEFT, -1, 9, chalk)
+	draw_string(font, b.position + Vector2(98, 11), tr("pH = -log c(H+)"), HORIZONTAL_ALIGNMENT_LEFT, -1, 9, chalk)
+	draw_string(font, b.position + Vector2(98, 22), tr("c = n / V    n = m / M"), HORIZONTAL_ALIGNMENT_LEFT, -1, 9, chalk)
 	var hex := PackedVector2Array()
 	var hc := b.position + Vector2(b.size.x - 22.0, b.size.y / 2.0)
 	for i in 7:
 		hex.append(hc + Vector2.from_angle(PI / 6.0 + i * PI / 3.0) * 9.5)
 	draw_polyline(hex, chalk, 1.0)
 	draw_arc(hc, 5.5, 0.0, TAU, 20, chalk, 1.0)
-	draw_string(font, Vector2(hc.x - 46.0, b.position.y + 11.0), "C6H6 =", HORIZONTAL_ALIGNMENT_LEFT, -1, 9, Color(1.0, 0.75, 0.8, 0.9))
+	draw_string(font, Vector2(hc.x - 46.0, b.position.y + 11.0), tr("C6H6 ="), HORIZONTAL_ALIGNMENT_LEFT, -1, 9, Color(1.0, 0.75, 0.8, 0.9))
 	draw_rect(Rect2(b.position.x, b.end.y, b.size.x, 2.5), Color("8a6340"))
 	draw_rect(Rect2(b.position.x + 30, b.end.y - 1.0, 7, 2.0), Color.WHITE)
 	draw_rect(Rect2(b.position.x + 44, b.end.y - 1.0, 5, 2.0), UI.YELLOW)
@@ -1487,8 +1487,8 @@ func _paint_top(ci: CanvasItem) -> void:
 			ci.draw_arc(c, 11.0, -PI / 2.0, -PI / 2.0 + TAU * left, 28, UI.ORANGE if left > 0.3 else UI.RED, 3.0)
 			var txt := str(int(ceil(float(burn_t[pid]))))
 			var font := ThemeDB.fallback_font
-			var w := font.get_string_size(txt, HORIZONTAL_ALIGNMENT_LEFT, -1, 12).x
-			ci.draw_string(font, c + Vector2(-w / 2.0, 4.5), txt, HORIZONTAL_ALIGNMENT_LEFT, -1, 12, UI.WHITE)
+			var w := font.get_string_size(tr(txt), HORIZONTAL_ALIGNMENT_LEFT, -1, 12).x
+			ci.draw_string(font, c + Vector2(-w / 2.0, 4.5), tr(txt), HORIZONTAL_ALIGNMENT_LEFT, -1, 12, UI.WHITE)
 		elif wet_t[pid] > 0.0:
 			for i in 4:
 				var u4 := fmod(t * 1.5 + i * 0.25, 1.0)
@@ -1531,5 +1531,5 @@ func _paint_desk(ci: CanvasItem, k: int) -> void:
 	ci.draw_circle(Vector2(r.position.x + 9.0, r.position.y + 11.0), 7.0, UI.NAVY)
 	ci.draw_arc(Vector2(r.position.x + 9.0, r.position.y + 11.0), 7.0, 0.0, TAU, 20, UI.YELLOW, 1.5)
 	var letter: String = SET_NAMES[k]
-	var w := font.get_string_size(letter, HORIZONTAL_ALIGNMENT_LEFT, -1, 11).x
-	ci.draw_string(font, Vector2(r.position.x + 9.0 - w / 2.0, r.position.y + 15.0), letter, HORIZONTAL_ALIGNMENT_LEFT, -1, 11, UI.YELLOW)
+	var w := font.get_string_size(tr(letter), HORIZONTAL_ALIGNMENT_LEFT, -1, 11).x
+	ci.draw_string(font, Vector2(r.position.x + 9.0 - w / 2.0, r.position.y + 15.0), tr(letter), HORIZONTAL_ALIGNMENT_LEFT, -1, 11, UI.YELLOW)

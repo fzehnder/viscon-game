@@ -403,7 +403,7 @@ func _zone_col(k: float) -> Color:
 
 
 func _text(c: Control, pos: Vector2, s: String, size: int, col: Color) -> void:
-	c.draw_string(ThemeDB.fallback_font, pos, s, HORIZONTAL_ALIGNMENT_LEFT, -1, size, col)
+	c.draw_string(ThemeDB.fallback_font, pos, tr(s), HORIZONTAL_ALIGNMENT_LEFT, -1, size, col)
 
 
 func _needle(c: Control, x: float, top: float, bottom: float) -> void:
@@ -634,7 +634,7 @@ func _draw_cam() -> void:
 		if dim < 1.0:
 			cam_c.draw_rect(Rect2(Vector2.ZERO, size), Color(UI.DARK, 0.6))
 			var msg := Track.status if Track.status != "aus" else "Kamera startet …"
-			var mw := ThemeDB.fallback_font.get_string_size(msg, HORIZONTAL_ALIGNMENT_LEFT, -1, 20).x
+			var mw := ThemeDB.fallback_font.get_string_size(tr(msg), HORIZONTAL_ALIGNMENT_LEFT, -1, 20).x
 			_text(cam_c, Vector2((size.x - mw) / 2.0, size.y / 2.0 - 10.0), msg, 20, UI.WHITE)
 			for i in 3:
 				cam_c.draw_circle(Vector2(size.x / 2.0 - 16.0 + i * 16.0, size.y / 2.0 + 18.0), 4.0,
@@ -662,15 +662,15 @@ func _draw_fill() -> void:
 	if spill_t > 0.0:
 		txt += "   verschüttet!"
 	var font := ThemeDB.fallback_font
-	var tw := font.get_string_size(txt, HORIZONTAL_ALIGNMENT_LEFT, -1, 18).x
+	var tw := font.get_string_size(tr(txt), HORIZONTAL_ALIGNMENT_LEFT, -1, 18).x
 	var tp := Vector2(bar.get_center().x - tw / 2.0, bar.get_center().y + 6.0)
-	fill_c.draw_string_outline(font, tp, txt, HORIZONTAL_ALIGNMENT_LEFT, -1, 18, 5, UI.DARK)
-	fill_c.draw_string(font, tp, txt, HORIZONTAL_ALIGNMENT_LEFT, -1, 18, UI.WHITE)
+	fill_c.draw_string_outline(font, tp, tr(txt), HORIZONTAL_ALIGNMENT_LEFT, -1, 18, 5, UI.DARK)
+	fill_c.draw_string(font, tp, tr(txt), HORIZONTAL_ALIGNMENT_LEFT, -1, 18, UI.WHITE)
 	for pid in 2:
 		var pc := Color(KEYS.TAG_COLORS[pid])
 		var lc := Vector2(30.0 if pid == 0 else w - 30.0, bar.get_center().y)
 		fill_c.draw_circle(lc, 20.0, UI.GREEN if ok[pid] else Color(0.2, 0.25, 0.3))
 		fill_c.draw_arc(lc, 20.0, 0.0, TAU, 28, pc, 3.0)
 		var tag: String = KEYS.TAGS[pid]
-		var sw := font.get_string_size(tag, HORIZONTAL_ALIGNMENT_LEFT, -1, 15).x
-		fill_c.draw_string(font, lc + Vector2(-sw / 2.0, 5.5), tag, HORIZONTAL_ALIGNMENT_LEFT, -1, 15, UI.DARK if ok[pid] else UI.WHITE)
+		var sw := font.get_string_size(tr(tag), HORIZONTAL_ALIGNMENT_LEFT, -1, 15).x
+		fill_c.draw_string(font, lc + Vector2(-sw / 2.0, 5.5), tr(tag), HORIZONTAL_ALIGNMENT_LEFT, -1, 15, UI.DARK if ok[pid] else UI.WHITE)

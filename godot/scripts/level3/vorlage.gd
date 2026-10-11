@@ -105,5 +105,5 @@ func _draw_band() -> void:
 			band.draw_rect(box.grow(4.0 + 2.0 * sin(t * 6.0)), UI.INK, false, 4.0)
 			num_col = UI.INK
 		var num := str(i + 1)
-		var w := font.get_string_size(num, HORIZONTAL_ALIGNMENT_LEFT, -1, 14).x
-		band.draw_string(font, Vector2(c.x - w / 2.0, 104.0), num, HORIZONTAL_ALIGNMENT_LEFT, -1, 14, num_col)
+		var w := font.get_string_size(tr(num), HORIZONTAL_ALIGNMENT_LEFT, -1, 14).x
+		band.draw_string(font, Vector2(c.x - w / 2.0, 104.0), tr(num), HORIZONTAL_ALIGNMENT_LEFT, -1, 14, num_col)
