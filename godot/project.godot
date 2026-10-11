@@ -14,10 +14,15 @@ compatibility/default_parent_skeleton_in_mesh_instance_3d=true
 
 [application]
 
-config/name="ETH Zentrum – Tag & Nacht"
+config/name="Bib Bob"
 config/description="Story-Modus zu zweit: vom Ersti-Tag bis zum nächtlichen Einbruch ins Labor."
 run/main_scene="res://menu.tscn"
 config/features=PackedStringArray("4.7")
+boot_splash/bg_color=Color(0.0824, 0.0863, 0.1686, 1)
+boot_splash/stretch_mode=4
+boot_splash/use_filter=false
+boot_splash/image="res://splash.png"
+boot_splash/minimum_display_time=1500
 
 [audio]
 
@@ -28,6 +33,7 @@ driver/enable_input=true
 Game="*res://scripts/game_state.gd"
 Sfx="*res://scripts/sfx.gd"
 Track="*res://scripts/tracking.gd"
+Ambience="*res://scripts/ambience.gd"
 
 [display]
 

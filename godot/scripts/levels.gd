@@ -33,6 +33,7 @@ const LEVEL1 := {
 	"bags": 0,                            # Erstis in the crowd who carry a bag to steal ("steal" task, not used any more)
 	"gather": 7.0,                        # seconds the crowd stays together after the start
 	"intro": "Willkommen an der ETH! Ihr steht mitten in der Ersti-Menge auf der Polyterrasse. Beide müssen alles erledigen:",
+	"hint": "Leise sein (schleichen) müsst ihr nur in der Bibliothek.",
 	"start_toast": ["Willkommen, Erstis!", "Deniz und Livia sitzen am Lesetisch in der Bibliothek, ihre Ersti-Bags stehen neben dem Stuhl. Leise von hinten heran, nicht rennen!"],
 	# People who can turn into Opps (opp.gd). Two Erstis at a reading table, each with an Ersti bag
 	# next to the chair: steal it unseen and they notice a little later, get seen and they are
@@ -82,12 +83,21 @@ static func has_level(n: int) -> bool:
 	return numbers().has(n)
 
 
-## The level that follows `n`, or -1 if `n` is the last one.
+## The story level that follows `n`, or -1 if `n` is the last one. Electives are never next,
+## and after an elective there is no next level either.
 static func next_after(n: int) -> int:
+	if is_elective(n):
+		return -1
 	for k in numbers():
-		if k > n:
+		if k > n and not is_elective(k):
 			return k
 	return -1
+
+
+## Electives ("block": "W" in DEF) are optional levels outside the story: started from the
+## transcript at any time, they do not reset Opps or items of the story (Game.begin_level).
+static func is_elective(n: int) -> bool:
+	return has_level(n) and String(level(n).get("block", "")) == "W"
 
 
 static func _script_of(n: int) -> GDScript:

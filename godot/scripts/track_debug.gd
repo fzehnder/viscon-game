@@ -96,7 +96,7 @@ func _at(x: float, y: float) -> Vector2:
 
 
 func _text(pos: Vector2, s: String, size: int = 16, c: Color = UI.WHITE) -> void:
-	draw_string(ThemeDB.fallback_font, pos, s, HORIZONTAL_ALIGNMENT_LEFT, -1, size, c)
+	draw_string(ThemeDB.fallback_font, pos, tr(s), HORIZONTAL_ALIGNMENT_LEFT, -1, size, c)
 
 
 func _bar(pos: Vector2, v: float, c: Color, label: String) -> void:
@@ -110,6 +110,8 @@ func _draw() -> void:
 	var flags := "[1] Gesicht %s   [2] Hand %s   [3] Körper %s   [M] Mikrofon %s   [F] einfrieren   [P] Zielpose   [Esc]" % [
 		_onoff(on["face"]), _onoff(on["hand"]), _onoff(on["pose"]), _onoff(mic)]
 	_text(Vector2(30, 76), "Tracker: %s · %.0f Bilder/s      %s" % [Track.status, Track.fps, flags], 15, UI.MUTED)
+	if Track.camera != "":
+		_text(Vector2(30, 92), "Kamera: %s" % Track.camera, 13, UI.MUTED)
 
 	draw_rect(PIC, UI.DARK)
 	if Track.preview.get_width() > 0:

@@ -10,6 +10,10 @@ const KEYS = preload("res://scripts/controls.gd")
 const LV = preload("res://scripts/levels.gd")
 const LegiCard = preload("res://scripts/legi_card.gd")
 const Transcript = preload("res://scripts/transcript.gd")
+const Logo = preload("res://scripts/logo.gd")
+const EthFront = preload("res://scripts/eth_front.gd")
+const LoadingScreen = preload("res://scripts/loading_screen.gd")
+const SkinMenu = preload("res://scripts/skin_menu.gd")
 
 const HACK := [
 	["> verbinde mit bewerbung.ethz.ch ...", false],
@@ -44,6 +48,7 @@ void fragment() {
 """
 
 var stage := ""
+var fresh := false         # START was pressed: the old study is deleted once the new one really begins (_legi_next)
 var stage_root: Control
 var bg: Control
 var t := 0.0
@@ -82,9 +87,6 @@ var shoot_btn: Button
 var countdown := -1.0
 var count_l: Label
 var flash_rect: ColorRect
-# custom
-var previews: Array = [null, null]
-var swatches: Array = [{}, {}]
 
 
 ## Rotating character on a little podium (also used as the camera fallback).
@@ -118,36 +120,47 @@ class Preview:
 		ART2.draw_character(self, look, order[facing], t * 7.0, true, c, sc)
 
 
-## Floating confetti-like shapes on a navy background.
+## Floating confetti-like shapes on a navy background, or the ETH main building (start page).
 class Bg:
 	extends Control
 	const UI2 = preload("res://scripts/ui.gd")
 	var t := 0.0
 	var dark := false
+	var photo: Texture2D
+	var show_photo := false
 
 	func _process(delta: float) -> void:
 		t += delta
 		queue_redraw()
 
 	func _draw() -> void:
-		draw_rect(Rect2(Vector2.ZERO, size), Color("0b0f14") if dark else UI2.NAVY)
+		if show_photo and photo:
+			# Cover the whole screen, keep the aspect ratio, crop what sticks out.
+			var ps := photo.get_size()
+			var sc := maxf(size.x / ps.x, size.y / ps.y)
+			var ds := ps * sc
+			draw_texture_rect(photo, Rect2((size - ds) / 2.0, ds), false)
+			draw_rect(Rect2(Vector2.ZERO, size), Color(UI2.PAPER, 0.18))
+			return
+		draw_rect(Rect2(Vector2.ZERO, size), Color("0b0f14") if dark else Color("f6f2e8"))
+		var grid := Color(1, 1, 1, 0.035) if dark else Color(UI2.ETH_BLUE, 0.07)
 		var step := 48.0
 		var gx := fmod(t * 12.0, step)
 		var x := -step + gx
 		while x < size.x:
-			draw_line(Vector2(x, 0), Vector2(x, size.y), Color(1, 1, 1, 0.035), 1.0)
+			draw_line(Vector2(x, 0), Vector2(x, size.y), grid, 1.0)
 			x += step
 		var y := -step + gx
 		while y < size.y:
-			draw_line(Vector2(0, y), Vector2(size.x, y), Color(1, 1, 1, 0.035), 1.0)
+			draw_line(Vector2(0, y), Vector2(size.x, y), grid, 1.0)
 			y += step
 		if dark:
 			return
 		for i in 26:
 			var sx := fmod(i * 197.3 + t * (14.0 + i % 5 * 6.0), size.x + 80.0) - 40.0
 			var sy := fmod(i * 131.7 + t * (9.0 + i % 3 * 7.0), size.y + 80.0) - 40.0
-			var col := Color(UI2.PARTY[i % UI2.PARTY.size()])
-			col.a = 0.22
+			var col := UI2.ETH_BLUE.lightened(0.15 * (i % 4))
+			col.a = 0.1
 			if i % 3 == 0:
 				draw_colored_polygon(UI2.star_points(Vector2(sx, sy), 14, 6, t * (0.5 + i % 4 * 0.3)), col)
 			elif i % 3 == 1:
@@ -182,6 +195,8 @@ func _ready() -> void:
 	mono = SystemFont.new()
 	mono.font_names = PackedStringArray(["Menlo", "Monaco", "Consolas", "Courier New", "monospace"])
 	bg = Bg.new()
+	bg.photo = ImageTexture.create_from_image(EthFront.render())
+	bg.texture_filter = CanvasItem.TEXTURE_FILTER_NEAREST
 	bg.mouse_filter = Control.MOUSE_FILTER_IGNORE
 	add_child(bg)
 	bg.set_anchors_and_offsets_preset(Control.PRESET_FULL_RECT)
@@ -198,12 +213,13 @@ func _ready() -> void:
 
 
 func _go(s: String) -> void:
-	if stage == "photo" and s != "photo":
-		_stop_camera()
+	if stage == "photo":
+		_stop_camera()   # also between P1's and P2's photo; _build_photo starts it again
 	stage = s
 	for c in stage_root.get_children():
 		c.queue_free()
-	bg.dark = s == "hack" or s == "names"
+	bg.dark = s == "hack"
+	bg.show_photo = s == "title"
 	stage_root.modulate.a = 0.0
 	stage_root.create_tween().tween_property(stage_root, "modulate:a", 1.0, 0.25)
 	match s:
@@ -241,42 +257,87 @@ func _centered(l: Control) -> Control:
 
 # ------------------------------------------------------------------ 1 · start page
 func _build_title() -> void:
+	var card := UI.panel(UI.PAPER, UI.ETH_BLUE, 20, 34)
+	_center().add_child(card)
 	var v := _vbox(10)
-	_center().add_child(v)
-	v.add_child(_centered(UI.label("ETH ZENTRUM", 26, UI.BLUE, 8)))
-	var title := _centered(UI.label("Tag & Nacht", 104, UI.YELLOW, 18))
-	v.add_child(title)
-	v.add_child(_centered(UI.label("Ein Story-Abenteuer für zwei an einer Tastatur", 22, UI.WHITE, 6)))
+	card.add_child(v)
+	v.add_child(_centered(UI.label("ETH ZENTRUM", 22, UI.INK2)))
+	# the name of the game, big: the logo (logo.gd)
+	var title := Logo.new()
+	title.custom_minimum_size = Vector2(620, 150)
+	v.add_child(_centered(title))
+	v.add_child(_centered(UI.label("Ein Story-Abenteuer für zwei an einer Tastatur", 22, UI.INK)))
 	var gap := Control.new()
-	gap.custom_minimum_size = Vector2(0, 30)
+	gap.custom_minimum_size = Vector2(0, 22)
 	v.add_child(gap)
-	var start := UI.button("START", UI.GREEN, 38)
+	var start := UI.button("START", UI.ETH_BLUE, 38)
 	start.custom_minimum_size = Vector2(320, 86)
 	start.size_flags_horizontal = Control.SIZE_SHRINK_CENTER
 	start.pressed.connect(_new_game)
 	v.add_child(start)
 	UI.pulse(start, 0.06, 1.0)
 	if Game.has_profile():
-		var cont := UI.button("Weiterspielen als %s & %s" % [Game.name_of(0), Game.name_of(1)], UI.BLUE, 20)
+		var cont := UI.button("Weiterspielen als %s & %s" % [Game.name_of(0), Game.name_of(1)], UI.ETH_BLUE.lightened(0.2), 20)
 		cont.size_flags_horizontal = Control.SIZE_SHRINK_CENTER
-		cont.pressed.connect(func(): _go("loading"))
+		cont.pressed.connect(func():
+			Game.set_level(Game.story_level)   # not the elective that was played last
+			_go("loading"))
 		v.add_child(cont)
-	v.add_child(_centered(UI.label("Enter drücken", 15, UI.MUTED)))
+		var again := UI.button("Figuren ändern", UI.ETH_BLUE, 16)
+		again.size_flags_horizontal = Control.SIZE_SHRINK_CENTER
+		again.pressed.connect(func():
+			Game.set_level(Game.story_level)
+			_go("custom"))
+		v.add_child(again)
+	v.add_child(_centered(UI.label("Enter: neues Studium" if Game.has_profile() else "Enter drücken", 15, UI.INK2)))
 	# the levels as a transcript of records: grades so far, and a click goes straight into a level
 	# (skips the intro), handy for testing and demos
-	var levels := UI.button("Leistungsüberblick · Level wählen", UI.NAVY2.lightened(0.15), 16)
+	var levels := UI.button("Leistungsüberblick · Level wählen", UI.INK2, 16)
 	levels.size_flags_horizontal = Control.SIZE_SHRINK_CENTER
 	levels.pressed.connect(func(): _go("transcript"))
 	v.add_child(levels)
 	UI.pop_in(title, 0.05, 0.3)
 	title.resized.connect(func(): title.pivot_offset = title.size / 2.0)
 	var tw := title.create_tween().set_loops()
-	tw.tween_property(title, "rotation", 0.035, 1.3).set_trans(Tween.TRANS_SINE)
-	tw.tween_property(title, "rotation", -0.035, 1.3).set_trans(Tween.TRANS_SINE)
+	tw.tween_property(title, "rotation", 0.015, 1.6).set_trans(Tween.TRANS_SINE)
+	tw.tween_property(title, "rotation", -0.015, 1.6).set_trans(Tween.TRANS_SINE)
+	_add_lang_toggle()
 
 
+## Language toggle top right of the start page: EN | DE. Everything shown switches at once.
+func _add_lang_toggle() -> void:
+	var box := PanelContainer.new()
+	box.add_theme_stylebox_override("panel", UI.box(UI.PAPER, UI.LINE, 12, 2, 4))
+	stage_root.add_child(box)
+	box.anchor_left = 1.0
+	box.anchor_right = 1.0
+	box.offset_top = 18
+	box.offset_right = -18
+	box.grow_horizontal = Control.GROW_DIRECTION_BEGIN
+	var row := HBoxContainer.new()
+	row.add_theme_constant_override("separation", 4)
+	box.add_child(row)
+	for l in ["en", "de"]:
+		var on: bool = Game.lang == l
+		var b := UI.button(l.to_upper(), UI.ETH_BLUE if on else UI.PAPER2, 16)
+		b.auto_translate_mode = Node.AUTO_TRANSLATE_MODE_DISABLED
+		b.custom_minimum_size = Vector2(58, 40)
+		if not on:
+			for k in ["font_color", "font_hover_color", "font_pressed_color", "font_focus_color"]:
+				b.add_theme_color_override(k, UI.INK2)
+		var lang: String = l
+		b.pressed.connect(func():
+			if Game.lang != lang:
+				Game.set_lang(lang)
+				_go("title"))
+		row.add_child(b)
+
+
+## START. Nothing is deleted yet: Enter, E and Space are keys the players press all the time, and
+## one press on the start page must not throw a whole study away. The old one goes when the new
+## one really begins (_legi_next); until then Esc leads back to the start page.
 func _new_game() -> void:
-	Game.new_game()   # level 1, nobody is an Opp yet, no grades
+	fresh = true
 	_go("hack")
 
 
@@ -403,13 +464,14 @@ func _build_hack() -> void:
 	term_l = UI.label("", 17, Color("39ff88"))
 	term_l.label_settings.font = mono
 	term_l.vertical_alignment = VERTICAL_ALIGNMENT_BOTTOM
+	term_l.auto_translate_mode = Node.AUTO_TRANSLATE_MODE_DISABLED   # its lines come translated (_process_hack)
 	term_panel.add_child(term_l)
 	term_panel.visible = false
 	glitch = Glitch.new()
 	glitch.mouse_filter = Control.MOUSE_FILTER_IGNORE
 	stage_root.add_child(glitch)
 	glitch.set_anchors_and_offsets_preset(Control.PRESET_FULL_RECT)
-	var skip := UI.label("Enter = überspringen", 14, UI.MUTED)
+	var skip := UI.label("Enter = überspringen  ·  Esc = zurück", 14, UI.MUTED)
 	stage_root.add_child(skip)
 	skip.position = Vector2(20, 16)
 
@@ -437,7 +499,7 @@ func _process_hack(delta: float) -> void:
 		hack_pause -= delta
 	else:
 		var line: Array = HACK[hack_line]
-		var txt: String = line[0]
+		var txt: String = tr(line[0])   # translated before it is typed letter by letter
 		if hack_char < txt.length():
 			var before := int(hack_char)
 			hack_char += delta * 58.0
@@ -494,30 +556,35 @@ func _build_names() -> void:
 		row.add_theme_constant_override("separation", 14)
 		content.add_child(row)
 		var tag := UI.label("Spieler*in %d  (%s)" % [i + 1, "WASD · E" if i == 0 else "Pfeile · Enter"], 18, Color(KEYS.TAG_COLORS[i]).darkened(0.15))
-		tag.custom_minimum_size = Vector2(300, 0)
+		tag.custom_minimum_size = Vector2(240, 0)
 		row.add_child(tag)
-		var e := LineEdit.new()
-		e.max_length = 14
-		e.placeholder_text = "Vorname"
-		e.text = String(Game.names[i])
-		e.custom_minimum_size = Vector2(420, 52)
-		e.add_theme_font_size_override("font_size", 24)
-		e.add_theme_color_override("font_color", Color("1c1d33"))
-		e.add_theme_color_override("caret_color", UI.ETH_BLUE)
-		e.add_theme_color_override("font_placeholder_color", Color("9aa3b5"))
-		e.add_theme_stylebox_override("normal", UI.box(Color.WHITE, Color("b9c0cf"), 10, 3, 10, false))
-		e.add_theme_stylebox_override("focus", UI.box(Color.WHITE, UI.ETH_BLUE, 10, 3, 10, false))
+		var e := _name_edit("Vorname", String(Game.names[i]), 14)
 		row.add_child(e)
 		name_edits.append(e)
 		var idx := i
 		e.text_submitted.connect(func(_s: String): _name_submitted(idx))
-		e.text_changed.connect(func(_s: String): UI.sfx("type", -14.0))
 	var send := UI.button("Bewerbung abschicken", UI.ETH_BLUE, 22)
 	send.size_flags_horizontal = Control.SIZE_SHRINK_END
 	send.pressed.connect(_names_done)
 	content.add_child(send)
 	UI.pop_in(browser, 0.0, 0.85)
 	(name_edits[0] as LineEdit).call_deferred("grab_focus")
+
+
+func _name_edit(placeholder: String, text: String, max_len: int) -> LineEdit:
+	var e := LineEdit.new()
+	e.max_length = max_len
+	e.placeholder_text = placeholder
+	e.text = text
+	e.custom_minimum_size = Vector2(272, 52)
+	e.add_theme_font_size_override("font_size", 22)
+	e.add_theme_color_override("font_color", Color("1c1d33"))
+	e.add_theme_color_override("caret_color", UI.ETH_BLUE)
+	e.add_theme_color_override("font_placeholder_color", Color("9aa3b5"))
+	e.add_theme_stylebox_override("normal", UI.box(Color.WHITE, Color("b9c0cf"), 10, 3, 10, false))
+	e.add_theme_stylebox_override("focus", UI.box(Color.WHITE, UI.ETH_BLUE, 10, 3, 10, false))
+	e.text_changed.connect(func(_s: String): UI.sfx("type", -14.0))
+	return e
 
 
 func _name_submitted(i: int) -> void:
@@ -541,11 +608,11 @@ func _build_photo() -> void:
 	cam_failed = false
 	cam_wait = 0.0
 	var pc := Color(KEYS.TAG_COLORS[photo_pid])
-	var card := UI.panel(UI.NAVY, pc, 26, 24)
+	var card := UI.panel(UI.PAPER, pc, 20, 24)
 	_center().add_child(card)
 	var v := _vbox(12)
 	card.add_child(v)
-	v.add_child(_centered(UI.label("Legi-Foto", 20, UI.MUTED)))
+	v.add_child(_centered(UI.label("Legi-Foto", 20, UI.INK2)))
 	v.add_child(_centered(UI.label(Game.name_of(photo_pid), 46, pc, 10)))
 	var frame := Control.new()
 	frame.custom_minimum_size = Vector2(300, 375)
@@ -585,7 +652,7 @@ func _build_photo() -> void:
 	count_l.vertical_alignment = VERTICAL_ALIGNMENT_CENTER
 	frame.add_child(count_l)
 	count_l.set_anchors_and_offsets_preset(Control.PRESET_FULL_RECT)
-	cam_status = UI.label("Kamera wird gesucht …", 16, UI.MUTED, 0, true)
+	cam_status = UI.label("Kamera wird gesucht …", 16, UI.INK2, 0, true)
 	cam_status.custom_minimum_size = Vector2(420, 0)
 	cam_status.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
 	v.add_child(cam_status)
@@ -593,13 +660,13 @@ func _build_photo() -> void:
 	row.alignment = BoxContainer.ALIGNMENT_CENTER
 	row.add_theme_constant_override("separation", 12)
 	v.add_child(row)
-	shoot_btn = UI.button("Foto machen", UI.GREEN, 24)
+	shoot_btn = UI.button("Foto machen", UI.ETH_BLUE, 24)
 	shoot_btn.pressed.connect(_shoot)
 	row.add_child(shoot_btn)
-	var skip := UI.button("Ohne Foto", UI.PURPLE, 18)
+	var skip := UI.button("Ohne Foto", UI.INK2, 18)
 	skip.pressed.connect(func(): _use_photo(null))
 	row.add_child(skip)
-	v.add_child(_centered(UI.label("Leertaste, E oder Enter = Foto", 14, UI.MUTED)))
+	v.add_child(_centered(UI.label("Leertaste, E oder Enter = Foto", 14, UI.INK2)))
 	UI.pop_in(card, 0.0, 0.7)
 
 
@@ -723,38 +790,51 @@ func _capture() -> void:
 	_use_photo(ImageTexture.create_from_image(img) if img != null else null)
 
 
+## First P1 takes their photo, then P2; then the character design, and at the end both Legis side by side.
 func _use_photo(tex) -> void:
 	Game.photos[photo_pid] = tex
-	_go("legi")
+	if photo_pid == 0:
+		photo_pid = 1
+		_go("photo")
+	else:
+		_go("custom")
 
 
 # ------------------------------------------------------------------ 5 · the Legi
 func _build_legi() -> void:
-	var pc := Color(KEYS.TAG_COLORS[photo_pid])
 	var v := _vbox(18)
 	_center().add_child(v)
-	v.add_child(_centered(UI.label("Deine Legi ist da!", 44, UI.YELLOW, 10)))
-	var card := LegiCard.new()
-	card.photo = Game.photos[photo_pid]
-	card.pname = Game.name_of(photo_pid)
-	card.number = Game.legi_ids[photo_pid]
-	card.look = Game.player_looks[photo_pid]
-	card.accent = pc
-	card.custom_minimum_size = Vector2(560, 350)
-	card.size_flags_horizontal = Control.SIZE_SHRINK_CENTER
-	v.add_child(card)
-	v.add_child(_centered(UI.label("Noch nicht validiert. Das macht ihr am Ersti-Tag am Terminal.", 16, UI.MUTED)))
-	var next := UI.button("Weiter", UI.GREEN, 24)
+	v.add_child(_centered(UI.label("Eure Legis sind da!", 44, UI.ETH_BLUE)))
+	var row := HBoxContainer.new()
+	row.alignment = BoxContainer.ALIGNMENT_CENTER
+	row.add_theme_constant_override("separation", 36)
+	v.add_child(row)
+	for i in 2:
+		var pc := Color(KEYS.TAG_COLORS[i])
+		var col := _vbox(8)
+		row.add_child(col)
+		col.add_child(_centered(UI.label(Game.name_of(i), 24, pc, 6)))
+		var card := LegiCard.new()
+		card.set_player(i)
+		card.accent = pc
+		card.custom_minimum_size = Vector2(520, 324)
+		card.size_flags_horizontal = Control.SIZE_SHRINK_CENTER
+		col.add_child(card)
+		# card flip-in, the second one a moment later
+		card.resized.connect(func(): card.pivot_offset = card.size / 2.0)
+		card.scale = Vector2(0.05, 1.0)
+		card.rotation = -0.2 if i == 0 else 0.2
+		var tw := card.create_tween().set_parallel(true)
+		tw.tween_property(card, "scale", Vector2.ONE, 0.55).set_delay(0.15 + 0.2 * i).set_trans(Tween.TRANS_BACK).set_ease(Tween.EASE_OUT)
+		tw.tween_property(card, "rotation", 0.0, 0.55).set_delay(0.15 + 0.2 * i).set_trans(Tween.TRANS_BACK).set_ease(Tween.EASE_OUT)
+		# then the validity (S, date, ASVZ) is printed onto the strip
+		tw.tween_callback(func():
+			card.validate()
+			UI.sfx("click", -4.0)).set_delay(0.9 + 0.25 * i)
+	var next := UI.button("Ab zum Ersti-Tag!", UI.ETH_BLUE, 28)
 	next.size_flags_horizontal = Control.SIZE_SHRINK_CENTER
 	next.pressed.connect(_legi_next)
 	v.add_child(next)
-	# card flip-in
-	card.resized.connect(func(): card.pivot_offset = card.size / 2.0)
-	card.scale = Vector2(0.05, 1.0)
-	card.rotation = -0.2
-	var tw := card.create_tween().set_parallel(true)
-	tw.tween_property(card, "scale", Vector2.ONE, 0.55).set_delay(0.15).set_trans(Tween.TRANS_BACK).set_ease(Tween.EASE_OUT)
-	tw.tween_property(card, "rotation", 0.0, 0.55).set_delay(0.15).set_trans(Tween.TRANS_BACK).set_ease(Tween.EASE_OUT)
 	get_tree().create_timer(0.35).timeout.connect(func():
 		if stage == "legi":
 			UI.sfx("success")
@@ -763,124 +843,25 @@ func _build_legi() -> void:
 
 
 func _legi_next() -> void:
-	if photo_pid == 0:
-		photo_pid = 1
-		_go("photo")
-	else:
-		_go("custom")
+	if fresh:
+		fresh = false
+		Game.new_game()   # level 1, nobody is an Opp yet, no grades
+	_go("loading")
 
 
 # ------------------------------------------------------------------ 6 · character design
 func _build_custom() -> void:
-	var v := _vbox(14)
-	_center().add_child(v)
-	v.add_child(_centered(UI.label("Gestaltet eure Figuren", 40, UI.YELLOW, 9)))
-	var row := HBoxContainer.new()
-	row.add_theme_constant_override("separation", 26)
-	row.alignment = BoxContainer.ALIGNMENT_CENTER
-	v.add_child(row)
-	for i in 2:
-		row.add_child(_custom_column(i))
-	var go := UI.button("Ab zum Ersti-Tag!", UI.GREEN, 28)
-	go.custom_minimum_size = Vector2(340, 70)
-	go.size_flags_horizontal = Control.SIZE_SHRINK_CENTER
-	go.pressed.connect(func(): _go("loading"))
-	v.add_child(go)
-	UI.pulse(go, 0.05, 1.0)
-	v.add_child(_centered(UI.label("Enter = los", 14, UI.MUTED)))
-
-
-func _custom_column(i: int) -> Control:
-	var pc := Color(KEYS.TAG_COLORS[i])
-	var card := UI.panel(UI.NAVY, pc, 22, 16)
-	card.mouse_filter = Control.MOUSE_FILTER_PASS
-	var v := _vbox(8)
-	card.add_child(v)
-	v.add_child(_centered(UI.label(Game.name_of(i), 30, pc, 7)))
-	var pv := Preview.new()
-	pv.look = Game.player_looks[i]
-	pv.accent = pc
-	pv.custom_minimum_size = Vector2(260, 220)
-	pv.mouse_filter = Control.MOUSE_FILTER_IGNORE
-	v.add_child(pv)
-	previews[i] = pv
-	var grid := GridContainer.new()
-	grid.columns = 4
-	grid.add_theme_constant_override("h_separation", 8)
-	grid.add_theme_constant_override("v_separation", 6)
-	v.add_child(grid)
-	swatches[i] = {}
-	var rows := [["hair_style", "Frisur", CH.HAIR_STYLES], ["hair", "Haarfarbe", CH.HAIR_COLORS], ["skin", "Hautton", CH.SKIN_TONES],
-		["top", "Oberteil", CH.TOP_COLORS], ["pants", "Hose", CH.PANTS_COLORS]]
-	for r in rows:
-		var key: String = r[0]
-		var opts: Array = r[2]
-		var nl := UI.label(r[1], 15, UI.MUTED)
-		nl.custom_minimum_size = Vector2(88, 0)
-		grid.add_child(nl)
-		var prev := UI.button("<", UI.NAVY2.lightened(0.15), 16)
-		prev.pressed.connect(func(): _cycle(i, key, opts, -1))
-		grid.add_child(prev)
-		var sw := PanelContainer.new()
-		sw.custom_minimum_size = Vector2(118, 34)
-		var swl := UI.label("", 15, UI.WHITE, 4)
-		swl.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
-		sw.add_child(swl)
-		grid.add_child(sw)
-		swatches[i][key] = [sw, swl]
-		var nxt := UI.button(">", UI.NAVY2.lightened(0.15), 16)
-		nxt.pressed.connect(func(): _cycle(i, key, opts, 1))
-		grid.add_child(nxt)
-	_refresh_swatches(i)
-	return card
-
-
-func _cycle(i: int, key: String, opts: Array, dir: int) -> void:
-	var lk: Dictionary = Game.player_looks[i]
-	var k := opts.find(lk.get(key, opts[0]))
-	k = (k + dir + opts.size()) % opts.size()
-	lk[key] = opts[k]
-	if key == "top" and lk.get("top_style", "") == "overall":
-		lk["pants"] = opts[k]
-	if previews[i]:
-		previews[i].look = lk
-		previews[i].hop = 1.0
-	UI.sfx("pop", -8.0)
-	_refresh_swatches(i)
-
-
-func _refresh_swatches(i: int) -> void:
-	var lk: Dictionary = Game.player_looks[i]
-	for key in swatches[i]:
-		var sw: PanelContainer = swatches[i][key][0]
-		var swl: Label = swatches[i][key][1]
-		if key == "hair_style":
-			sw.add_theme_stylebox_override("panel", UI.box(UI.NAVY2, UI.MUTED, 10, 2, 4, false))
-			swl.text = String(lk.get(key, "kurz")).capitalize()
-		else:
-			sw.add_theme_stylebox_override("panel", UI.box(Color(String(lk.get(key, "888888"))), UI.WHITE, 10, 3, 4, false))
-			swl.text = ""
+	var sm := SkinMenu.new()          # both choose at once with their own keys (skin_menu.gd)
+	stage_root.add_child(sm)
+	sm.done.connect(func(): _go("legi"))
 
 
 # ------------------------------------------------------------------ 7 · into the level
 func _build_loading() -> void:
-	var lv: Dictionary = LV.level()
-	var v := _vbox(10)
-	_center().add_child(v)
-	v.add_child(_centered(UI.label(String(lv["tag"]), 24, UI.PINK, 6)))
-	var title := _centered(UI.label(String(lv["name"]), 96, UI.YELLOW, 18))
-	v.add_child(title)
-	var dots: Label = UI.label("lädt", 26, UI.WHITE, 6)
-	v.add_child(_centered(dots))
-	UI.pop_in(title, 0.0, 0.3)
-	UI.sfx("whoosh")
-	var tw := dots.create_tween()
-	for k in 4:
-		tw.tween_callback(func(): dots.text = "lädt" + ".".repeat(k))
-		tw.tween_interval(0.3)
-	tw.tween_callback(func():
-		Game._apply_level()
-		get_tree().change_scene_to_file("res://main.tscn"))
+	Game._apply_level()
+	var ls := LoadingScreen.new()      # the Polybahn rides up, then the level starts
+	stage_root.add_child(ls)
+	ls.finished.connect(func(): get_tree().change_scene_to_file("res://main.tscn"))
 
 
 # ------------------------------------------------------------------ loop + keys
@@ -898,6 +879,11 @@ func _unhandled_input(event: InputEvent) -> void:
 		return
 	var k: int = event.physical_keycode
 	var ok := k in [KEY_ENTER, KEY_KP_ENTER, KEY_SPACE, KEY_E]
+	if k == KEY_ESCAPE and fresh and stage in ["hack", "names"]:
+		fresh = false   # START was a slip: back, and the study so far stays
+		get_viewport().set_input_as_handled()
+		_go("title")
+		return
 	match stage:
 		"title":
 			if ok:
@@ -911,6 +897,3 @@ func _unhandled_input(event: InputEvent) -> void:
 		"legi":
 			if ok:
 				_legi_next()
-		"custom":
-			if k in [KEY_ENTER, KEY_KP_ENTER]:
-				_go("loading")

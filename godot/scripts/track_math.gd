@@ -21,6 +21,53 @@ const POSE_MIN_VIS := 0.5      # body points less visible than this are ignored
 const LIMBS := [[11, 13], [13, 15], [12, 14], [14, 16], [11, 12], [11, 23], [12, 24], [23, 25], [25, 27], [24, 26], [26, 28]]
 
 
+# ------------------------------------------------------------------ who is who
+## How big something from Track is in the picture: a rough measure of how close it is to the camera.
+static func size_of(e: Dictionary) -> float:
+	if e.has("box"):
+		return float(e["box"][2]) * float(e["box"][3])
+	var pts: Array = e.get("pts", [])
+	if pts.size() >= 33:    # body: shoulder to shoulder
+		return Vector2(pts[11][0] - pts[12][0], pts[11][1] - pts[12][1]).length()
+	if pts.size() >= 21:    # hand: wrist to middle knuckle
+		return Vector2(pts[0][0] - pts[9][0], pts[0][1] - pts[9][1]).length()
+	return 0.0
+
+
+## The n biggest entries of one of the lists of Track, from left to right: the people closest to
+## the camera, so the players and not whoever stands behind them and looks on.
+static func front(list: Array, n: int) -> Array:
+	var out := list.duplicate()
+	out.sort_custom(func(a, b): return size_of(a) > size_of(b))
+	out = out.slice(0, n)
+	out.sort_custom(func(a, b): return a["x"] < b["x"])
+	return out
+
+
+## The entry of player `pid` in one of the lists of Track (faces, hands, poses). Of the two
+## biggest entries: the one in that player's half of the picture (P1 sits left, P2 right). If
+## nothing is there and there is only one, that one: somebody who plays alone rarely sits on
+## their side.
+static func mine(list: Array, pid: int) -> Dictionary:
+	var two := front(list, 2)
+	for e in two:
+		if (pid == 0) == (e["x"] < 0.5):
+			return e
+	return two[0] if two.size() == 1 else {}
+
+
+## For something both players do at once: [entry of P1, entry of P2]. The two biggest entries,
+## the left one for P1 and the right one for P2, wherever exactly they sit. A single entry goes
+## to the half it is in. Whoever is missing gets {}.
+static func pair(list: Array) -> Array:
+	var two := front(list, 2)
+	if two.size() == 2:
+		return two
+	if two.size() == 1:
+		return [two[0], {}] if two[0]["x"] < 0.5 else [{}, two[0]]
+	return [{}, {}]
+
+
 # ------------------------------------------------------------------ face
 ## Both eyes shut (blinking or keeping them closed).
 static func eyes_closed(face: Dictionary) -> bool:

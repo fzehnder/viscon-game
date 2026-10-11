@@ -6,6 +6,7 @@ extends Control
 ##
 ## A level can set "course" (course number), "ects" (credit points, also the weight of its grade)
 ## and "block" ("A" or "B") in its DEF. Without them the values follow from the level number.
+## "block": "W" puts a level under "Wahlfächer" instead of the Basisprüfung (an elective).
 ## Grades come from Game.grades: the best grade per level, written by main.gd when a level is won.
 
 signal start_level(n: int)
@@ -17,7 +18,7 @@ const LV = preload("res://scripts/levels.gd")
 const PASS := 4.0                 # credits from this grade on
 const SESSION := "W27"            # the game plays in autumn 2026, that counts for the winter session
 const DEFAULT_ECTS := 6
-const PROGRAMME := "Bachelor-Studiengang Tag & Nacht"
+const PROGRAMME := "Bachelor-Studiengang Bib Bob"
 const URL := "lehrbetrieb.ethz.ch"
 # study years the game does not reach: [category, required credits]
 const LATER := [
@@ -49,6 +50,7 @@ var inner: Control
 var start_btn: Button
 var order: Array = []     # level numbers from top to bottom
 var sel := 1
+var in_game := false    # opened over the running game (main.open_transcript): see _unhandled_input
 
 
 ## Hand-drawn parts of the page: text on whole pixels, hairlines, the little triangles.
@@ -58,7 +60,7 @@ class Sheet:
 	var bold: Font
 
 	func width(f: Font, s: String, fs: int) -> float:
-		return f.get_string_size(s, HORIZONTAL_ALIGNMENT_LEFT, -1, fs).x
+		return f.get_string_size(tr(s), HORIZONTAL_ALIGNMENT_LEFT, -1, fs).x
 
 	## Text in a line of height `h` that starts at `y`; with `right` the text ends at `x`.
 	func put(f: Font, s: String, x: float, y: float, h: float, fs: int, col: Color, right: bool = false) -> void:
@@ -67,7 +69,7 @@ class Sheet:
 		if right:
 			x -= width(f, s, fs)
 		var base := y + (h + f.get_ascent(fs) - f.get_descent(fs)) / 2.0
-		draw_string(f, Vector2(roundf(x), roundf(base)), s, HORIZONTAL_ALIGNMENT_LEFT, -1, fs, col)
+		draw_string(f, Vector2(roundf(x), roundf(base)), tr(s), HORIZONTAL_ALIGNMENT_LEFT, -1, fs, col)
 
 	func hline(y: float, col: Color) -> void:
 		draw_rect(Rect2(0.0, y, size.x, 1.0), col)
@@ -275,7 +277,7 @@ func _ready() -> void:
 	legend.add_theme_font_size_override("normal_font_size", 13)
 	legend.add_theme_font_size_override("bold_font_size", 13)
 	legend.add_theme_color_override("default_color", INK)
-	legend.text = "[b]Legende: Sess.:[/b] Prüfungssession (W27: Winter 2026/27); [b]Note:[/b] 6 ist die Bestnote, ab 4 ist bestanden; [b]Gew.:[/b] Gewicht der Note im Prüfungsblock; [b]Erw.:[/b] erworbene Kreditpunkte; [b]Erf.:[/b] gemäss Reglement minimal erforderliche Kreditpunkte; [b]Diff.:[/b] noch zu erwerbende Kreditpunkte"
+	legend.text = "[b]Legende: Sess.:[/b] Prüfungssession (W27: Winter 2026/27); [b]Gew.:[/b] Gewicht der Note im Prüfungsblock; [b]Erw.:[/b] erworbene Kreditpunkte; [b]Erf.:[/b] gemäss Reglement minimal erforderliche Kreditpunkte; [b]Diff.:[/b] noch zu erwerbende Kreditpunkte"
 	kv.add_child(legend)
 	v.add_child(key)
 
@@ -296,7 +298,8 @@ func _ready() -> void:
 	var back_btn := _button("Zurück")
 	back_btn.pressed.connect(func(): back.emit())
 	fh.add_child(back_btn)
-	var hint := _text("W/S oder Pfeiltasten: Fach wählen  ·  Enter: Level starten  ·  Esc: zurück", 14)
+	var hint := _text("W/S oder Pfeiltasten: Fach wählen  ·  Level starten: anklicken  ·  Esc: zurück ins Spiel" if in_game
+		else "W/S oder Pfeiltasten: Fach wählen  ·  Enter: Level starten  ·  Esc: zurück", 14)
 	hint.size_flags_horizontal = Control.SIZE_EXPAND_FILL
 	hint.horizontal_alignment = HORIZONTAL_ALIGNMENT_RIGHT
 	fh.add_child(hint)
@@ -372,8 +375,12 @@ func _cat(text: String, depth: int, got: int, need: int) -> Dictionary:
 ## Rows of the table, and `order` (the levels from top to bottom).
 func _rows() -> Array:
 	var blocks := {}
+	var electives: Array = []
 	for n in LV.numbers():
 		var b: String = course(n)["block"]
+		if b == "W":
+			electives.append(n)
+			continue
 		if not blocks.has(b):
 			blocks[b] = []
 		(blocks[b] as Array).append(n)
@@ -406,14 +413,29 @@ func _rows() -> Array:
 		body.append({"x": 44.0, "text": "Basisprüfungsblock %s" % b, "sess": SESSION if wsum > 0.0 else "",
 			"grade": grade_text(gsum / wsum) if wsum > 0.0 else "", "obt": str(obt)})
 		body.append_array(lines)
+	# electives: no block, every passed one counts on its own
+	var el_lines: Array = []
+	var el_got := 0
+	for n in electives:
+		var c: Dictionary = course(n)
+		var g: float = Game.grade_of(n)
+		if g >= PASS:
+			el_got += int(c["ects"])
+		order.append(n)
+		el_lines.append({"x": 44.0, "code": c["code"], "text": "Wahlfach · %s" % LV.level(n)["name"],
+			"sess": SESSION if g > 0.0 else "", "grade": grade_text(g) if g > 0.0 else "", "wgt": str(c["ects"]), "level": n})
 	var rest := 0
 	for c in LATER:
 		rest += int(c[1])
-	var rows: Array = [_cat(PROGRAMME, 0, got, need + rest), _cat("Obligatorische Fächer des Basisjahres", 1, got, need),
+	var rows: Array = [_cat(PROGRAMME, 0, got + el_got, need + rest), _cat("Obligatorische Fächer des Basisjahres", 1, got, need),
 		_cat("Basisprüfung (bestanden)" if got == need else "Basisprüfung", 2, got, need)]
 	rows.append_array(body)
 	for c in LATER:
-		rows.append(_cat(String(c[0]), 1, 0, int(c[1])))
+		if String(c[0]) == "Wahlfächer":
+			rows.append(_cat(String(c[0]), 1, el_got, int(c[1])))
+			rows.append_array(el_lines)
+		else:
+			rows.append(_cat(String(c[0]), 1, 0, int(c[1])))
 	return rows
 
 
@@ -421,7 +443,7 @@ func _select(n: int) -> void:
 	sel = n
 	table.sel = n
 	table.queue_redraw()
-	start_btn.text = "Level %d starten" % n
+	start_btn.text = "Wahlfach starten" if LV.is_elective(n) else "Level %d starten" % n
 	# keep the chosen course in view when the list is longer than the screen
 	var y := table.global_position.y - inner.global_position.y + table.row_y(n)
 	if y < scroll.scroll_vertical:
@@ -445,7 +467,10 @@ func _unhandled_input(event: InputEvent) -> void:
 			_select(int(order[i]))
 	elif k in [KEY_ENTER, KEY_KP_ENTER, KEY_SPACE, KEY_E]:
 		get_viewport().set_input_as_handled()
-		_start(sel)
+		# Over the running game these are the keys both players press all the time, and starting a
+		# level throws the running one away: there a level is only started with the mouse.
+		if not in_game:
+			_start(sel)
 		return
 	elif k in [KEY_ESCAPE, KEY_BACKSPACE]:
 		get_viewport().set_input_as_handled()

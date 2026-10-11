@@ -176,7 +176,7 @@ func _detect(delta: float) -> void:
 		var to: Vector2 = pl.global_position - global_position
 		var ang := absf(wrapf(to.angle() - dir, -PI, PI))
 		if (d < _range() and ang < half) or d < 1.5 * TS:
-			if world.line_clear(global_position, pl.global_position) and d < best_d:
+			if world.sight_clear(global_position, pl.global_position) and d < best_d:   # walls and tall furniture are cover
 				target = pl
 				best_d = d
 	if target != null:
@@ -217,7 +217,7 @@ func _update_cone() -> void:
 	for i in range(n + 1):
 		var a := dir - half + (2.0 * half) * float(i) / float(n)
 		var end := global_position + Vector2.from_angle(a) * _range()
-		pts.append(world.ray_end(global_position, end) - global_position)
+		pts.append(world.sight_end(global_position, end) - global_position)
 	cone.polygon = pts
 	var alert := clampf(meter, 0.0, 1.0)
 	cone.color = Color(1.0, 0.93 - alert * 0.6, 0.6 - alert * 0.45, 0.17 + alert * 0.18)
@@ -236,5 +236,5 @@ func _draw() -> void:
 		if meter > 0.0:
 			draw_arc(c, 11.0, -PI / 2.0, -PI / 2.0 + TAU * meter, 24, col, 2.5)
 		var font := ThemeDB.fallback_font
-		var sz := font.get_string_size(mark, HORIZONTAL_ALIGNMENT_LEFT, -1, 16)
-		draw_string(font, c + Vector2(-sz.x / 2.0, 6), mark, HORIZONTAL_ALIGNMENT_LEFT, -1, 16, col)
+		var sz := font.get_string_size(tr(mark), HORIZONTAL_ALIGNMENT_LEFT, -1, 16)
+		draw_string(font, c + Vector2(-sz.x / 2.0, 6), tr(mark), HORIZONTAL_ALIGNMENT_LEFT, -1, 16, col)

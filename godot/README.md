@@ -1,4 +1,4 @@
-# ETH Zentrum – Tag & Nacht
+# Bib Bob – ETH Zentrum
 
 Ein 2D-Spiel für **Godot 4.3 oder neuer**. Du wählst dein Departement, gestaltest deine Figur und spielst entweder tagsüber Aufgaben gegen die Uhr oder brichst nachts ins Labor ein, ohne dass dich die Professoren erwischen.
 
@@ -54,7 +54,7 @@ Anzeigen: Die Aufgaben stehen auf der Seite der jeweiligen Person, links für P1
 | Interagieren / Minigame | E | Enter |
 | Sprinten (2 s, lädt in ca. 3 s auf) | Shift | . |
 | Aufgabe wählen, Weg anzeigen | Tab | , |
-| Schleichen | Ctrl | - (US-Layout: /) |
+| Schleichen | C | - (US-Layout: /) |
 | Minigame abbrechen | Esc | Backspace |
 | Antworten | 1 2 3 | 8 9 0 |
 
