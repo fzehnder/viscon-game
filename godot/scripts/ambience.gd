@@ -3,7 +3,8 @@ extends Node
 ## of a fume hood, the murmur of a canteen), single sounds now and then (plates, pages, birds, a
 ## tram bell), an echo that fits the room for all effects of the game, and music where music
 ## fits: on the start page, outside by day, at night, in the lounge, and when somebody is chased.
-## Everything is made in code like the other sounds of the game, there are no audio files.
+## Almost everything is made in code like the other sounds of the game. The one exception is the
+## Mensa: the team wanted a real recording there (FILES, godot/audio/).
 ##
 ## It works by itself: it reads the room of each player from world.zone_at() and maps the name to
 ## a kind of room by keywords (ROOMS). Two players in different rooms hear both, each half as
@@ -55,7 +56,7 @@ const KINDS := {
 	"lecture": {"beds": {"roomtone": -42.0}, "shots": [["chalk", 5.0, 11.0, -27.0], ["page", 8.0, 18.0, -29.0], ["steps", 12.0, 26.0, -24.0], ["clock", 2.0, 2.0, -31.0]], "wet": 0.3},
 	"library": {"beds": {"roomtone": -44.0}, "shots": [["page", 5.0, 12.0, -29.0], ["clock", 2.0, 2.0, -29.0], ["keys", 8.0, 20.0, -27.0]], "wet": 0.22},
 	"lab": {"beds": {"hood": -43.0}, "shots": [["bubble", 2.0, 5.0, -19.0], ["glass", 4.0, 10.0, -22.0], ["beep", 9.0, 20.0, -25.0], ["keys", 12.0, 26.0, -27.0]], "wet": 0.14},
-	"canteen": {"beds": {"murmur": -33.0, "kitchen": -44.0}, "shots": [["clink", 1.0, 2.6, -11.0], ["cutlery", 1.5, 3.5, -14.0], ["plates", 2.5, 6.0, -15.0], ["drop", 8.0, 18.0, -12.0], ["bell", 14.0, 30.0, -22.0]], "wet": 0.12},
+	"canteen": {"beds": {"mensa": -20.0}, "shots": [["drop", 12.0, 26.0, -13.0]], "wet": 0.08},   # a real canteen (FILES); only the fork on the floor is ours
 	"kitchen": {"beds": {"kitchen": -42.0}, "shots": [["clink", 1.2, 3.0, -11.0], ["cutlery", 1.5, 3.5, -14.0], ["plates", 2.0, 5.0, -14.0], ["chop", 4.0, 9.0, -17.0], ["drop", 8.0, 18.0, -12.0]], "wet": 0.12},
 	"ski": {"beds": {"wind": -29.0, "trees": -33.0}, "shots": [], "wet": 0.0},
 	"office": {"beds": {"fan": -42.0}, "shots": [["keys", 2.0, 6.0, -23.0], ["clock", 2.0, 2.0, -29.0], ["page", 12.0, 26.0, -30.0]], "wet": 0.05},
@@ -78,6 +79,10 @@ const BEDS := ["wind", "night", "roomtone", "murmur", "kitchen", "hood", "fan", 
 const SHOTS := ["bird", "bird2", "tram", "car", "steps", "door", "chalk", "page", "clock", "keys", "bubble", "glass", "plates", "bell", "owl",
 	"cutlery", "drop", "beep", "arrive", "hiss", "clink", "chop"]
 const SONGS := ["menu", "day", "suspense", "chase", "lounge", "task"]
+# beds that are recordings instead of being made in code: name -> file (16 bit WAV that loops
+# without a seam), and what is played in its place if the file is missing
+const FILES := {"mensa": "res://audio/mensa_canteen.wav"}
+const FALLBACK := {"mensa": "murmur"}
 
 var enabled := true
 # Rendered sounds. Static, so that a worker thread that is still rendering does not reach into a
@@ -218,7 +223,10 @@ func _process(delta: float) -> void:
 		target_wet += float(d["wet"]) * w
 		for bed in d["beds"]:
 			var db: float = float(d["beds"][bed]) + linear_to_db(w) + duck
-			want[bed] = maxf(float(want.get(bed, OFF)), db)
+			var bed_name := String(bed)
+			if FILES.has(bed_name) and _stream(bed_name) == null:
+				bed_name = String(FALLBACK.get(bed_name, bed_name))   # the recording is not there
+			want[bed_name] = maxf(float(want.get(bed_name, OFF)), db)
 		_shots(kind, d, w, delta, in_game)
 	if music != "":
 		want[music] = MUSIC_DB + (3.0 if music in ["chase", "menu"] else 0.0) + (0.0 if music == "task" else duck)
@@ -349,6 +357,9 @@ func _shots(kind: String, d: Dictionary, w: float, delta: float, playing: bool) 
 func _stream(sound: String) -> AudioStreamWAV:
 	if streams.has(sound):
 		return streams[sound]
+	if FILES.has(sound):
+		streams[sound] = _recording(String(FILES[sound]))
+		return streams[sound]
 	lock.lock()
 	var bytes: PackedByteArray = pcm.get(sound, PackedByteArray())
 	lock.unlock()
@@ -365,6 +376,34 @@ func _stream(sound: String) -> AudioStreamWAV:
 		s.loop_end = bytes.size() >> 1
 	streams[sound] = s
 	return s
+
+
+## A recording as a loop. From the project folder the file itself is read (plain 16 bit WAV with
+## the usual 44 bytes in front), so it works before the editor has imported it; in an exported
+## game the imported resource is taken. null if it is not there.
+func _recording(path: String) -> AudioStreamWAV:
+	if FileAccess.file_exists(path):
+		var bytes := FileAccess.get_file_as_bytes(path)
+		if bytes.size() > 44 and bytes.slice(0, 4).get_string_from_ascii() == "RIFF" and bytes.decode_u16(34) == 16:
+			var channels := bytes.decode_u16(22)
+			var s := AudioStreamWAV.new()
+			s.format = AudioStreamWAV.FORMAT_16_BITS
+			s.mix_rate = bytes.decode_u32(24)
+			s.stereo = channels == 2
+			s.data = bytes.slice(44, 44 + mini(bytes.decode_u32(40), bytes.size() - 44))
+			s.loop_mode = AudioStreamWAV.LOOP_FORWARD
+			s.loop_begin = 0
+			s.loop_end = s.data.size() / (2 * channels)
+			return s
+	if ResourceLoader.exists(path):
+		var res = load(path)
+		if res is AudioStreamWAV:
+			var w: AudioStreamWAV = res
+			w.loop_mode = AudioStreamWAV.LOOP_FORWARD
+			w.loop_begin = 0
+			w.loop_end = int(w.get_length() * w.mix_rate)
+			return w
+	return null
 
 
 # ================================================================== rendering (worker threads)
