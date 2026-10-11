@@ -126,7 +126,7 @@ static func _outline(ci: CanvasItem, look: Dictionary, facing: int, phase: float
 		ci.draw_rect(Rect2(-10.1 - g, -27.0 - b - al - g, 3.9 + 2.0 * g, 13.7 + 2.0 * g), o)        # arms with hands
 		ci.draw_rect(Rect2(6.2 - g, -27.0 - b + al - g, 3.9 + 2.0 * g, 13.7 + 2.0 * g), o)
 		# head with the hair on top: one round shape, a little higher than wide
-		if hstyle == "glatze":
+		if hstyle == "glatze" or hstyle == "iro":
 			_oval(ci, Vector2(0, hy), 7.5 + g, 7.5 + g, o)
 		else:
 			_oval(ci, Vector2(0, hy - 0.2), 7.9 + g, 7.8 + g, o)
@@ -145,6 +145,26 @@ static func _outline(ci: CanvasItem, look: Dictionary, facing: int, phase: float
 					_oval(ci, Vector2(0, hy) + Vector2.from_angle(deg_to_rad((185.0 if front else 180.0) + i * (28.0 if front else 30.0))) * (7.0 if front else 7.2), 2.8 + g, 2.8 + g, o)
 			"cap":
 				ci.draw_rect(Rect2(-8.3 - g, hy - 4.6, 16.6 + 2.0 * g, 4.0), o)
+			"bob":
+				ci.draw_rect(Rect2(-8.4 - g, hy - 2.0, 16.8 + 2.0 * g, 8.9 + g), o)
+			"scheitel":
+				ci.draw_rect(Rect2(-8.2 - g, hy - 2.0, 16.4 + 2.0 * g, 6.5 + g), o)
+			"afro":
+				if front:      # like the hair itself: the dome above the hairline and a puff beside each cheek
+					_cap(ci, Vector2(0, hy - 1.5), 11.0 + g, 176, 364, o)
+					_oval(ci, Vector2(-8.6, hy + 1.5), 3.4 + g, 4.2 + g, o)
+					_oval(ci, Vector2(8.6, hy + 1.5), 3.4 + g, 4.2 + g, o)
+				else:
+					_oval(ci, Vector2(0, hy - 1.5), 11.0 + g, 11.0 + g, o)
+			"zoepfe":
+				var bx := 8.8 if front else 6.0
+				var by := hy + (4.5 if front else 6.5)
+				_oval(ci, Vector2(-bx, by), 2.1 + g, 5.0 + g, o)
+				_oval(ci, Vector2(bx, by), 2.1 + g, 5.0 + g, o)
+			"iro":
+				_oval(ci, Vector2(0, hy - (7.6 if front else 6.0)), 2.4 + g, (5.0 if front else 6.8) + g, o)
+			"muetze":
+				_oval(ci, Vector2(0, hy - 9.2), 2.2 + g, 2.2 + g, o)
 		if "loot" in acc:
 			ci.draw_rect(Rect2(-12.5 - g, -15.5 - b - al - g, 7.5 + 2.0 * g, 9.5 + 2.0 * g), o)
 		if front and "tray" in acc:
@@ -164,7 +184,7 @@ static func _outline(ci: CanvasItem, look: Dictionary, facing: int, phase: float
 		elif "backpack" in acc:
 			ci.draw_rect(Rect2(-k * 5.0 - 3.0 - g, -27.0 - b - g, 6.0 + 2.0 * g, 11.0 + 2.0 * g), o)
 		# head with the hair on top and at the back, and the nose
-		if hstyle == "glatze":
+		if hstyle == "glatze" or hstyle == "iro":
 			_oval(ci, Vector2(k * 0.6, hy), 7.3 + g, 7.3 + g, o)
 		else:
 			_oval(ci, Vector2(k * 0.6 - k * 0.3, hy - 0.3), 7.9 + g, 7.8 + g, o)
@@ -181,6 +201,20 @@ static func _outline(ci: CanvasItem, look: Dictionary, facing: int, phase: float
 					_oval(ci, Vector2(k * 0.6, hy) + Vector2.from_angle(a) * 7.0, 2.8 + g, 2.8 + g, o)
 			"cap":
 				ci.draw_rect(Rect2(k * 7.5 - 4.0 - g, hy - 3.6 - g, 8.0 + 2.0 * g, 3.2 + 2.0 * g), o)
+			"bob":
+				ci.draw_rect(Rect2((-7.8 if k > 0.0 else -0.8) - g, hy - 1.0, 8.6 + 2.0 * g, 7.9 + g), o)
+			"scheitel":
+				_oval(ci, Vector2(-k * 6.3, hy + 1.4), 2.6 + g, 3.6 + g, o)
+			"afro":        # like the hair itself: everything but the quarter with the face
+				_cap(ci, Vector2(-k * 1.6, hy - 1.8), 10.4 + g, 180, 360, o)
+				_cap(ci, Vector2(-k * 1.6, hy - 1.8), 10.4 + g, 90 if k > 0.0 else 270, 270 if k > 0.0 else 450, o)
+			"zoepfe":
+				_oval(ci, Vector2(-k * 5.5, hy + 5.0), 2.2 + g, 5.2 + g, o)
+			"iro":
+				_oval(ci, Vector2(-k * 0.4, hy - 8.6), 6.2 + g, 5.4 + g, o)
+				_oval(ci, Vector2(-k * 6.2, hy - 3.4), 2.0 + g, 4.4 + g, o)
+			"muetze":
+				_oval(ci, Vector2(k * 0.1, hy - 9.0), 2.2 + g, 2.2 + g, o)
 		if "tray" in acc:
 			ci.draw_rect(Rect2(k * 8.5 - 5.5 - g, -20.7 - b - g, 11.0 + 2.0 * g, 4.4 + 2.0 * g), o)
 
@@ -360,7 +394,7 @@ static func _body(ci: CanvasItem, look: Dictionary, facing: int, phase: float, m
 				ci.draw_rect(Rect2(0.6, hy - 1.9, 4.0, 3.6), gc, false, 0.8)
 				ci.draw_line(Vector2(-0.6, hy - 0.5), Vector2(0.6, hy - 0.5), gc, 0.8)
 		# hair
-		_draw_hair_fb(ci, hstyle, hair, accent, hy, front)
+		_draw_hair_fb(ci, hstyle, hair, accent, hy, front, skin)
 		# head accessories
 		if "goggles" in acc:
 			_rect(ci, -7.8, hy - 5.5, 15.6, 2.2, Color("2b2f35"))
@@ -456,8 +490,10 @@ static func _tray(ci: CanvasItem, c: Vector2, w: float) -> void:
 	_rect(ci, c.x + w * 0.2, c.y - 4.0, 2.4, 3.6, Color("9cc3e6"))
 
 
-static func _draw_hair_fb(ci: CanvasItem, hstyle: String, hair: Color, accent: Color, hy: float, front: bool) -> void:
+## `skin` is for styles that leave a piece of the forehead free again.
+static func _draw_hair_fb(ci: CanvasItem, hstyle: String, hair: Color, accent: Color, hy: float, front: bool, skin: Color = Color("f1c9a5")) -> void:
 	var c := Vector2(0, hy)
+	var tie := Color("c0392b")
 	if not front:
 		match hstyle:
 			"glatze":
@@ -465,6 +501,16 @@ static func _draw_hair_fb(ci: CanvasItem, hstyle: String, hair: Color, accent: C
 			"cap":
 				ci.draw_circle(c, 7.8, hair)
 				_cap(ci, c, 8.2, 180, 360, accent)
+			"iro":         # shaved, and the crest down the back of the head
+				_cap(ci, c, 7.6, 180, 360, Color(hair, 0.3))
+				_oval(ci, Vector2(0, hy - 6.0), 2.2, 6.8, hair)
+			"afro":
+				_oval(ci, Vector2(0, hy - 1.5), 11.0, 11.0, hair)
+			"muetze":
+				_oval(ci, c, 7.8, 7.8, hair)
+				_cap(ci, c, 8.4, 184, 356, accent)
+				_rect(ci, -8.3, hy - 2.9, 16.6, 2.4, accent.darkened(0.22))
+				_oval(ci, Vector2(0, hy - 9.2), 2.2, 2.2, accent.lightened(0.2))
 			_:
 				ci.draw_circle(c, 7.9, hair)
 		match hstyle:
@@ -477,6 +523,18 @@ static func _draw_hair_fb(ci: CanvasItem, hstyle: String, hair: Color, accent: C
 				for i in 7:
 					var a := deg_to_rad(180 + i * 30)
 					ci.draw_circle(c + Vector2(cos(a), sin(a)) * 7.2, 2.8, hair)
+			"bob":
+				_rect(ci, -8.2, hy - 1.0, 16.4, 7.0, hair)
+				_oval(ci, Vector2(0, hy + 6.0), 8.2, 1.6, hair)
+			"scheitel":
+				_rect(ci, -8.0, hy - 1.0, 16.0, 4.5, hair)
+				_rect(ci, -0.4, hy - 7.6, 0.8, 6.5, hair.darkened(0.3))
+			"zoepfe":
+				_oval(ci, Vector2(-6.0, hy + 6.5), 2.1, 5.0, hair)
+				_oval(ci, Vector2(6.0, hy + 6.5), 2.1, 5.0, hair)
+				_rect(ci, -7.2, hy + 2.6, 2.4, 1.4, tie)
+				_rect(ci, 4.8, hy + 2.6, 2.4, 1.4, tie)
+				_rect(ci, -0.4, hy - 7.6, 0.8, 7.0, hair.darkened(0.3))
 		return
 	match hstyle:
 		"kurz":
@@ -507,7 +565,40 @@ static func _draw_hair_fb(ci: CanvasItem, hstyle: String, hair: Color, accent: C
 			_rect(ci, -7.6, hy - 1.0, 1.6, 3.0, hair)
 			_rect(ci, 6.0, hy - 1.0, 1.6, 3.0, hair)
 			ci.draw_circle(Vector2(-2.5, hy - 4.5), 1.5, Color(1, 1, 1, 0.25))
-	if hstyle != "glatze" and hstyle != "cap":
+		"bob":         # to the chin, with a fringe down to the eyes
+			_cap(ci, c, 8.2, 183, 357, hair)
+			_rect(ci, -8.4, hy - 2.0, 2.9, 7.6, hair)
+			_rect(ci, 5.5, hy - 2.0, 2.9, 7.6, hair)
+			_oval(ci, Vector2(-6.95, hy + 5.6), 1.45, 1.3, hair)
+			_oval(ci, Vector2(6.95, hy + 5.6), 1.45, 1.3, hair)
+		"afro":        # a dome above the hairline and a puff beside each cheek
+			_cap(ci, Vector2(0, hy - 1.5), 11.0, 176, 364, hair)
+			_oval(ci, Vector2(-8.6, hy + 1.5), 3.4, 4.2, hair)
+			_oval(ci, Vector2(8.6, hy + 1.5), 3.4, 4.2, hair)
+		"zoepfe":      # two braids over the shoulders
+			_cap(ci, c, 7.9, 184, 356, hair)
+			_rect(ci, -0.4, hy - 7.5, 0.8, 5.6, hair.darkened(0.3))
+			_oval(ci, Vector2(-8.8, hy + 4.5), 2.0, 5.0, hair)
+			_oval(ci, Vector2(8.8, hy + 4.5), 2.0, 5.0, hair)
+			_rect(ci, -9.9, hy + 0.2, 2.2, 1.4, tie)
+			_rect(ci, 7.7, hy + 0.2, 2.2, 1.4, tie)
+		"iro":         # shaved sides, a crest in the middle
+			_cap(ci, c, 7.6, 190, 350, Color(hair, 0.3))
+			_oval(ci, Vector2(0, hy - 7.6), 2.4, 5.0, hair)
+		"scheitel":    # parted in the middle, the forehead shows between two curtains
+			_cap(ci, c, 8.0, 183, 357, hair)
+			ci.draw_colored_polygon(PackedVector2Array([Vector2(-2.3, hy - 0.42), Vector2(0, hy - 5.0), Vector2(2.3, hy - 0.42)]), skin)
+			_rect(ci, -8.2, hy - 2.0, 2.8, 5.2, hair)
+			_rect(ci, 5.4, hy - 2.0, 2.8, 5.2, hair)
+			_oval(ci, Vector2(-6.8, hy + 3.2), 1.4, 1.3, hair)
+			_oval(ci, Vector2(6.8, hy + 3.2), 1.4, 1.3, hair)
+		"muetze":      # a knitted hat in the accent colour, with a bobble
+			_cap(ci, c, 8.4, 184, 356, accent)
+			_rect(ci, -8.3, hy - 2.9, 16.6, 2.4, accent.darkened(0.22))
+			_oval(ci, Vector2(0, hy - 9.2), 2.2, 2.2, accent.lightened(0.2))
+			_rect(ci, -7.8, hy - 0.4, 1.8, 3.0, hair)
+			_rect(ci, 6.0, hy - 0.4, 1.8, 3.0, hair)
+	if not hstyle in ["glatze", "cap", "iro", "muetze", "afro"]:
 		ci.draw_rect(Rect2(-5.0, hy - 6.3, 4.0, 1.1), hair.lightened(0.18))    # a streak of light
 
 
@@ -521,6 +612,21 @@ static func _draw_hair_side(ci: CanvasItem, hstyle: String, hair: Color, accent:
 			_cap(ci, c, 8.0, 180, 360, accent)
 			_oval(ci, Vector2(k * 7.5, hy - 2.0), 4.0, 1.6, accent.darkened(0.25))
 			_rect(ci, -k * 7.2 - 1.0, hy - 2.0, 2.4, 5.0, hair)
+			return
+		"iro":
+			_cap(ci, c, 7.4, 180, 360, Color(hair, 0.3))
+			_oval(ci, Vector2(-k * 0.4, hy - 8.6), 6.2, 5.4, hair)
+			_oval(ci, Vector2(-k * 6.2, hy - 3.4), 2.0, 4.4, hair)
+			return
+		"muetze":
+			_cap(ci, c, 8.2, 184, 356, accent)
+			_rect(ci, c.x - 8.1, hy - 2.9, 16.2, 2.4, accent.darkened(0.22))
+			_oval(ci, Vector2(k * 0.1, hy - 9.0), 2.2, 2.2, accent.lightened(0.2))
+			_rect(ci, -k * 7.2 - 1.0, hy - 0.4, 2.4, 4.0, hair)
+			return
+		"afro":        # everything but the quarter with the face, a little further back than the head
+			_cap(ci, Vector2(-k * 1.6, hy - 1.8), 10.4, 180, 360, hair)
+			_cap(ci, Vector2(-k * 1.6, hy - 1.8), 10.4, 90 if k > 0 else 270, 270 if k > 0 else 450, hair)
 			return
 	# hair covers top and back of the head
 	_cap(ci, c, 7.9, 180, 360, hair)
@@ -540,3 +646,12 @@ static func _draw_hair_side(ci: CanvasItem, hstyle: String, hair: Color, accent:
 			for i in 6:
 				var a := deg_to_rad(200 + i * 30) if k > 0 else deg_to_rad(-20 - i * 30 + 360)
 				ci.draw_circle(c + Vector2(cos(a), sin(a)) * 7.0, 2.8, hair)
+		"bob":
+			_rect(ci, -7.8 if k > 0 else -0.8, hy - 1.0, 8.6, 6.4, hair)
+			_oval(ci, Vector2(-3.5 if k > 0 else 3.5, hy + 5.4), 4.3, 1.5, hair)
+		"scheitel":
+			_oval(ci, Vector2(-k * 6.3, hy + 1.4), 2.6, 3.6, hair)
+			_rect(ci, k * 0.9 - 1.3, hy - 2.0, 2.6, 5.0, hair)
+		"zoepfe":
+			_oval(ci, Vector2(-k * 5.5, hy + 5.0), 2.2, 5.2, hair)
+			_rect(ci, -k * 5.5 - 1.2, hy + 0.6, 2.4, 1.4, Color("c0392b"))

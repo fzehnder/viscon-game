@@ -1,10 +1,10 @@
 extends Control
 ## A student ID card ("Legi") in the layout of the real ETH Legi: slanted ETH logo top left, a light
-## blue band across the card with surname, first name and birthday, the photo top right in a white
+## blue band across the card with the name and the birthday, the photo top right in a white
 ## frame, below it the study programme and number, and the rewritable strip that shows the validity
 ## (S, date, ASVZ) once the card is validated.
-## `set_player(i)` fills in everything from the Game autoload. The surname line only appears if
-## the player entered one. Without a photo, the player's character is drawn instead.
+## `set_player(i)` fills in everything from the Game autoload. Without a photo, the player's
+## character is drawn instead.
 ## `validated` shows the validity on the strip, `validate()` prints it with a little pop.
 
 const ART = preload("res://scripts/character_art.gd")
@@ -19,7 +19,6 @@ const PRINT := Color("2b2427")    # the dark brown-black of the thermal print on
 
 var photo: Texture2D
 var pname := ""
-var surname := ""
 var birthday := ""
 var programme := ""
 var number := ""
@@ -50,7 +49,6 @@ func _process(delta: float) -> void:
 func set_player(i: int) -> void:
 	photo = Game.photos[i]
 	pname = Game.name_of(i)
-	surname = String(Game.surnames[i]).strip_edges()
 	birthday = String(Game.birthdays[i])
 	programme = Game.programme_of(i)
 	number = String(Game.legi_ids[i])
@@ -121,12 +119,8 @@ func _draw() -> void:
 		draw_rect(Rect2(pr.end.x, pr.position.y, frame.end.x - pr.end.x, pr.size.y), Color.WHITE)
 		draw_rect(Rect2(frame.position.x - 10, frame.end.y, frame.size.x + 20, 186 - frame.end.y), BAND)
 	draw_string(font, Vector2(200, 178), tr("Gültig bis / valid through"), HORIZONTAL_ALIGNMENT_RIGHT, 197, 11, INK)
-	# surname (if there is one), first name and, after a gap, the birthday in the band
-	if surname != "":
-		_fit(font, surname, Vector2(34, 116), 230, 17, INK)
-		_fit(font, pname, Vector2(34, 134), 230, 17, INK)
-	else:
-		_fit(font, pname, Vector2(34, 116), 230, 17, INK)
+	# the name and, after a gap, the birthday in the band
+	_fit(font, pname, Vector2(34, 116), 230, 17, INK)
 	draw_string(font, Vector2(34, 168), tr(birthday), HORIZONTAL_ALIGNMENT_LEFT, -1, 18, INK)
 	# programme and Legi number, printed onto the strip
 	_fit(font, "Studies", Vector2(40, 204), 190, 14, PRINT, true)

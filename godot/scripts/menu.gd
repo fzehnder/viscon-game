@@ -69,7 +69,6 @@ var hack_finished := false
 var hack_end_t := 0.0
 # names
 var name_edits: Array = []
-var surname_edits: Array = []
 # photo
 var photo_pid := 0
 var cam_feed: CameraFeed
@@ -545,7 +544,6 @@ func _build_names() -> void:
 	content.add_child(ok)
 	content.add_child(UI.label("Fast geschafft. Wie heisst ihr?", 20, Color("3a4150")))
 	name_edits = []
-	surname_edits = []
 	for i in 2:
 		var row := HBoxContainer.new()
 		row.add_theme_constant_override("separation", 14)
@@ -556,13 +554,8 @@ func _build_names() -> void:
 		var e := _name_edit("Vorname", String(Game.names[i]), 14)
 		row.add_child(e)
 		name_edits.append(e)
-		# surname: optional, only shown on the Legi
-		var se := _name_edit("Nachname (optional)", String(Game.surnames[i]), 18)
-		row.add_child(se)
-		surname_edits.append(se)
 		var idx := i
-		e.text_submitted.connect(func(_s: String): se.grab_focus())
-		se.text_submitted.connect(func(_s: String): _name_submitted(idx))
+		e.text_submitted.connect(func(_s: String): _name_submitted(idx))
 	var send := UI.button("Bewerbung abschicken", UI.ETH_BLUE, 22)
 	send.size_flags_horizontal = Control.SIZE_SHRINK_END
 	send.pressed.connect(_names_done)
@@ -576,7 +569,7 @@ func _name_edit(placeholder: String, text: String, max_len: int) -> LineEdit:
 	e.max_length = max_len
 	e.placeholder_text = placeholder
 	e.text = text
-	e.custom_minimum_size = Vector2(272, 52)   # room for "Surname (optional)" and "Nachname (optional)"
+	e.custom_minimum_size = Vector2(272, 52)
 	e.add_theme_font_size_override("font_size", 22)
 	e.add_theme_color_override("font_color", Color("1c1d33"))
 	e.add_theme_color_override("caret_color", UI.ETH_BLUE)
@@ -597,7 +590,6 @@ func _name_submitted(i: int) -> void:
 func _names_done() -> void:
 	for i in 2:
 		Game.names[i] = (name_edits[i] as LineEdit).text.strip_edges()
-		Game.surnames[i] = (surname_edits[i] as LineEdit).text.strip_edges()
 	UI.sfx("grant")
 	photo_pid = 0
 	_go("photo")
