@@ -1,5 +1,5 @@
 extends CanvasLayer
-## Level 6: caught copying at the Basisprüfung. A full-screen scene before the lose card, in the
+## Level 7: caught copying at the Basisprüfung. A full-screen scene before the lose card, in the
 ## spirit of the professor's fit of rage in level 4 (level4/prof_rage.gd), but colder: the exam
 ## supervisor has seen everything, gets angrier with every line, opens disciplinary proceedings,
 ## takes both Legis away (the real ones from the start of the game, legi_card.gd) and cuts them in two, and the stamp at the end leaves no doubt that this

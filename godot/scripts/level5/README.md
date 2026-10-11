@@ -1,6 +1,6 @@
 # Level 5 · Nacht im HIL (Hönggerberg)
 
-Story-Level nach dem Chemiepraktikum (4) und vor der Basisprüfung (6). Nachts ins HIL (Architektur) am Hönggerberg: Im Büro des Profs liegen die bewerteten Abgaben, auf seinem Computer die Notenliste. Jede*r ändert den Namen auf einer Abgabe mit der 6 in den eigenen. Dann raus und in den letzten ETH-Link.
+Story-Level nach dem Chemiepraktikum (4) und vor der Basisprüfung (7). Nachts ins HIL (Architektur) am Hönggerberg: Im Büro des Profs liegen die bewerteten Abgaben, auf seinem Computer die Notenliste. Jede*r ändert den Namen auf einer Abgabe mit der 6 in den eigenen. Dann raus und in den letzten ETH-Link.
 
 ## So spielt es sich
 
