@@ -36,6 +36,7 @@ const Vorlage = preload("res://scripts/level3/vorlage.gd")
 const KameraSpiel = preload("res://scripts/level3/kamera_spiel.gd")
 const Fund = preload("res://scripts/level3/fund.gd")
 const Abgang = preload("res://scripts/level3/abgang.gd")
+const Musik = preload("res://scripts/level3/musik.gd")
 const TM = preload("res://scripts/track_math.gd")
 
 # ---- disguise (tuning)
@@ -57,6 +58,12 @@ const MOUTH_OPEN := 0.45                # buffet with the camera: mouth this far
 const MOUTH_SHUT := 0.25                # ... and it has to close this far before the next snap
 const TANZ_RADIUS := 2.6                # tiles around the middle of the dance floor in which both have to stand
 const PREWARM := true                   # start the camera tracker with the level (camera stays off), so it is ready in time
+
+# ---- music (musik.gd): how near to the dance floor the players count as, 0 .. 1 (tuning)
+const MUSIC_FULL := 4.0                 # tiles around the middle of the dance floor in which the music is at its loudest
+const MUSIC_REACH := 26.0               # tiles over which it fades from there
+const MUSIC_HOUSE := 0.38               # anywhere in the Hauptgebäude it is at least this near
+const MUSIC_OUTSIDE := 0.12             # Polyterrasse and kitchen: a thump from far away
 
 # ---- zones: where which disguise is the right one
 const ZONES := {
@@ -177,6 +184,8 @@ var fund_pid := -1
 var covers: Array = [0, 0]            # how many opaque minigames lie over each half of the screen
 var view_mode: Array = [-1, -1]       # how each view was drawn before it was switched off (-1 = it is on)
 var marks: Node2D
+var musik = null                      # the band (musik.gd)
+var abgang_on := false                # the ending is on the screen: music fully open
 
 
 ## What floats above the players' heads (disguise fits or not), drawn above everything in the world.
@@ -251,6 +260,8 @@ func _ready() -> void:
 	marks.level = self
 	marks.z_index = 11                 # relative to this node: above the characters and fx
 	add_child(marks)
+	musik = Musik.new()
+	add_child(musik)
 
 
 func _dress_guests() -> void:
@@ -440,8 +451,31 @@ func _process(delta: float) -> void:
 		fund.visible = main.state == "play"
 	if covers[0] > 0 or covers[1] > 0:
 		_apply_covers()
+	_music()
 	queue_redraw()
 	marks.queue_redraw()
+
+
+## How loud and how clear the music is: by how far the nearer player is from the dance floor.
+## Fully open while somebody dances (the minigame) and during the ending.
+func _music() -> void:
+	if musik == null:
+		return
+	var dancing := abgang_on
+	for mg in main.minis:
+		if mg != null and is_instance_valid(mg) and mg is KameraSpiel and mg.kind == "tanz":
+			dancing = true
+	musik.full = dancing
+	var d := INF
+	var inside := false
+	for pid in main.players.size():
+		d = minf(d, (main.players[pid].global_position / TS).distance_to(DANCE))
+		inside = inside or zone_of(pid) == "saal"
+	var k := clampf(1.0 - (d - MUSIC_FULL) / MUSIC_REACH, 0.0, 1.0)
+	k = maxf(k, MUSIC_HOUSE if inside else MUSIC_OUTSIDE)
+	if main.state in ["lost", "caught"]:
+		k = minf(k, MUSIC_OUTSIDE)
+	musik.near = k
 
 
 func _physics_process(delta: float) -> void:
@@ -631,6 +665,8 @@ func _open_cam(kind: String, pid: int, on_ok: Callable, on_fallback: Callable = 
 		main.players[j].enabled = false
 	main.add_child(mg)
 	mg.open(kind)
+	if kind == "tanz":
+		mg.music = musik               # the poses change on the beat of the music
 	_cover(mg, who)
 	# true if this minigame was still the open one and the level is still running
 	var release := func() -> bool:
@@ -931,7 +967,11 @@ func finale(done: Callable) -> void:
 	a.looks = [main.players[0].look, main.players[1].look]
 	main.add_child(a)
 	_cover(a, [0, 1])              # the scene fills the screen: the map behind it is not drawn
+	abgang_on = true               # they dance out to the music, from the first bar
+	if musik != null:
+		musik.restart()
 	a.play(func():
+		abgang_on = false
 		main.hud.visible = true
 		done.call())
 

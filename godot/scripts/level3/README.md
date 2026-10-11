@@ -78,6 +78,7 @@ Es gibt keine neue Karte, nur Ball-Ausstattung im bestehenden Hauptgebäude (`bu
 | `posen.gd` | Zielposen für die Tanzfläche (Platzhalter, siehe oben) |
 | `fund.gd` | der Moment, in dem der Badge draussen ist: Badge gross auf der Bildschirmhälfte der Person, dazu zwei getippte Sätze. Auch die gemeinsame Zeichnung des Badge (`Fund.draw_card`) |
 | `abgang.gd` | die Schlussszene: die beiden tanzen mit dem Badge durch den Ballsaal zum Ausgang, dann der Titel |
+| `musik.gd` | die Musik des Balls: eine Schleife Disco/House, im Code erzeugt, mit eigenem Audio-Bus und Tiefpass (siehe «Musik») |
 
 Allgemeines, das für dieses Level dazukam: `Game.items` mit `Game.add_item` und `Game.has_item` in `game_state.gd` (eigener Commit). Sonst ist keine gemeinsame Datei angefasst.
 
@@ -101,6 +102,10 @@ Oben in `level.gd`:
 | `MOUTH_OPEN`, `MOUTH_SHUT` | 0.45, 0.25 | wie weit der Mund aufgehen muss, damit er zuschnappt, und wie weit wieder zu, bevor er es nochmals kann |
 | `TANZ_RADIUS` | 2.6 Tiles | so nah an der Mitte der Tanzfläche müssen beide stehen |
 | `PREWARM` | an | Tracker schon beim Start des Levels starten |
+| `MUSIC_FULL` | 4 Tiles | in diesem Umkreis um die Mitte der Tanzfläche ist die Musik am lautesten |
+| `MUSIC_REACH` | 26 Tiles | über diese Strecke wird sie von dort an leiser und dumpfer |
+| `MUSIC_HOUSE` | 0.38 | so nah (0 bis 1) gilt man überall im Hauptgebäude mindestens |
+| `MUSIC_OUTSIDE` | 0.12 | Polyterrasse und Küche: nur ein fernes Wummern |
 | `ZONES`, `NEEDS` | | wo welche Verkleidung gilt |
 | `GUESTS` | 39 Gäste | wo wie viele Gäste herumgehen |
 | `EJECT_SAAL`, `EJECT_KUECHE` | (30.5, 46), (22.5, 61.8) | wohin man gesetzt wird |
@@ -126,8 +131,9 @@ Oben in `kamera_spiel.gd`:
 | `SAME_BODY` | 0.05 | zwei gemeldete Personen, die näher beieinander liegen, sind dieselbe (die Kamera meldet manchmal jemanden doppelt) |
 | `KEEP_VIS` | 0.3 | wer schon verfolgt wird, bleibt es bis zu dieser Sicherheit der Schultern (neu dazu kommt man erst ab 0.5). So flackert niemand am Bildrand ein und aus |
 | `Followed.FADE_IN` | 0.2 s | so lange dauert es, bis jemand Neues voll eingezeichnet ist |
-| `BEAT` | 3.4 s | Zeit pro Pose |
-| `BEAT_WINDOW` | 1.4 s | die letzten Sekunden einer Pose, in denen sie sitzen muss (Balken grün) |
+| `BEAT` | 3.75 s | Zeit pro Pose: genau zwei Takte der Musik (128 Schläge pro Minute). Bis zum 10.10.2026 3.4 s |
+| `STEP` | `BEAT` / 8 | ein Schlag der Musik; die Anzeige unter der Pose hat pro Schlag ein Feld |
+| `BEAT_WINDOW` | 1.4 s | die letzten Sekunden einer Pose, in denen sie sitzen muss: die drei letzten Schläge (grüne Felder) |
 | `DANCE_HITS` | 4 | so viele Posen müssen getroffen werden |
 | `PINCH_GRAB`, `PINCH_DROP` | 0.3, 0.6 | wie nah die Finger zusammen sein müssen, um den Badge zu halten, und ab wann er entgleitet |
 | `PULL` | 0.16 | wie weit die Hand nach oben muss, in Bildhöhen |
@@ -151,6 +157,21 @@ Die Vorgabe für das Tanzen war `TM.pose_match` über 80 %. Vor der echten Kamer
 - **Gäste** sind die Studierenden des Tages: `build_map` ersetzt `student_zones`, `_dress_guests` zieht ihnen Anzug oder Kleid an.
 - **Hans Muster** steht als `npcs`-Eintrag mit der id `hans_muster` an der Bar. Macht ihn ein früheres Level unter genau dieser id zum Opp, lauert er hier von Anfang an.
 
+## Musik
+
+Wunsch vom 10.10.2026: Der Polyball braucht Musik, auf jeden Fall beim Tanzen. `musik.gd` erzeugt sie im Code, wie `sfx.gd` die Töne (das Spiel hat keine Audiodateien):
+
+- Eine Schleife von 8 Takten Disco/House bei 128 Schlägen pro Minute (15 s): Bassdrum auf jedem Schlag, Hi-Hat dazwischen, Clap auf zwei und vier, Bass, Akkorde A-Moll, F, C, G und in der zweiten Hälfte eine kleine Melodie. Noten und Rhythmus stehen als Konstanten oben in der Datei (`ROOTS`, `CHORDS`, `STABS`, `LEAD`).
+- Sie wird beim Start des Levels einmal in einem Thread gerechnet (gemessen: rund 0.1 s), bleibt über «Nochmals» erhalten (`static var _pcm`) und läuft dann endlos als `AudioStreamWAV`.
+- Eigener Audio-Bus «Polyball» mit Tiefpass, beim Verlassen des Levels wieder entfernt. Das Level sagt jedes Bild, wie nah die nähere Figur an der Tanzfläche ist (`level._music`, `musik.near` von 0 bis 1): weit weg leise und dumpf wie durch Wände, auf der Tanzfläche laut und klar. Im Tanz-Minigame und in der Schlussszene ist alles offen (`musik.full`).
+- Lautstärke und Filter: `VOL_FAR` -27 dB, `VOL_NEAR` -10 dB, `VOL_FULL` -5 dB, `CUT_FAR` 420 Hz, `CUT_NEAR` 9000 Hz, `FOLLOW` 0.5 s (oben in `musik.gd`).
+- Der Tanz hängt am Takt: Mit der ersten Pose startet die Schleife von vorn (`_start_music`), eine Pose dauert zwei Takte, und nach einer Pose, die sitzt, geht es auf dem nächsten Schlag weiter, der mindestens 0.45 s entfernt ist (`_breath`). Der Rahmen der Pose pulst mit der Musik (`musik.beat_pos()`). Ohne Musik (Ton aus, Schleife noch nicht fertig) gilt wie früher eine feste Pause von 0.7 s.
+- Hält das Spiel an (Pause-Menü, Leistungsüberblick), hält auch die Musik.
+
+Geprüft per Bot, ohne Ohren: Schleife genau 8 Takte lang, nicht still und nicht übersteuert (Spitze 0.9, Mittel rund -12.5 dB), kein Loch, Ende passt an den Anfang; mit der Nähe lauter und klarer (Polyterrasse -23 dB bei 600 Hz, Haupthalle -18 dB bei 1400 Hz, Tanzfläche -10 dB bei 9000 Hz); der Tanz startet sie neu und ist mit den Tasten zu gewinnen. **Gehört hat sie noch niemand:** Klang, Lautstärke im Verhältnis zu den Tönen und ob sie auf Dauer nervt, muss ein Mensch beurteilen.
+
+Beim Beenden des Spiels meldet Godot zwei «leaked instances» (der Audiostream, der in diesem Moment noch läuft). Das ist nur eine Meldung am Schluss, kein Fehler im Spiel.
+
 ## Badge-Moment und Schluss
 
 - **Badge-Moment** (`_badge_moment`, `fund.gd`): Ist der Badge aus der Tasche, wird er gross gezeigt, und die beiden sagen ihren Text dazu («Ein echter Prof-Badge …», «Und der Besitzer sucht gerade seinen Garderobenzettel …»). Das dauert `Fund.TIME` (6.4 s) und hält niemanden auf: Das Spiel läuft für beide weiter, zu drücken gibt es nichts. Erst danach wird die Aufgabe abgehakt (Stempel). Sind weniger als gut 10 Sekunden übrig, wird sofort abgehakt, damit die Zeit nicht dazwischen abläuft. Solange gilt `badge_taken`: kein zweiter Griff in den Mantel, keine Markierung mehr.
@@ -173,6 +194,7 @@ Das Level als Ganzes hat noch niemand in einem Zug durchgespielt. Zeitlimit, `FA
 
 ## Offen
 
+- **Die Musik hat noch niemand gehört** (siehe «Musik»): Klang und Lautstärken sind ein erster Wurf. Stellschrauben: `VOL_*` und `CUT_*` in `musik.gd`, `MUSIC_*` in `level.gd`; die Noten stehen in `ROOTS`, `CHORDS`, `STABS`, `LEAD`.
 - **Zielposen sind Platzhalter** (siehe oben). «Dach» lag im Versuch am knappsten (44 bis 60 %); wenn es zu oft daneben geht, `POSE_OK` weiter senken.
 - **Tanzen zu zweit** braucht Platz: Beide müssen mit erhobenen Armen ins Bild passen, also etwa anderthalb Meter Abstand zur Kamera.
 - **`JITTER_MAX` ist geraten.** Die Messung zittert auch bei ruhiger Hand, weiter weg von der Kamera stärker. In `track_debug` aus Spielabstand den Wert «Zittern» einer ruhigen Hand ablesen und deutlich darüber gehen.
