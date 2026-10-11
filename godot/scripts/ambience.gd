@@ -3,8 +3,8 @@ extends Node
 ## of a fume hood, the murmur of a canteen), single sounds now and then (plates, pages, birds, a
 ## tram bell), an echo that fits the room for all effects of the game, and music where music
 ## fits: on the start page, outside by day, at night, in the lounge, and when somebody is chased.
-## Almost everything is made in code like the other sounds of the game. The one exception is the
-## Mensa: the team wanted a real recording there (FILES, godot/audio/).
+## Almost everything is made in code like the other sounds of the game. The exceptions are the
+## Mensa and the kitchen of the Polyball: the team wanted real recordings there (FILES, godot/audio/).
 ##
 ## It works by itself: it reads the room of each player from world.zone_at() and maps the name to
 ## a kind of room by keywords (ROOMS). Two players in different rooms hear both, each half as
@@ -57,7 +57,11 @@ const KINDS := {
 	"library": {"beds": {"roomtone": -44.0}, "shots": [["page", 5.0, 12.0, -29.0], ["clock", 2.0, 2.0, -29.0], ["keys", 8.0, 20.0, -27.0]], "wet": 0.22},
 	"lab": {"beds": {"hood": -43.0}, "shots": [["bubble", 2.0, 5.0, -19.0], ["glass", 4.0, 10.0, -22.0], ["beep", 9.0, 20.0, -25.0], ["keys", 12.0, 26.0, -27.0]], "wet": 0.14},
 	"canteen": {"beds": {"mensa": -20.0}, "shots": [["drop", 12.0, 26.0, -13.0]], "wet": 0.08},   # a real canteen (FILES); only the fork on the floor is ours
-	"kitchen": {"beds": {"kitchen": -42.0}, "shots": [["clink", 1.2, 3.0, -11.0], ["cutlery", 1.5, 3.5, -14.0], ["plates", 2.0, 5.0, -14.0], ["chop", 4.0, 9.0, -17.0], ["drop", 8.0, 18.0, -12.0]], "wet": 0.12},
+	# the kitchen of the Polyball: two recordings (FILES). "cooking" sizzles all the time, "clatter" is single
+	# events with silence between them. Levelled in the files (see godot/audio/README.md) and here so that
+	# the sizzle lies around -31 dB and the loud moments of the clatter around -24 dB at the output,
+	# a little below the Mensa on average. Our own glasses stay, but rarely.
+	"kitchen": {"beds": {"cooking": -19.0, "clatter": -19.0}, "shots": [["clink", 5.0, 11.0, -15.0], ["drop", 16.0, 32.0, -14.0]], "wet": 0.1},
 	"ski": {"beds": {"wind": -29.0, "trees": -33.0}, "shots": [], "wet": 0.0},
 	"office": {"beds": {"fan": -42.0}, "shots": [["keys", 2.0, 6.0, -23.0], ["clock", 2.0, 2.0, -29.0], ["page", 12.0, 26.0, -30.0]], "wet": 0.05},
 	"lounge": {"beds": {"roomtone": -44.0}, "shots": [["glass", 6.0, 14.0, -24.0]], "wet": 0.1, "music": "lounge"},
@@ -81,8 +85,8 @@ const SHOTS := ["bird", "bird2", "tram", "car", "steps", "door", "chalk", "page"
 const SONGS := ["menu", "day", "suspense", "chase", "lounge", "task"]
 # beds that are recordings instead of being made in code: name -> file (16 bit WAV that loops
 # without a seam), and what is played in its place if the file is missing
-const FILES := {"mensa": "res://audio/mensa_canteen.wav"}
-const FALLBACK := {"mensa": "murmur"}
+const FILES := {"mensa": "res://audio/mensa_canteen.wav", "cooking": "res://audio/kitchen_cooking.wav", "clatter": "res://audio/kitchen_clatter.wav"}
+const FALLBACK := {"mensa": "murmur", "cooking": "kitchen", "clatter": ""}   # "": nothing in its place
 
 var enabled := true
 # Rendered sounds. Static, so that a worker thread that is still rendering does not reach into a
@@ -225,7 +229,9 @@ func _process(delta: float) -> void:
 			var db: float = float(d["beds"][bed]) + linear_to_db(w) + duck
 			var bed_name := String(bed)
 			if FILES.has(bed_name) and _stream(bed_name) == null:
-				bed_name = String(FALLBACK.get(bed_name, bed_name))   # the recording is not there
+				bed_name = String(FALLBACK.get(bed_name, ""))   # the recording is not there
+				if bed_name == "":
+					continue
 			want[bed_name] = maxf(float(want.get(bed_name, OFF)), db)
 		_shots(kind, d, w, delta, in_game)
 	if music != "":
