@@ -239,4 +239,8 @@ const EN := {
 	"IHR TESTAT": "YOUR TEST",
 	"SIEDLER-METER": "SIEDLER METER",
 	"ÜBER 100 °C": "OVER 100 °C",
+	# ---------------------------------------------------------------- running in the lab (telling-off card)
+	"Rennen im Labor? Wollen Sie die Notdusche von innen sehen?": "Running in the lab? Would you like to see the emergency shower from the inside?",
+	"Hier wird geschritten, nicht gerannt. Wie in der Oper.": "In here we stride, we do not run. Like at the opera.",
+	"Noch ein Sprint, und Sie putzen die Kapellen. Alle.": "One more sprint and you clean the fume hoods. All of them.",
 }
