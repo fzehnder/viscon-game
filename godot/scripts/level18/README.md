@@ -56,6 +56,8 @@ Gemessen, nicht beurteilt. Getanzt wird allein: Es zählt, wer der Kamera am nä
 | `fest_sfx.gd` | der Beat (Schleife mit 120 BPM) und die Geräusche, alles im Code erzeugt |
 | `en.gd` | Englisch für alle Texte des Levels. Wortwahl (Wunsch des Teams): Ersti bleibt Ersti, das Fest heisst «Ersti Fest (ESF)» |
 
+Raumklang (`scripts/ambience.gd`): Draussen läuft der Nachtklang des Spiels (Wind, Grillen, Eule), in der Mensa nichts davon, dort macht `fest_sfx.gd` den Beat; Musik von aussen ist für das Level abgestellt (`"ambience"` in `DEF`).
+
 Die Mensa wird in `build_map` leergeräumt (Theke und Tische weg) und bekommt eigene Möbel (`l18_*`), die das Level selbst zeichnet. Die Nacht ist ein dunkles Blatt, das `level.gd` über die Tageskarte und unter die Figuren legt (`z_index = -5`). Solange eines der drei Spiele offen ist, wird die Karte dahinter nicht neu gezeichnet (`_open` / `_close`).
 
 ## Stellschrauben

@@ -34,6 +34,9 @@ const DEF := {
 	"sky": "night",      # the loading screen of the night at Hönggerberg (level 5): the ETH-Link
 	"ride": "ethlink",   # drives up at night, instead of the Polybahn
 	"motif": false,      # ... and without the round picture (it would be the dome of the Hauptgebäude)
+	# Ambience (scripts/ambience.gd): outside it is a night in town; inside, the party makes its own
+	# sound (fest_sfx.gd), and there is no music from outside the level
+	"ambience": {"music": false, "zones": {"Mensa Polyterrasse": "none"}},
 	"time": 900.0,
 	"course": "851-0018-00 L", "ects": 1, "block": "W",
 	"start": Vector2(22.5, 60.6),   # on the Polyterrasse, in front of the Mensa
