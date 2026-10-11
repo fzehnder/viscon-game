@@ -3,9 +3,9 @@ extends RefCounted
 ## the code. Keys with line breaks need English with the same number of lines.
 
 const EN := {
-	# ---------------------------------------------------------------- level 6: Basisprüfung
+	# ---------------------------------------------------------------- level 7: Basisprüfung
 	"Basisprüfung": "First-Year Exam",
-	"LEVEL 6 · FINALE": "LEVEL 6 · FINALE",
+	"LEVEL 7 · FINALE": "LEVEL 7 · FINALE",
 	"Prüfungstag in der ONA-Halle, Computerprüfung. Gelernt habt ihr nichts, aber neben euch sitzt der Streber des Jahrgangs.\n\nSetzt euch nebeneinander vor die Kamera. Dreht den Kopf zu ihm (links sitzende Person nach links, rechts sitzende nach rechts), um auf seinen Bildschirm zu schauen, und wieder nach vorne, um es einzutippen. Der Streber zuckt, bevor er sich umdreht, die Aufsicht steht auf, bevor sie in die Halle schaut. Wer mit gedrehtem Kopf erwischt wird, fliegt, und ihr beide mit.": "Exam day in the ONA hall, a computer exam. You haven't studied at all, but the swot of the year is sitting next to you.\n\nSit side by side in front of the camera. Turn your head towards him (the person on the left to the left, the person on the right to the right) to look at his screen, and back to the front to type it in. The swot twitches before he turns round, the invigilator stands up before looking into the hall. Whoever is caught with their head turned is out, and both of you with them.",
 	"Diese Prüfung geht nur mit Kamera.": "This exam only works with a camera.",
 	"Prüfung": "Exam",
@@ -57,6 +57,6 @@ const EN := {
 	"Kopf zum Streber: spicken · Kopf zum eigenen Bildschirm: eintippen": "Head towards the swot: peek · head towards your own screen: type",
 	"Der Streber zuckt, bevor er sich umdreht. Die Aufsicht steht auf, bevor sie in die Halle schaut.": "The swot twitches before he turns round. The invigilator stands up before looking into the hall.",
 	"Wer mit gedrehtem Kopf erwischt wird, fliegt, und ihr beide mit.": "Whoever is caught with their head turned is out, and both of you with them.",
-	# ---------------------------------------------------------------- level 6: new lines
+	# ---------------------------------------------------------------- level 7: new lines
 	"Nein. Wir waren in der Mensa, im Labor, am Polyball und nachts am Hönggerberg.": "No. We were in the Mensa, in the lab, at the Polyball and at Hönggerberg at night.",
 }

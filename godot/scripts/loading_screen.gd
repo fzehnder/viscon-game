@@ -459,7 +459,7 @@ func _motif(c: Vector2) -> void:
 			draw_rect(Rect2(c.x - 8.0, c.y + 28.0, 16.0, 12.0), ink)
 			draw_rect(Rect2(c.x - 30.0, c.y + 40.0, 60.0, 6.0), ink)
 			draw_circle(c + Vector2(-58, -48), 12.0 + sin(t * 4.0) * 2.0, Color(1.0, 0.93, 0.6, 0.55))
-		6:   # the exam screen
+		7:   # the exam screen
 			draw_rect(Rect2(c.x - 50.0, c.y - 40.0, 100.0, 64.0), ink)
 			draw_rect(Rect2(c.x - 44.0, c.y - 34.0, 88.0, 52.0), Color("eef1f6"))
 			_text(c + Vector2(0, -6), "PRÜFUNG", 14, UI.ETH_BLUE, HORIZONTAL_ALIGNMENT_CENTER)
