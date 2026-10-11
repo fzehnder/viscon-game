@@ -246,4 +246,9 @@ const EN := {
 	"%s & %s haben den Job bei %s nicht bekommen.": "%s & %s did not get the job at %s.",
 	"Diesmal kein Job.": "No job this time.",
 	"•  %s\n    %s": "•  %s\n    %s",
+	# ---------------------------------------------------------------- one application per company
+	"Eine Bewerbung pro Firma": "One application per company",
+	"Absagen bisher: %d von %d": "Rejections so far: %d of %d",
+	"A / D oder Pfeile: Firma wählen · E / Enter: bewerben · Pro Firma eine Bewerbung, nach einer Absage sind die anderen noch offen": "A / D or arrows: choose a company · E / Enter: apply · One application per company; after a rejection the others are still open",
+	"E / Enter: zurück zur Jobbörse, die anderen Firmen sind noch offen": "E / Enter: back to the job board, the other companies are still open",
 }

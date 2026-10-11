@@ -369,12 +369,14 @@ static func check(q: Dictionary, answer: String) -> Dictionary:
 
 
 # ------------------------------------------------------------------ the application (per game)
-## The one application of this game, kept in the save game (Game.elective, cleared by a new
-## study): {"id": job id, "outcome": "hired" / "rejected", "grade": float}, or {}.
+## The applications of this game, kept in the save game (Game.elective, cleared by a new study):
+## {"id": the last job applied for, "outcome": "hired" / "rejected", "grade": the best so far,
+## "rejected": [ids of the companies that said no]}, or {}.
 static func application() -> Dictionary:
 	var a = Game.elective(KEY, {})
 	return a if a is Dictionary else {}
 
 
-static func set_application(id: String, outcome: String, grade: float) -> void:
-	Game.set_elective(KEY, {"id": id, "outcome": outcome, "grade": grade})
+## `rejected`: the ids of all companies that have said no so far (one application per company).
+static func set_application(id: String, outcome: String, grade: float, rejected: Array = []) -> void:
+	Game.set_elective(KEY, {"id": id, "outcome": outcome, "grade": grade, "rejected": rejected.duplicate()})

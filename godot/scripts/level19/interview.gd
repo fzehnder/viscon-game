@@ -39,8 +39,10 @@ var t := 0.0
 var sel := 0
 var best := 0.0
 var done_any := false
-var applied := ""              # the one job the players applied for (one application per visit)
-var outcome := ""              # "hired", "rejected" or "" while nothing is decided
+var applied := ""              # the job of the current or the last application
+var outcome := ""              # ... and how it went: "hired", "rejected" or "" while nothing is decided
+var rejected: Array = []       # ids of the companies that said no. One application per company: after a
+                               # rejection the others are still open (wish of the team), a job ends the search
 # call
 var job: Dictionary
 var qs: Array = []
@@ -126,13 +128,16 @@ func _ready() -> void:
 	add_child(speech)
 	speech.heard.connect(_on_heard)
 	Track.use(self, ["face"])      # live camera picture in the player tiles, if there is a tracker
-	# one application per game: if there was one already, only its result is shown
+	# what happened so far in this game: a job (then only its result is shown), or rejections
 	var a := JOBS.application()
 	if not a.is_empty():
 		applied = String(a["id"])
 		outcome = String(a["outcome"])
 		best = float(a["grade"])
 		done_any = true
+		rejected = (a.get("rejected", []) as Array).duplicate()
+		if outcome == "rejected" and not rejected.has(applied):
+			rejected.append(applied)   # a save game from before there was a list
 	resized.connect(func():
 		_layout_cards()
 		_layout_call())
@@ -175,11 +180,11 @@ func _show_board() -> void:
 	hint_label = UI.label("", 15, Color("33383d"))
 	hint_label.position = Vector2(30, 92)
 	board_root.add_child(hint_label)
-	var job_now := "Eine Bewerbung pro Spiel"
+	var job_now := "Eine Bewerbung pro Firma"
 	if outcome == "hired":
 		job_now = "Euer Job: %s" % JOBS.job(applied).get("name", applied)
-	elif outcome == "rejected":
-		job_now = "Bewerbung bei %s: Absage" % JOBS.job(applied).get("name", applied)
+	elif not rejected.is_empty():
+		job_now = "Absagen bisher: %d von %d" % [rejected.size(), JOBS.JOBS.size()]
 	var mine := UI.label(job_now, 14, Color("c8d3ea"))
 	mine.anchor_left = 1.0
 	mine.anchor_right = 1.0
@@ -205,7 +210,10 @@ func _show_board() -> void:
 	fin.disabled = not done_any
 	fin.pressed.connect(func(): finished.emit(best))
 	board_root.add_child(fin)
-	var keys := UI.label("A / D oder Pfeile: Firma wählen · E / Enter: bewerben · Ihr habt nur eine Bewerbung, wählt gut!" if applied == "" else "Eure Bewerbung ist durch. «Fertig für heute» oder E / Enter beendet das Wahlfach.", 14, Color("5b6170"))
+	var keys_text := "A / D oder Pfeile: Firma wählen · E / Enter: bewerben · Pro Firma eine Bewerbung, nach einer Absage sind die anderen noch offen"
+	if outcome == "hired" or _open_jobs() == 0:
+		keys_text = "Eure Bewerbung ist durch. «Fertig für heute» oder E / Enter beendet das Wahlfach."
+	var keys := UI.label(keys_text, 14, Color("5b6170"))
 	keys.anchor_top = 1.0
 	keys.anchor_bottom = 1.0
 	keys.offset_left = 30
@@ -236,8 +244,17 @@ func _card_clicked(i: int) -> void:
 	sel = i
 
 
+## Nothing more to do at this card: the company has said no, or the players have a job elsewhere.
 func _locked(i: int) -> bool:
-	return applied != "" and JOBS.JOBS[i]["id"] != applied
+	var id := String(JOBS.JOBS[i]["id"])
+	return rejected.has(id) or (outcome == "hired" and id != applied)
+
+
+## How many companies the players can still apply to.
+func _open_jobs() -> int:
+	if outcome == "hired":
+		return 0
+	return JOBS.JOBS.size() - rejected.size()
 
 
 func _draw_card(ci: Control, i: int) -> void:
@@ -265,16 +282,20 @@ func _draw_card(ci: Control, i: int) -> void:
 	for s in 3:
 		var sc := Vector2(120 + s * 22, y + 169)
 		ci.draw_colored_polygon(UI.star_points(sc, 9, 4, 0.0), UI.ETH_BLUE if s < int(j["stars"]) else Color("dde1e8"))
-	if applied == j["id"] and outcome != "":
-		var ok := outcome == "hired"
-		var b0 := Rect2(w - 128, lift + 128, 116, 28)
-		ci.draw_rect(b0, UI.GREEN.darkened(0.15) if ok else UI.RED.darkened(0.1))
-		ci.draw_string(font, b0.position + Vector2(0, 20), tr("ANGESTELLT" if ok else "ABGESAGT"), HORIZONTAL_ALIGNMENT_CENTER, b0.size.x, 14, Color.WHITE)
-	if applied != "" and applied != j["id"]:
-		# one application only: the other jobs are greyed out
+	var hired_here: bool = outcome == "hired" and applied == j["id"]
+	var no_here: bool = rejected.has(j["id"])
+	if no_here and not hired_here:
+		# this company has said no: greyed out, the others stay open
+		ci.draw_rect(r, Color(0.93, 0.94, 0.96, 0.72))
+	elif outcome == "hired" and not hired_here:
+		# they have a job elsewhere: no further application
 		ci.draw_rect(r, Color(0.93, 0.94, 0.96, 0.72))
 		ci.draw_string(font, Vector2(0, lift + h / 2.0), tr("Keine weitere Bewerbung"), HORIZONTAL_ALIGNMENT_CENTER, w, 16, Color("5b6170"))
-	elif k > 0.01 and applied == "":
+	if hired_here or no_here:
+		var b0 := Rect2(w - 128, lift + 128, 116, 28)
+		ci.draw_rect(b0, UI.GREEN.darkened(0.15) if hired_here else UI.RED.darkened(0.1))
+		ci.draw_string(font, b0.position + Vector2(0, 20), tr("ANGESTELLT" if hired_here else "ABGESAGT"), HORIZONTAL_ALIGNMENT_CENTER, b0.size.x, 14, Color.WHITE)
+	elif k > 0.01 and outcome != "hired":
 		var b2 := Rect2(16, h + lift - 52 + 8.0 * (1.0 - k), w - 32, 38)
 		ci.draw_rect(b2, Color(c1, k))
 		ci.draw_string(font, b2.position + Vector2(0, 26), tr("Jetzt bewerben"), HORIZONTAL_ALIGNMENT_CENTER, b2.size.x, 17, Color(1, 1, 1, k))
@@ -362,15 +383,24 @@ func _wrap(ci: CanvasItem, text: String, pos: Vector2, width: float, fs: int, co
 
 
 func _apply(i: int) -> void:
-	if applied != "":
-		if outcome != "" and JOBS.JOBS[i]["id"] == applied:
+	var id := String(JOBS.JOBS[i]["id"])
+	if outcome == "hired":
+		if id == applied:
 			finished.emit(best)
 		else:
-			UI.sfx("fail", -10.0)   # one application only
+			UI.sfx("fail", -10.0)   # they have a job already
 		return
-	applied = JOBS.JOBS[i]["id"]
-	# counts from the first second: leaving the interview (Esc, closing the game) is a rejection
-	JOBS.set_application(applied, "rejected", 1.0)
+	if rejected.has(id):
+		if _open_jobs() == 0:
+			finished.emit(best)     # every company has said no: E / Enter ends the elective
+		else:
+			UI.sfx("fail", -10.0)   # one application per company
+		return
+	applied = id
+	outcome = ""
+	# counts from the first second: leaving the interview (Esc, closing the game) is a rejection there
+	rejected.append(applied)
+	JOBS.set_application(applied, "rejected", maxf(best, 1.0), rejected)
 	UI.sfx("pop")
 	_start_call(JOBS.JOBS[i])
 
@@ -509,9 +539,12 @@ func _finish_call() -> void:
 			right += 1
 	var grade := clampf(snappedf(1.0 + 5.0 * right / float(qs.size()), 0.25), 1.0, 6.0)
 	done_any = true
-	JOBS.set_application(job["id"], "hired" if right >= JOBS.PASS else "rejected", grade)
-	if right >= JOBS.PASS:
-		best = maxf(best, grade)
+	var got_it: bool = right >= JOBS.PASS
+	if got_it:
+		rejected.erase(String(job["id"]))
+	best = maxf(best, grade)
+	JOBS.set_application(job["id"], "hired" if got_it else "rejected", best, rejected)
+	if got_it:
 		outcome = "hired"
 		_say("Das war stark. Ich mache euch gleich ein Angebot. Bis bald!", "bye")
 		_after_bye(func(): _show_offer(grade, right))
@@ -676,7 +709,7 @@ func _show_reject(right: int) -> void:
 		l.custom_minimum_size = Vector2(720, 0)
 		v.add_child(l)
 	v.add_child(UI.label("Freundliche Grüsse, %s" % job["boss"], 15, Color("33383d")))
-	v.add_child(UI.label("E / Enter: zum Abschluss", 15, Color("5b6170")))
+	v.add_child(UI.label("E / Enter: zurück zur Jobbörse, die anderen Firmen sind noch offen" if _open_jobs() > 0 else "E / Enter: zum Abschluss", 15, Color("5b6170")))
 	UI.sfx("doom", -10.0)
 	_stamp_denied(v.get_parent())
 
@@ -726,7 +759,10 @@ func _process(delta: float) -> void:
 			_process_offer(delta)
 		"reject":
 			if _just(0, "interact") or _just(1, "interact"):
-				_end()
+				if _open_jobs() > 0:
+					_show_board()   # a rejection closes only this company
+				else:
+					_end()
 
 
 func _just(pid: int, what: String) -> bool:

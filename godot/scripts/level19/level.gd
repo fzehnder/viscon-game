@@ -95,8 +95,14 @@ func finale(_done: Callable) -> void:
 	var a := JOBS.application()
 	var jobs := "\n(keine Bewerbung)"
 	if not a.is_empty():
-		var nm := String(JOBS.job(String(a["id"])).get("name", a["id"]))
-		jobs = "\n•  %s: %s" % [nm, "angestellt" if a["outcome"] == "hired" else "Absage"]
+		jobs = ""
+		var said_no: Array = (a.get("rejected", []) as Array).duplicate()
+		if a["outcome"] != "hired" and not said_no.has(a["id"]):
+			said_no.append(a["id"])
+		for id in said_no:
+			jobs += "\n•  %s: %s" % [String(JOBS.job(String(id)).get("name", id)), "Absage"]
+		if a["outcome"] == "hired":
+			jobs += "\n•  %s: %s" % [String(JOBS.job(String(a["id"])).get("name", a["id"])), "angestellt"]
 	var passed := grade >= 4.0
 	var verdict := "Hervorragend!" if grade >= 5.5 else ("Gut gemacht." if grade >= 4.5 else ("Bestanden." if passed else "Knapp daneben."))
 	var story := String(DEF["win_text"]) % [Game.name_of(0), Game.name_of(1)] if passed \
