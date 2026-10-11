@@ -454,22 +454,22 @@ func _draw_label(l: Dictionary) -> void:
 	var font := ThemeDB.fallback_font
 	var fs := int(l["sz"] * TS)
 	var t: String = l["t"]
-	var w := font.get_string_size(t, HORIZONTAL_ALIGNMENT_LEFT, -1, fs).x
+	var w := font.get_string_size(tr(t), HORIZONTAL_ALIGNMENT_LEFT, -1, fs).x
 	draw_set_transform(l["p"] * TS, l.get("rot", 0.0), Vector2.ONE)
 	var k: String = l["k"]
 	if k == "floor":
 		var fc := Color(0.3, 0.24, 0.18, 0.25) if data.get("mode", "night") == "day" else Color(0.85, 0.88, 0.95, 0.16)
-		draw_string(font, Vector2(-w / 2.0, fs * 0.35), t, HORIZONTAL_ALIGNMENT_LEFT, -1, fs, fc)
+		draw_string(font, Vector2(-w / 2.0, fs * 0.35), tr(t), HORIZONTAL_ALIGNMENT_LEFT, -1, fs, fc)
 	elif k == "street":
-		draw_string(font, Vector2(-w / 2.0, fs * 0.35), t, HORIZONTAL_ALIGNMENT_LEFT, -1, fs, Color(1, 1, 1, 0.3))
+		draw_string(font, Vector2(-w / 2.0, fs * 0.35), tr(t), HORIZONTAL_ALIGNMENT_LEFT, -1, fs, Color(1, 1, 1, 0.3))
 	else:
-		draw_string(font, Vector2(-w / 2.0 + 2, fs * 0.35 + 3), t, HORIZONTAL_ALIGNMENT_LEFT, -1, fs, Color(0, 0, 0, 0.4))
-		draw_string(font, Vector2(-w / 2.0, fs * 0.35), t, HORIZONTAL_ALIGNMENT_LEFT, -1, fs, Color(0.85, 0.87, 0.9))
+		draw_string(font, Vector2(-w / 2.0 + 2, fs * 0.35 + 3), tr(t), HORIZONTAL_ALIGNMENT_LEFT, -1, fs, Color(0, 0, 0, 0.4))
+		draw_string(font, Vector2(-w / 2.0, fs * 0.35), tr(t), HORIZONTAL_ALIGNMENT_LEFT, -1, fs, Color(0.85, 0.87, 0.9))
 		if l.has("sub"):
 			var f2 := int(TS * 0.4)
 			var sub: String = l["sub"]
-			var w2 := font.get_string_size(sub, HORIZONTAL_ALIGNMENT_LEFT, -1, f2).x
-			draw_string(font, Vector2(-w2 / 2.0, fs * 0.35 + f2 * 1.6), sub, HORIZONTAL_ALIGNMENT_LEFT, -1, f2, Color(0.75, 0.78, 0.82))
+			var w2 := font.get_string_size(tr(sub), HORIZONTAL_ALIGNMENT_LEFT, -1, f2).x
+			draw_string(font, Vector2(-w2 / 2.0, fs * 0.35 + f2 * 1.6), tr(sub), HORIZONTAL_ALIGNMENT_LEFT, -1, f2, Color(0.75, 0.78, 0.82))
 	draw_set_transform(Vector2.ZERO, 0.0, Vector2.ONE)
 
 
@@ -542,7 +542,7 @@ func _draw_obj(o: Dictionary) -> void:
 			for i in 5:
 				draw_rect(Rect2(x + s * (0.5 + i * 1.2), y + h * 0.62, s * 0.8, h * 0.2), Color(1.0, 0.9, 0.6, 0.7))
 			var font := ThemeDB.fallback_font
-			draw_string(font, Vector2(x + w * 0.27, y + h * 0.36), "POLYBAHN", HORIZONTAL_ALIGNMENT_LEFT, -1, int(s * 0.38), Color(1, 1, 1, 0.85))
+			draw_string(font, Vector2(x + w * 0.27, y + h * 0.36), tr("POLYBAHN"), HORIZONTAL_ALIGNMENT_LEFT, -1, int(s * 0.38), Color(1, 1, 1, 0.85))
 		"edgeline":
 			draw_rect(R2, N("f2c14e", 0.2))
 		"ticket":

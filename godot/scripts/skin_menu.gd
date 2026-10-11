@@ -230,25 +230,25 @@ func _ready_rect() -> Rect2:
 
 func _text(pos: Vector2, s: String, fsize: int, col: Color, align := HORIZONTAL_ALIGNMENT_LEFT, outline := 0) -> void:
 	var font := ThemeDB.fallback_font
-	var w := font.get_string_size(s, HORIZONTAL_ALIGNMENT_LEFT, -1, fsize).x
+	var w := font.get_string_size(tr(s), HORIZONTAL_ALIGNMENT_LEFT, -1, fsize).x
 	var p := pos
 	if align == HORIZONTAL_ALIGNMENT_CENTER:
 		p.x -= w / 2.0
 	elif align == HORIZONTAL_ALIGNMENT_RIGHT:
 		p.x -= w
 	if outline > 0:
-		draw_string_outline(font, p, s, HORIZONTAL_ALIGNMENT_LEFT, -1, fsize, outline, Color("15162b"))
-	draw_string(font, p, s, HORIZONTAL_ALIGNMENT_LEFT, -1, fsize, col)
+		draw_string_outline(font, p, tr(s), HORIZONTAL_ALIGNMENT_LEFT, -1, fsize, outline, Color("15162b"))
+	draw_string(font, p, tr(s), HORIZONTAL_ALIGNMENT_LEFT, -1, fsize, col)
 
 
 ## A key cap with what it does next to it. Returns the width it took.
 func _key(pos: Vector2, cap: String, what: String, col: Color, what_col: Color = UI.INK2) -> float:
 	var font := ThemeDB.fallback_font
-	var cw := maxf(26.0, font.get_string_size(cap, HORIZONTAL_ALIGNMENT_LEFT, -1, 14).x + 14.0)
+	var cw := maxf(26.0, font.get_string_size(tr(cap), HORIZONTAL_ALIGNMENT_LEFT, -1, 14).x + 14.0)
 	draw_style_box(UI.box(col, Color(0, 0, 0, 0), 7, 0, 0, false), Rect2(pos.x, pos.y - 17.0, cw, 24.0))
 	_text(Vector2(pos.x + cw / 2.0, pos.y), cap, 14, Color.WHITE, HORIZONTAL_ALIGNMENT_CENTER)
 	_text(Vector2(pos.x + cw + 7.0, pos.y), what, 14, what_col)
-	return cw + 7.0 + font.get_string_size(what, HORIZONTAL_ALIGNMENT_LEFT, -1, 14).x + 16.0
+	return cw + 7.0 + font.get_string_size(tr(what), HORIZONTAL_ALIGNMENT_LEFT, -1, 14).x + 16.0
 
 
 func _draw() -> void:
@@ -330,7 +330,7 @@ func _draw() -> void:
 			var beat := 0.5 + 0.5 * sin(t * 4.0)
 			draw_style_box(UI.box(Color(pc, 0.12 + 0.14 * beat), pc, 12, 2, 0, false), gr)
 			var cap := "E" if i == 0 else "Enter"
-			var tw := ThemeDB.fallback_font.get_string_size("bereit?", HORIZONTAL_ALIGNMENT_LEFT, -1, 14).x
+			var tw := ThemeDB.fallback_font.get_string_size(tr("bereit?"), HORIZONTAL_ALIGNMENT_LEFT, -1, 14).x
 			_key(Vector2(gr.get_center().x - (tw + 50.0) / 2.0, gr.position.y + 26.0), cap, "bereit?", pd, UI.INK)
 	var both: bool = ready_p[0] and ready_p[1]
 	_text(Vector2(W / 2.0, H - 16.0), "Los geht's!" if both else "Sind beide bereit, geht es weiter zur Legi.", 16, UI.OK if both else UI.INK2, HORIZONTAL_ALIGNMENT_CENTER)
