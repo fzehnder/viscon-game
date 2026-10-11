@@ -53,7 +53,8 @@ const READY_HOLD := 0.5          # seconds the hands have to stay up
 const JOIN := 1.5                # seconds after the first "hands up" in which a second dancer can still join
 const PAIR_MEMORY := 6.0         # seconds one of two dancers can be gone (costs a beat) before the other one dances for both
 const REACQUIRE := 3.0           # seconds the only dancer can be gone before whoever is closest to the camera takes over
-const BEAT := 3.4                # seconds per pose
+const BEAT := 3.75               # seconds per pose: two bars of the music (musik.gd, 128 beats per minute)
+const STEP := BEAT / 8.0         # one beat of the music
 const BEAT_WINDOW := 1.4         # the last seconds of a beat, in which the pose has to sit
 const DANCE_HITS := 4            # poses that have to be hit to get across the floor
 # badge
@@ -115,6 +116,7 @@ var team: Array = []             # the dancers among them: one (dances for both)
 var dancers: Array = [{}, {}]    # the poses of P1 and P2, smoothed ({} = not in the picture for a while)
 var solo := true                 # one person dances for both (false: two dancers, both have to hit)
 var join_t := 0.0                # running since the first one had the hands up
+var music = null                 # musik.gd of the level, set by it: the dance starts on a bar and changes poses on the beat
 # badge
 var holding := false
 var armed := true                # false after the coat rustled: open the fingers before grabbing again
@@ -304,10 +306,27 @@ func _to_keys() -> void:
 		use_keys = true
 		if state != "play":
 			state = "play"
-			beat_t = BEAT + 1.0
+			beat_t = BEAT + 2.0 * STEP
+			_start_music()
 	else:
 		fallback.emit()
 		queue_free()
+
+
+## The dance begins: the music starts again from its first bar, so every pose ends on a beat.
+func _start_music() -> void:
+	if music != null and is_instance_valid(music):
+		music.restart()
+
+
+## The short breath after a pose that sat, before the next one: up to the next beat of the music
+## that is at least 0.45 s away (0.7 s if there is no music), so the next pose starts on the beat.
+func _breath() -> float:
+	var pos: float = music.beat_pos() if (music != null and is_instance_valid(music)) else -1.0
+	if pos < 0.0:
+		return 0.7
+	var rest := (1.0 - fposmod(pos, 1.0)) * STEP
+	return rest if rest >= 0.45 else rest + STEP
 
 
 func _miss() -> void:
@@ -398,7 +417,8 @@ func _ready_up(delta: float) -> void:
 		team.sort_custom(func(a, b): return a.mid.x < b.mid.x)
 		solo = team.size() == 1
 		state = "play"
-		beat_t = BEAT + 0.6
+		beat_t = BEAT + STEP
+		_start_music()
 		flash = 0.4
 		flash_ok = true
 		UI.sfx("pop", -6.0)
@@ -497,7 +517,7 @@ func _tanz(delta: float) -> void:
 			flash = 0.4
 			flash_ok = true
 			UI.sfx("pop", -6.0)
-			beat_t = minf(beat_t, 0.7)   # a short breath, then the next pose
+			beat_t = minf(beat_t, _breath())   # a short breath, then the next pose
 			if hits >= DANCE_HITS:
 				_win()
 				return
@@ -627,6 +647,21 @@ func _txt(pos: Vector2, s: String, size: int, col: Color, centered: bool = false
 	if centered:
 		pos.x -= font.get_string_size(s, HORIZONTAL_ALIGNMENT_LEFT, -1, size).x / 2.0
 	canvas.draw_string(font, pos, s, HORIZONTAL_ALIGNMENT_LEFT, -1, size, col)
+
+
+## The eight beats of a pose as eight fields that fill one after the other. On the last three
+## (green, BEAT_WINDOW) the pose has to sit.
+func _beats(r: Rect2) -> void:
+	var gone := 8.0 - beat_t / STEP
+	var w := (r.size.x - 7.0 * 4.0) / 8.0
+	for i in 8:
+		var f := Rect2(r.position.x + i * (w + 4.0), r.position.y, w, r.size.y)
+		var col: Color = UI.GREEN if i >= 5 else INK
+		canvas.draw_rect(f, Color(col, 0.16))
+		var part := clampf(gone - i, 0.0, 1.0)
+		if part > 0.0:
+			canvas.draw_rect(Rect2(f.position, Vector2(f.size.x * part, f.size.y)), col)
+		canvas.draw_rect(f, SOFT, false, 1.5)
 
 
 func _bar(r: Rect2, v: float, col: Color) -> void:
@@ -786,9 +821,13 @@ func _draw_tanz() -> void:
 	else:
 		var target: Dictionary = poses[round_i % poses.size()]
 		_figure(target, box, INK, 11.0)
+		var bp: float = music.beat_pos() if (music != null and is_instance_valid(music)) else -1.0
+		if bp >= 0.0:      # the frame of the pose throbs with the music
+			var k := 1.0 - fposmod(bp, 1.0)
+			canvas.draw_rect(box.grow(2.0 + 5.0 * k), Color(INK, 0.3 * k), false, 3.0)
 		_txt(Vector2(box.get_center().x, 342), String(target.get("name", "Pose %d" % (round_i % poses.size() + 1))), 24, INK, true)
 		var now := beat_t <= BEAT_WINDOW
-		_bar(Rect2(570, 356, 320, 18), beat_t / BEAT, UI.GREEN if now else INK)
+		_beats(Rect2(570, 356, 320, 18))
 		if hit_now:
 			_txt(Vector2(box.get_center().x, 408), "Sitzt!", 28, UI.GREEN.darkened(0.25), true)
 		elif now:

@@ -1,7 +1,7 @@
 extends CanvasLayer
 ## Pause menu over the running game: the button "Menü · Esc" bottom right, or Esc while nothing
 ## else is using that key (main._esc_pauses). The tree is paused while it is open (main.open_pause),
-## this layer keeps running.
+## this layer keeps running. Dark blue glass like everything over the running game (ui.gd).
 ## Mouse, W/S or the arrow keys and E/Enter; Esc goes back into the game.
 
 signal resume
@@ -35,7 +35,7 @@ class Mark:
 		if not on:
 			return
 		var c := size / 2.0
-		draw_colored_polygon(PackedVector2Array([c + Vector2(-5, -7), c + Vector2(6, 0), c + Vector2(-5, 7)]), Color("215caf"))
+		draw_colored_polygon(PackedVector2Array([c + Vector2(-5, -7), c + Vector2(6, 0), c + Vector2(-5, 7)]), Color("8fb4f0"))
 
 
 func _ready() -> void:
@@ -51,16 +51,16 @@ func _ready() -> void:
 	cc.set_anchors_and_offsets_preset(Control.PRESET_FULL_RECT)
 	cc.mouse_filter = Control.MOUSE_FILTER_IGNORE
 	add_child(cc)
-	var card := UI.panel(UI.PAPER, UI.ETH_BLUE, 20, 24.0)
+	var card := UI.panel(UI.GLASS, UI.GLASS_LINE, 20, 24.0)
 	cc.add_child(card)
 	var v := VBoxContainer.new()
 	v.add_theme_constant_override("separation", 10)
 	card.add_child(v)
-	var head := UI.label("Pause", 38, UI.ETH_BLUE)
+	var head := UI.label("Pause", 38, UI.SKY)
 	head.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
 	v.add_child(head)
 	if title != "":
-		var sub := UI.label(title, 15, UI.INK2)
+		var sub := UI.label(title, 15, UI.ON_GLASS2)
 		sub.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
 		v.add_child(sub)
 	for i in ENTRIES.size():
@@ -85,7 +85,7 @@ func _ready() -> void:
 		pad.mouse_filter = Control.MOUSE_FILTER_IGNORE
 		row.add_child(pad)
 	var line := ColorRect.new()
-	line.color = UI.LINE
+	line.color = UI.GLASS_LINE
 	line.custom_minimum_size = Vector2(0, 2)
 	v.add_child(line)
 	# the keys of both players
@@ -95,14 +95,14 @@ func _ready() -> void:
 	grid.add_theme_constant_override("v_separation", 2)
 	grid.size_flags_horizontal = Control.SIZE_SHRINK_CENTER
 	v.add_child(grid)
-	grid.add_child(UI.label("", 14, UI.INK2))
+	grid.add_child(UI.label("", 14, UI.ON_GLASS2))
 	for i in 2:
-		grid.add_child(UI.label(Game.name_of(i), 15, Color(String(KEYS.TAG_COLORS[i])).darkened(0.15)))
+		grid.add_child(UI.label(Game.name_of(i), 15, Color(String(KEYS.TAG_COLORS[i])).lightened(0.15)))
 	for r in KEY_ROWS:
-		grid.add_child(UI.label(String(r[0]), 14, UI.INK2))
+		grid.add_child(UI.label(String(r[0]), 14, UI.ON_GLASS2))
 		for i in 2:
-			grid.add_child(UI.label(String(KEYS.LABELS[i][r[1]]), 14, UI.INK))
-	var hint := UI.label("W/S oder Pfeiltasten wählen  ·  E oder Enter bestätigen  ·  Esc zurück ins Spiel", 12, UI.INK2)
+			grid.add_child(UI.label(String(KEYS.LABELS[i][r[1]]), 14, UI.ON_GLASS))
+	var hint := UI.label("W/S oder Pfeiltasten wählen  ·  E oder Enter bestätigen  ·  Esc zurück ins Spiel", 12, UI.ON_GLASS2)
 	hint.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
 	v.add_child(hint)
 	_select(0)

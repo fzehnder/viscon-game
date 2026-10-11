@@ -236,5 +236,5 @@ func _draw() -> void:
 		if meter > 0.0:
 			draw_arc(c, 11.0, -PI / 2.0, -PI / 2.0 + TAU * meter, 24, col, 2.5)
 		var font := ThemeDB.fallback_font
-		var sz := font.get_string_size(mark, HORIZONTAL_ALIGNMENT_LEFT, -1, 16)
-		draw_string(font, c + Vector2(-sz.x / 2.0, 6), mark, HORIZONTAL_ALIGNMENT_LEFT, -1, 16, col)
+		var sz := font.get_string_size(tr(mark), HORIZONTAL_ALIGNMENT_LEFT, -1, 16)
+		draw_string(font, c + Vector2(-sz.x / 2.0, 6), tr(mark), HORIZONTAL_ALIGNMENT_LEFT, -1, 16, col)
