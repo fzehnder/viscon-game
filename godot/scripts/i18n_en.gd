@@ -645,4 +645,13 @@ const EN := {
 	# ---------------------------------------------------------------- loading screen: Hönggerberg
 	"ETH HÖNGGERBERG": "ETH HÖNGGERBERG",
 	"PRÜFUNG": "EXAM",
+	# ---------------------------------------------------------------- scold.gd
+	"Das ist MEINE %s. Da sind meine Gratis-Kugelschreiber drin!": "That is MY %s. My free pens are in there!",
+	"Finger weg! Für die %s bin ich um sechs Uhr aufgestanden.": "Hands off! I got up at six for that %s.",
+	"Netter Versuch. Die %s bleibt bei mir, und du bleibst mir vom Leib.": "Nice try. The %s stays with me, and you stay away from me.",
+	"Klauen am ersten Tag? Das merke ich mir bis zum Master.": "Stealing on day one? I will remember that until my Master's.",
+	"Ups. Das war nichts.": "Oops. That was nothing.",
+	"Konzentration. Das ist die ETH, nicht der Kindergarten.": "Focus. This is ETH, not kindergarten.",
+	"Das hat niemand gesehen. Hoffentlich.": "Nobody saw that. Hopefully.",
+	"Nochmal. Diesmal mit Hirn.": "Again. With brains this time.",
 }
