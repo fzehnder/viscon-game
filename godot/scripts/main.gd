@@ -17,7 +17,8 @@ extends Node2D
 ## There are always two full-screen views; P2's view lies on top, cut off at the split line
 ## (SPLIT_SHADER). While both cameras sit on the middle between the players the two pictures are
 ## identical and the cut is invisible; splitting moves the cameras apart, so nothing ever jumps.
-## A minigame for one player turns the split vertical (P1 left, P2 right) and opens on that half.
+## A minigame for one player turns the split vertical and opens on that player's half. Each player
+## keeps the side they are on (`force_flip`), so the line only turns upright and the halves never swap.
 ## The HUD is a separate layer and never moves.
 
 const MapData = preload("res://scripts/map_data.gd")
@@ -32,6 +33,7 @@ const MiniScript = preload("res://scripts/minigame.gd")
 const CH = preload("res://scripts/characters.gd")
 const ART = preload("res://scripts/character_art.gd")
 const KEYS = preload("res://scripts/controls.gd")
+const LevelDone = preload("res://scripts/level_done.gd")
 const LV = preload("res://scripts/levels.gd")
 const UI = preload("res://scripts/ui.gd")
 const Transcript = preload("res://scripts/transcript.gd")
@@ -52,7 +54,7 @@ const FIT_X := 0.5
 const FIT_Y := 0.42
 const ZOOM_BACK := 1.5     # seconds (roughly) to zoom back in after a split, or out again after joining
 const ZOOM_IN := 1.0       # seconds (roughly) to zoom in when the players come closer in the shared view
-const SPLIT_TIME := 0.7    # seconds for the split to turn upright when a minigame opens
+const SPLIT_TIME := 1.2    # seconds for the split to turn upright when a minigame opens, and back
 const SPLIT_TURN := 10.0   # how quickly the split line follows the players (higher = tighter)
 const CAM_FOLLOW := 9.0    # how quickly the cameras follow (higher = tighter)
 const SPLIT_SHADER := """
@@ -65,6 +67,7 @@ void fragment() {
 	}
 }
 """
+const ROUTE_SWITCH := 3.0   # tiles: a new way to the task must be this much shorter to replace the shown one
 const STEAL_BEHIND := 1.9  # rad: you must be at least this far from where the Ersti is looking
 
 var data: Dictionary
@@ -83,6 +86,7 @@ var minis: Array = [null, null]       # open minigame per player (same object tw
 var nears: Array = [null, null]       # thing each player could interact with
 var near = null                       # = nears[0]
 var busy_spot: Array = [null, null]   # station object each player is using
+var last_actor := 0                   # who interacted last: popups without a player go to that side
 
 var dept := "D-INFK"
 var mode := "day"
@@ -106,8 +110,12 @@ var done: Array = [{}, {}]
 # the task each player has picked (index into LV.tasks(), -1 = none) and the dashed way to where
 # it can be done: points in px, drawn by fx.gd and on the mini map
 var picked: Array = [-1, -1]
-var routes: Array = [[], []]
+var routes: Array = [[], []]       # the way to the picked task per player: points in px, about 8 px apart
 var route_t: Array = [0.0, 0.0]
+var route_age: Array = [9.0, 9.0]  # seconds since a player's way changed to a different one (it fades in then)
+# where the arrow around each player points: the furthest point of the way that can be walked to
+# in a straight line, i.e. the next door, corner or alley (fx.gd draws the arrow; the way itself is not drawn)
+var route_aim: Array = [null, null]
 # abilities (night, P1)
 var ability: Dictionary
 var cooldown := 0.0
@@ -123,7 +131,9 @@ var split_mat: ShaderMaterial   # cuts P2's view off at the split line
 var split := false       # true = two separate views (too far apart, or a minigame for one player)
 var split_k := 0.0       # how visible the split is: 0 = one seamless picture, 1 = clearly two views
 var split_n := Vector2.RIGHT   # split line normal on screen, from P1's side to P2's side
-var force_k := 0.0       # 0..1: a minigame for one player turns the split upright (P1 left, P2 right)
+var force_k := 0.0       # 0..1: a minigame for one player turns the split upright
+var force_flip := false  # while upright: true = P2 on the left half, P1 on the right
+var was_forced := false
 var out := 1.0           # dynamic zoom-out on top of `zoom`: 1 = normal, up to OUT_MAX
 var catching_up := false # just joined: zoom out smoothly until both players fit again
 var cam_a := Vector2.ZERO   # smoothed camera positions of P1's and P2's view
@@ -206,7 +216,11 @@ func _ready() -> void:
 	add_child(hud)
 	_add_transcript_button()
 	_update_cameras(0.0, true)
-	var controls := "%s: WASD · E · Shift sprinten · Ctrl schleichen · Tab Weg zur Aufgabe\n%s: Pfeile · Enter · . sprinten · - schleichen · , Weg zur Aufgabe\nL: Leistungsüberblick (Levels und Wahlfächer)" % [Game.name_of(0), Game.name_of(1)]
+	var controls := ""
+	for i in 2:
+		var kl: Dictionary = KEYS.labels_for(i)
+		controls += "%s: %s · %s · %s sprinten · %s schleichen · %s Weg zur Aufgabe\n" % [Game.name_of(i), "WASD" if i == 0 else "Pfeile", kl["ok"], kl["sprint"], kl["sneak"], kl["select"]]
+	controls += "L: Leistungsüberblick (Levels und Wahlfächer)"
 	if night:
 		var d: Dictionary = CH.DEPTS[dept]
 		hud.show_overlay("Nacht", "Es ist 00:30. %s\n\nBleibt nicht zu lange im Lichtkegel der Professoren." % d["night_text"],
@@ -419,6 +433,9 @@ func _update_cameras(delta: float = 0.0, snap: bool = false) -> void:
 	# how far the shared view has to zoom out to show both players
 	var need := maxf(absf(d.x) * zoom / (vs.x * FIT_X), absf(d.y) * zoom / (vs.y * FIT_Y))
 	var forced := _solo_minigame_open()
+	if forced and not was_forced:
+		_pick_force_flip()
+	was_forced = forced
 	if forced or need > OUT_MAX:
 		split = true
 	elif split and need < MERGE_OUT:
@@ -441,7 +458,7 @@ func _update_cameras(delta: float = 0.0, snap: bool = false) -> void:
 	force_k = (1.0 if forced else 0.0) if snap else move_toward(force_k, 1.0 if forced else 0.0, delta / SPLIT_TIME)
 	var fk := smoothstep(0.0, 1.0, force_k)
 	var n_goal := d.normalized() if d.length() > 1.0 else split_n
-	n_goal = n_goal.slerp(Vector2.RIGHT, fk)
+	n_goal = n_goal.slerp(Vector2.LEFT if force_flip else Vector2.RIGHT, fk)
 	if snap or split_k < 0.01:
 		split_n = n_goal   # nothing visible yet, so the line may jump
 	else:
@@ -468,7 +485,7 @@ func _update_cameras(delta: float = 0.0, snap: bool = false) -> void:
 	for c in cams:
 		c.zoom = Vector2(z, z)
 	# the divider shows as much as the two pictures differ
-	split_k = clampf(cam_a.distance_to(cam_b) * z / 24.0, 0.0, 1.0)
+	split_k = clampf(cam_a.distance_to(cam_b) * z / 60.0, 0.0, 1.0)
 	_layout_views()
 
 
@@ -497,13 +514,46 @@ func world_to_screen(p: Vector2) -> Vector2:
 ## With a slanted split it is the half (left or right) that holds most of the player's view.
 func screen_side(pid: int) -> int:
 	if force_k > 0.5:
-		return pid
+		return _upright_side(pid, force_flip)
 	if split_k < 0.5:
 		return -1
 	var p2_right := split_n.x >= 0.0
 	if pid == 1:
 		return 1 if p2_right else 0
 	return 0 if p2_right else 1
+
+
+## Half (0 left, 1 right) of player `pid` in an upright split; `flip` = P2 on the left.
+func _upright_side(pid: int, flip: bool) -> int:
+	var p2_side := 0 if flip else 1
+	return p2_side if pid == 1 else 1 - p2_side
+
+
+## Whether P2 should get the left half when the split turns upright: whoever is on the left
+## (on screen, or in the world while there is one picture) stays on the left.
+func _natural_flip() -> bool:
+	if split_k > 0.5:
+		return split_n.x < 0.0
+	return players[1].global_position.x < players[0].global_position.x
+
+
+## The split turns upright for a minigame. If the minigame already has its half (`screen_side`,
+## set by open_minigame or by level code), the split follows it, otherwise each keeps their side.
+func _pick_force_flip() -> void:
+	for j in 2:
+		var mg = minis[j]
+		if mg != null and mg != minis[1 - j] and "screen_side" in mg and int(mg.screen_side) >= 0:
+			force_flip = _upright_side(j, true) == int(mg.screen_side)
+			return
+	force_flip = _natural_flip()
+
+
+## Which half a minigame for player `pid` should open on: the side the player is on already,
+## so the split only turns upright and the two halves never swap.
+func minigame_side(pid: int) -> int:
+	if _solo_minigame_open():
+		return _upright_side(pid, force_flip)
+	return _upright_side(pid, _natural_flip())
 
 
 # ------------------------------------------------------------------ loop
@@ -595,7 +645,7 @@ func on_overlay_button() -> void:
 
 func _next_level() -> void:
 	Game.set_level(LV.next_after(Game.level))
-	get_tree().reload_current_scene()
+	get_tree().change_scene_to_file("res://loading.tscn")   # the loading screen, then this scene again
 
 
 func on_overlay_menu() -> void:
@@ -608,7 +658,7 @@ func _add_transcript_button() -> void:
 	var cl := CanvasLayer.new()
 	cl.layer = 16   # over the HUD and over full-screen level scenes such as the ski race
 	add_child(cl)
-	var b := UI.button("Leistungsüberblick · L", UI.NAVY2, 14)
+	var b := UI.button("Leistungsüberblick · L", UI.ETH_BLUE, 14)
 	b.anchor_left = 1.0
 	b.anchor_top = 1.0
 	b.anchor_right = 1.0
@@ -639,7 +689,7 @@ func open_transcript() -> void:
 	tr.start_level.connect(func(n: int):
 		get_tree().paused = false
 		Game.set_level(n)
-		get_tree().reload_current_scene())
+		get_tree().change_scene_to_file("res://loading.tscn"))
 	get_tree().paused = true
 	UI.sfx("pop")
 
@@ -683,7 +733,7 @@ func _alert_erstis(at: Vector2, radius: float) -> void:
 			st.alert(at, 3.0)
 	if any and not hint_noise_shown:
 		hint_noise_shown = true
-		hud.toast("Psst! Zu laut!", "Die Erstis hören dich und halten ihre Bag fest. Schleichen: %s Ctrl, %s -" % [Game.name_of(0), Game.name_of(1)], 5.0)
+		hud.toast("Psst! Zu laut!", "Die Erstis hören dich und halten ihre Bag fest. Schleichen: %s %s, %s %s" % [Game.name_of(0), KEYS.labels_for(0)["sneak"], Game.name_of(1), KEYS.labels_for(1)["sneak"]], 5.0)
 
 
 func make_noise(at: Vector2, radius: float) -> void:
@@ -743,6 +793,7 @@ func _update_near(i: int) -> void:
 
 
 func _interact(i: int) -> void:
+	last_actor = i
 	var pl = players[i]
 	if pl.hidden_mode:
 		pl.hidden_mode = false
@@ -1006,7 +1057,7 @@ func opp_catch(op, pl) -> void:
 				pl.enabled = true)
 		fx.sound(pl.global_position, 3.0 * TS, Color(1.0, 0.4, 0.4, 0.7), 0.8)
 		UI.sfx("fail")
-		hud.toast("Erwischt!", "%s hat die Beute zurück und passt jetzt besser auf. Hol sie dir nochmals, wenn niemand hinschaut." % op.pname, 4.5)
+		hud.toast("Erwischt!", "%s hat die Beute zurück und passt jetzt besser auf. Hol sie dir nochmals, wenn niemand hinschaut." % op.pname, 4.5, pid)
 		return
 	caught(op)
 
@@ -1033,7 +1084,7 @@ func _coop_done(id: String) -> void:
 	for pid in 2:
 		done[pid][id] = true
 	var tk: Dictionary = LV.task(id)
-	hud.celebrate(String(tk["name"]) + "!", "%s & %s" % [Game.name_of(0), Game.name_of(1)], UI.YELLOW, -1)
+	hud.celebrate(String(tk["name"]) + "!", "%s & %s" % [Game.name_of(0), Game.name_of(1)], UI.ETH_BLUE, -1)
 	_check_win()
 
 
@@ -1050,21 +1101,28 @@ func _check_win() -> void:
 
 func _win_day() -> void:
 	_close_minis()
-	state = "won"
+	state = "cutscene"            # until the end scene is over: no keys of the win card yet
 	for pl in players:
 		pl.enabled = false
 	var grade := 6.0 - 0.25 * mistakes_total - maxf(0.0, time_played - day_time * 0.5) / 30.0 * 0.25
 	grade = clampf(snappedf(grade, 0.25), 1.0, 6.0)
 	var verdict := "Hervorragend!" if grade >= 5.5 else ("Gut gemacht." if grade >= 4.5 else ("Bestanden." if grade >= 4.0 else "Knapp daneben."))
 	var t := int(time_played)
-	Game.add_grade(Game.level, grade, t, mistakes_total)   # for the transcript in the menu
+	var had: bool = Game.grade_of(Game.level) > 0.0
+	var best: bool = Game.add_grade(Game.level, grade, t, mistakes_total) and had   # kept for the transcript; "best" only if there was a grade before
 	var story: String = String(lv.get("win_text", "%s & %s haben den ersten Tag überlebt.")) % [Game.name_of(0), Game.name_of(1)]
 	var nxt := LV.next_after(Game.level)
 	var more := nxt > 0
-	hud.show_overlay(String(lv.get("win_title", "Ersti-Tag geschafft!")),
-		"%s\n\nNote %s · %s\nZeit: %d:%02d · Fehler: %d\n\nIn der Schweiz ist 6 die Bestnote, ab 4 ist bestanden." % [story, String.num(grade, 2), verdict, t / 60, t % 60, mistakes_total],
-		("Enter weiter · " if more else "") + "R nochmals spielen · M zum Startbildschirm",
-		"Weiter zu Level %d" % nxt if more else "Nochmals spielen", true, "win", "LEVEL %d" % Game.level)
+	# the sheet with the grade and the stamp (level_done.gd), then the card with the buttons
+	var ld = LevelDone.new()
+	add_child(ld)
+	ld.play({"level": Game.level, "tag": "LEVEL %d" % Game.level, "name": String(lv["name"]), "grade": grade, "time": t,
+		"mistakes": mistakes_total, "best": best}, func():
+		state = "won"
+		hud.show_overlay(String(lv.get("win_title", "Ersti-Tag geschafft!")),
+			"%s\n\nNote %s · %s\n\nIn der Schweiz ist 6 die Bestnote, ab 4 ist bestanden." % [story, String.num(grade, 2), verdict],
+			("Enter weiter · " if more else "") + "R nochmals spielen · M zum Startbildschirm",
+			"Weiter zu Level %d" % nxt if more else "Nochmals spielen", true, "win", "LEVEL %d" % Game.level))
 
 
 func _lose_day() -> void:
@@ -1102,8 +1160,9 @@ func _abort_mini(pid: int) -> void:
 ## Minigame for one player, on that player's half of the screen with that player's keys.
 func open_minigame(kind: String, params: Dictionary, on_success: Callable, pid: int = 0,
 		on_mistake: Callable = Callable(), on_close: Callable = Callable()) -> void:
+	last_actor = pid
 	var mg = MiniScript.new()
-	mg.screen_side = pid
+	mg.screen_side = minigame_side(pid)
 	mg.keys = KEYS.keys_for(pid)
 	mg.labels = KEYS.labels_for(pid)
 	mg.accent = Color(KEYS.TAG_COLORS[pid])
@@ -1139,7 +1198,7 @@ func open_coop_minigame(kind: String, params: Dictionary, on_success: Callable) 
 	mg.labels = KEYS.labels_for(0)
 	mg.keys2 = KEYS.keys_for(1)
 	mg.labels2 = KEYS.labels_for(1)
-	mg.accent = UI.YELLOW
+	mg.accent = UI.SKY
 	for j in 2:
 		minis[j] = mg
 		nears[j] = null
@@ -1343,17 +1402,20 @@ func _update_routes(delta: float) -> void:
 			k = -1
 		if k < 0 or busy(pid):
 			routes[pid] = []
+			route_aim[pid] = null
 			continue
 		var from: Vector2 = players[pid].global_position
 		route_t[pid] -= delta
+		route_age[pid] += delta
 		if route_t[pid] > 0.0:
-			if not routes[pid].is_empty():
-				routes[pid][0] = from   # the line starts at the feet, also between two searches
+			routes[pid] = _trim_route(routes[pid], from)   # between two searches the line gets shorter at the feet
+			route_aim[pid] = _route_aim(routes[pid], from)
 			continue
-		route_t[pid] = 0.35
+		route_t[pid] = 0.2
 		var best: Array = []
 		var best_len := INF
-		for target in task_targets(tasks[k]["id"], pid):
+		var targets: Array = task_targets(tasks[k]["id"], pid)
+		for target in targets:
 			var p: Array = world.find_path(from, target)
 			if p.size() > 1:
 				p.pop_front()   # the first tile is where the player stands anyway
@@ -1365,7 +1427,84 @@ func _update_routes(delta: float) -> void:
 			if total < best_len:
 				best_len = total
 				best = p
-		routes[pid] = best if best_len > 1.5 * TS else []   # standing in front of it: no line needed
+		var fresh: Array = world.smooth_path(best) if best_len > 1.5 * TS else []   # standing in front of it: no line needed
+		# stay on the way shown so far unless the new one is clearly shorter, so that two ways (or two
+		# places) of about the same length do not take turns every few steps
+		var cur: Array = _trim_route(routes[pid], from)
+		if not fresh.is_empty() and _route_still_good(cur, from, targets):
+			var cur_len := _route_len(cur)
+			if _route_len(fresh) > cur_len - maxf(ROUTE_SWITCH * TS, cur_len * 0.15):
+				fresh = cur
+		if _other_way(routes[pid], fresh):
+			route_age[pid] = 0.0
+		routes[pid] = fresh
+		route_aim[pid] = _route_aim(fresh, from)
+
+
+## The next door or corner on the way: walking along it from the feet, the last point that can
+## still be reached in a straight line. At least about 40 px ahead, so that next to a wall or a
+## bench it does not point at the player's own feet. null if there is no way (at the goal).
+func _route_aim(r: Array, from: Vector2):
+	if r.size() < 2:
+		return null
+	var aim: Vector2 = r[mini(5, r.size() - 1)]
+	var i := 6
+	while i < mini(r.size(), 160):   # up to about 40 tiles ahead, every second point
+		if not world.walk_clear(from, r[i], 6.0):
+			break
+		aim = r[i]
+		i += 2
+	if i >= r.size():
+		aim = r[r.size() - 1]   # the goal itself is in sight
+	return aim
+
+
+func _route_len(r: Array) -> float:
+	var total := 0.0
+	for j in range(1, r.size()):
+		total += (r[j - 1] as Vector2).distance_to(r[j])
+	return total
+
+
+## The way shown so far can still be followed: the player is on it, and it still ends at one of
+## the places where the task can be done (those can move, e.g. the other player for a high five).
+func _route_still_good(r: Array, from: Vector2, targets: Array) -> bool:
+	if r.size() < 3 or (r[1] as Vector2).distance_to(from) > 1.5 * TS:
+		return false
+	var end: Vector2 = r[r.size() - 1]
+	for tg in targets:
+		if end.distance_to(tg) < 2.5 * TS:
+			return true
+	return false
+
+
+## The way without the part the player has already walked: it starts at the feet again.
+func _trim_route(r: Array, from: Vector2) -> Array:
+	if r.size() < 3:
+		return r
+	var best := 0
+	var best_d := INF
+	for i in mini(r.size() - 1, 16):   # the nearest point within the first stretch
+		var d := (r[i] as Vector2).distance_squared_to(from)
+		if d < best_d:
+			best_d = d
+			best = i
+	var out: Array = r.slice(best + 1)
+	out.push_front(from)
+	return out
+
+
+## True if `b` is a different way than `a` and not just the same one a few steps on: measured
+## back from the goal (the points are about 8 px apart), the two are far from each other somewhere.
+func _other_way(a: Array, b: Array) -> bool:
+	if a.is_empty() or b.is_empty():
+		return a.is_empty() != b.is_empty()
+	for k in [0, 12, 40, 80, 140]:
+		if k >= a.size() or k >= b.size():
+			break
+		if (a[a.size() - 1 - k] as Vector2).distance_to(b[b.size() - 1 - k]) > 2.0 * TS:
+			return true
+	return false
 
 
 func time_left() -> float:

@@ -1,12 +1,14 @@
 extends RefCounted
 ## Two players on one keyboard. Physical key positions (US layout), so it works on Swiss keyboards too.
-## P1 (left hand side):  WASD move · E interact · Shift sprint · Ctrl sneak · Tab pick a task · Esc leave minigame · 1 2 3 answers
+## P1 (left hand side):  WASD move · E interact · Shift sprint · C sneak · Tab pick a task · Esc leave minigame · 1 2 3 answers
 ## P2 (right hand side): arrows move · Enter interact · . sprint · - (US: /) sneak · , pick a task · Backspace leave minigame · 8 9 0 answers
+## No key that is held is a modifier next to the other player's keys: Ctrl + arrow keys is a shortcut of the system
+## (macOS switches desktops), so sneaking with Ctrl threw both players out of the game.
 
 const PLAYER_KEYS := [
 	{
 		"up": [KEY_W], "down": [KEY_S], "left": [KEY_A], "right": [KEY_D],
-		"interact": [KEY_E, KEY_SPACE], "sprint": [KEY_SHIFT], "sneak": [KEY_CTRL], "select": [KEY_TAB],
+		"interact": [KEY_E, KEY_SPACE], "sprint": [KEY_SHIFT], "sneak": [KEY_C], "select": [KEY_TAB],
 		"abort": [KEY_ESCAPE], "nums": [KEY_1, KEY_2, KEY_3],
 	},
 	{
@@ -23,8 +25,8 @@ const SOLO_KEYS := {
 }
 
 const LABELS := [
-	{"ok": "E", "nums": "1 2 3", "dirs": "WASD", "abort": "Esc"},
-	{"ok": "Enter", "nums": "8 9 0", "dirs": "Pfeiltasten", "abort": "Backspace"},
+	{"ok": "E", "nums": "1 2 3", "dirs": "WASD", "abort": "Esc", "sprint": "Shift", "sneak": "C", "select": "Tab"},
+	{"ok": "Enter", "nums": "8 9 0", "dirs": "Pfeiltasten", "abort": "Backspace", "sprint": ".", "sneak": "-", "select": ","},
 ]
 const SOLO_LABELS := {"ok": "E oder Leertaste", "nums": "1 2 3", "dirs": "Pfeiltasten oder WASD", "abort": "Esc"}
 const KEY_NAMES := ["E", "Enter"]

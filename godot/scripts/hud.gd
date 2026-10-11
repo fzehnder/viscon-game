@@ -1,8 +1,8 @@
 extends CanvasLayer
-## Screen overlay in the playful style: one task card per player on that player's side of the
-## screen (P1 left, P2 right), level and timer top centre, mini map bottom centre,
-## interaction prompts, bouncy toasts, big "done!" celebrations with confetti, and the
-## start / win / lose screens.
+## Screen overlay as dark blue glass over the game (UI.GLASS, ui.gd): one task card per player on that player's side
+## of the screen (P1 left, P2 right) with that player's popups (toasts) right below it, level and timer
+## top centre, mini map bottom centre, interaction prompts, big "done!" celebrations with confetti,
+## and the start / win / lose screens.
 ## The HUD never moves with the split screen. The middle column (timer above, mini map below)
 ## stays clear of the players because main.gd keeps them closer to the centre vertically (FIT_Y).
 
@@ -33,13 +33,13 @@ var ab_fill: ColorRect
 # prompts per player: [panel, label, was_visible]
 var prompts: Array = []
 # toast
-var toast_p: PanelContainer
-var toast_h: Label
-var toast_b: Label
-var toast_t := 0.0
-var toast_tw: Tween
+# popups, one per player, under that player's task card: [panel, head label, body label]
+var toasts: Array = []
+var toast_t: Array = [0.0, 0.0]
+var toast_tw: Array = [null, null]
 # overlay
 var overlay: Control
+var ov_cc: CenterContainer     # holds the card; scaled down when the card would not fit on the screen
 var ov_card: PanelContainer
 var ov_tag: Label
 var ov_tag_p: PanelContainer
@@ -53,28 +53,41 @@ var arrows: Control
 var fx_layer: Control
 
 
-## Spinning star burst behind a celebration.
-class Burst:
+## Ink that flies out from under the stamp of a finished task when it comes down.
+class Splat:
 	extends Control
-	const UI2 = preload("res://scripts/ui.gd")
 	var col := Color.WHITE
-	var t := 0.0
+	var t := -1.0                 # seconds since the stamp hit (-1: not yet)
+	var drops: Array = []         # [angle, how far, radius, drawn out long]
+
+	func _init() -> void:
+		for i in 20:
+			drops.append([randf() * TAU, randf_range(170.0, 330.0), randf_range(3.5, 10.0), randf() < 0.4])
 
 	func _process(delta: float) -> void:
-		t += delta
-		queue_redraw()
+		if t >= 0.0:
+			t += delta
+			queue_redraw()
 
 	func _draw() -> void:
-		for i in 12:
-			var a := t * 0.8 + i * TAU / 12.0
-			var p1 := Vector2.from_angle(a - 0.12) * 40.0
-			var p2 := Vector2.from_angle(a + 0.12) * 40.0
-			var p3 := Vector2.from_angle(a) * 230.0
-			draw_colored_polygon(PackedVector2Array([p1, p3, p2]), Color(col, 0.16))
-		draw_colored_polygon(UI2.star_points(Vector2(-250, -10), 22, 9, t * 2.0), UI2.YELLOW)
-		draw_colored_polygon(UI2.star_points(Vector2(250, -10), 22, 9, -t * 2.0), UI2.YELLOW)
-		draw_colored_polygon(UI2.star_points(Vector2(-205, -60), 12, 5, -t * 3.0), UI2.PINK)
-		draw_colored_polygon(UI2.star_points(Vector2(210, 45), 12, 5, t * 3.0), UI2.GREEN)
+		if t < 0.0:
+			return
+		var out := 1.0 - pow(1.0 - clampf(t / 0.24, 0.0, 1.0), 3.0)     # fast at first, then it lands
+		var fade := clampf(1.0 - (t - 0.85) / 0.45, 0.0, 1.0)
+		var ring := clampf(t / 0.32, 0.0, 1.0)
+		if ring < 1.0:
+			draw_set_transform(Vector2.ZERO, 0.0, Vector2(1.0, 0.6))
+			draw_arc(Vector2.ZERO, 70.0 + 230.0 * ring, 0.0, TAU, 56, Color(col, 0.6 * (1.0 - ring)), 7.0 * (1.0 - ring) + 1.0, true)
+			draw_set_transform(Vector2.ZERO, 0.0, Vector2.ONE)
+		for d in drops:
+			var dirv := Vector2.from_angle(d[0])
+			var p: Vector2 = dirv * Vector2(1.0, 0.6) * float(d[1]) * out     # flatter than a circle: the stamp is wide
+			if d[3]:
+				draw_set_transform(p, dirv.angle(), Vector2(1.9, 0.75))
+				draw_circle(Vector2.ZERO, float(d[2]), Color(col, 0.9 * fade))
+				draw_set_transform(Vector2.ZERO, 0.0, Vector2.ONE)
+			else:
+				draw_circle(p, float(d[2]), Color(col, 0.9 * fade))
 
 
 ## Check box in front of a task: empty frame, filled with a tick once the task is done.
@@ -149,11 +162,7 @@ class MiniMap:
 					var po := _at(op.global_position)
 					draw_circle(po, 4.5 + sin(t * 12.0), UI2.RED)
 					draw_arc(po, 6.5, 0.0, TAU, 16, UI2.RED, 1.0)
-			# the dashed way to a picked task
-			for i in main.players.size():
-				var route: Array = main.routes[i]
-				for j in range(1, route.size()):
-					draw_dashed_line(_at(route[j - 1]), _at(route[j]), Color(KEYS2.TAG_COLORS[i]), 1.6, 3.0)
+			# the way to a picked task is not drawn here: the arrow around the player (fx.gd) shows it
 		# the two players, always on top
 		for i in main.players.size():
 			var pl = main.players[i]
@@ -168,7 +177,7 @@ func _bar(w: float, fill_col: Color) -> Array:
 	var bar := Control.new()
 	bar.custom_minimum_size = Vector2(w, 12)
 	var bg := ColorRect.new()
-	bg.color = Color(0, 0, 0, 0.35)
+	bg.color = Color(1, 1, 1, 0.12)
 	bg.size = Vector2(w, 12)
 	bar.add_child(bg)
 	var f := ColorRect.new()
@@ -217,18 +226,37 @@ func _ready() -> void:
 	# ---- top corners: the tasks of each player on that player's side (P1 left, P2 right)
 	for i in 2:
 		var pc := Color(KEYS.TAG_COLORS[i])
-		var card := UI.panel(UI.NAVY, pc, 18, 12)
-		card.custom_minimum_size = Vector2(236, 0)
-		root.add_child(card)
-		card.offset_top = 14
+		# column: the task card, below it this player's popup in the same width
+		var colm := VBoxContainer.new()
+		colm.add_theme_constant_override("separation", 8)
+		colm.mouse_filter = Control.MOUSE_FILTER_IGNORE
+		colm.custom_minimum_size = Vector2(236, 0)
+		root.add_child(colm)
+		colm.offset_top = 14
 		if i == 0:
-			card.offset_left = 16
+			colm.offset_left = 16
 		else:
-			card.anchor_left = 1.0
-			card.anchor_right = 1.0
-			card.offset_left = -252
-			card.offset_right = -16
-			card.grow_horizontal = Control.GROW_DIRECTION_BEGIN
+			colm.anchor_left = 1.0
+			colm.anchor_right = 1.0
+			colm.offset_left = -252
+			colm.offset_right = -16
+			colm.grow_horizontal = Control.GROW_DIRECTION_BEGIN
+		var card := UI.panel(UI.GLASS, pc, 14, 12)
+		colm.add_child(card)
+		var tp_ := UI.panel(UI.GLASS, UI.GLASS_LINE, 14, 12)
+		colm.add_child(tp_)
+		var tv := VBoxContainer.new()
+		tv.add_theme_constant_override("separation", 2)
+		tp_.add_child(tv)
+		var th := UI.label("", 17, UI.SKY)
+		th.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
+		th.custom_minimum_size = Vector2(200, 0)
+		tv.add_child(th)
+		var tb := UI.label("", 14, UI.ON_GLASS, 0, true)
+		tb.custom_minimum_size = Vector2(200, 0)
+		tv.add_child(tb)
+		tp_.visible = false
+		toasts.append([tp_, th, tb])
 		var v := VBoxContainer.new()
 		v.add_theme_constant_override("separation", 5)
 		card.add_child(v)
@@ -236,22 +264,22 @@ func _ready() -> void:
 		head.add_theme_constant_override("separation", 8)
 		v.add_child(head)
 		head.add_child(_pill(Game.name_of(i), pc, 14)[0])
-		var zl := UI.label("", 12, UI.MUTED)
+		var zl := UI.label("", 12, UI.ON_GLASS2)
 		zl.size_flags_horizontal = Control.SIZE_EXPAND_FILL
 		zl.clip_text = true
 		head.add_child(zl)
-		var cl := UI.label("", 13, UI.MUTED)
+		var cl := UI.label("", 13, UI.ON_GLASS2)
 		head.add_child(cl)
 		var box := VBoxContainer.new()
 		box.add_theme_constant_override("separation", 1)
 		v.add_child(box)
-		var hint_l := UI.label("%s: Weg zur Aufgabe zeigen" % KEYS.SELECT_NAMES[i], 11, UI.MUTED)
+		var hint_l := UI.label("%s: Weg zur Aufgabe zeigen" % KEYS.SELECT_NAMES[i], 11, UI.ON_GLASS2)
 		hint_l.visible = not main.night
 		v.add_child(hint_l)
 		cards.append([card, zl, cl, box])
 
-	# ---- top centre: level and timer (or the visibility meter at night). Yellow = for both.
-	timer_card = UI.panel(UI.NAVY, UI.YELLOW, 16, 8)
+	# ---- top centre: level and timer (or the visibility meter at night). ETH blue = for both.
+	timer_card = UI.panel(UI.GLASS, UI.GLASS_LINE, 14, 8)
 	root.add_child(timer_card)
 	timer_card.anchor_left = 0.5
 	timer_card.anchor_right = 0.5
@@ -266,14 +294,14 @@ func _ready() -> void:
 	head2.alignment = BoxContainer.ALIGNMENT_CENTER
 	head2.add_theme_constant_override("separation", 8)
 	v2.add_child(head2)
-	head2.add_child(_pill("LEVEL %d" % Game.level, UI.PINK, 11)[0])
-	title_l = UI.label("Nacht" if main.night else String(main.lv["name"]), 16, UI.YELLOW, 4)
+	head2.add_child(_pill("LEVEL %d" % Game.level, UI.ETH_BLUE, 11)[0])
+	title_l = UI.label("Nacht" if main.night else String(main.lv["name"]), 16, UI.SKY)
 	head2.add_child(title_l)
 	var row2 := HBoxContainer.new()
 	row2.alignment = BoxContainer.ALIGNMENT_CENTER
 	row2.add_theme_constant_override("separation", 10)
 	v2.add_child(row2)
-	meter_l = UI.label("", 20 if main.night else 28, UI.GREEN, 6)
+	meter_l = UI.label("", 20 if main.night else 28, UI.GREEN)
 	row2.add_child(meter_l)
 	var side := VBoxContainer.new()
 	side.alignment = BoxContainer.ALIGNMENT_CENTER
@@ -282,13 +310,13 @@ func _ready() -> void:
 	var mb := _bar(BAR_W, UI.GREEN)
 	side.add_child(mb[0])
 	meter_fill = mb[1]
-	meter_title = UI.label("SICHTBARKEIT" if main.night else String(main.lv.get("timer_title", "ZEIT BIS FEIERABEND")), 10, UI.MUTED)
+	meter_title = UI.label("SICHTBARKEIT" if main.night else String(main.lv.get("timer_title", "ZEIT BIS FEIERABEND")), 10, UI.ON_GLASS2)
 	side.add_child(meter_title)
-	status_l = UI.label("", 10, UI.MUTED)
+	status_l = UI.label("", 10, UI.ON_GLASS2)
 	side.add_child(status_l)
 
 	# ---- bottom centre: mini map of the campus with both players and what is still to do
-	var mp := UI.panel(UI.NAVY, UI.YELLOW, 12, 4)
+	var mp := UI.panel(UI.GLASS, UI.GLASS_LINE, 12, 4)
 	root.add_child(mp)
 	mp.anchor_left = 0.5
 	mp.anchor_right = 0.5
@@ -305,7 +333,7 @@ func _ready() -> void:
 	mp.add_child(minimap)
 
 	# ---- bottom-left: ability (night only)
-	ab_panel = UI.panel(UI.NAVY, UI.PURPLE, 16, 10)
+	ab_panel = UI.panel(UI.GLASS, UI.GLASS_LINE, 14, 10)
 	root.add_child(ab_panel)
 	ab_panel.anchor_top = 1.0
 	ab_panel.anchor_bottom = 1.0
@@ -315,9 +343,9 @@ func _ready() -> void:
 	ab_panel.grow_vertical = Control.GROW_DIRECTION_BEGIN
 	var av := VBoxContainer.new()
 	ab_panel.add_child(av)
-	ab_name = UI.label(main.ability["name"], 15, UI.WHITE)
+	ab_name = UI.label(main.ability["name"], 15, UI.ON_GLASS)
 	av.add_child(ab_name)
-	var abb := _bar(210, UI.PURPLE)
+	var abb := _bar(210, UI.SKY)
 	av.add_child(abb[0])
 	ab_fill = abb[1]
 	ab_panel.visible = main.night
@@ -325,7 +353,7 @@ func _ready() -> void:
 	# ---- bottom: one interaction prompt per player
 	for i in 2:
 		var pc := Color(KEYS.TAG_COLORS[i])
-		var pp := UI.panel(UI.NAVY, pc, 16, 8)
+		var pp := UI.panel(UI.GLASS, pc, 14, 8)
 		root.add_child(pp)
 		pp.anchor_left = 0.25 + 0.5 * i   # under the middle of each player's half
 		pp.anchor_right = 0.25 + 0.5 * i
@@ -340,31 +368,12 @@ func _ready() -> void:
 		pp.add_child(hb)
 		var key := _pill(KEYS.KEY_NAMES[i], pc, 16)
 		hb.add_child(key[0])
-		var pl_l := UI.label("", 18, UI.WHITE, 4)
+		var pl_l := UI.label("", 18, UI.ON_GLASS)
 		hb.add_child(pl_l)
 		pp.visible = false
 		prompts.append([pp, pl_l, false])
 
 	# ---- toast
-	toast_p = UI.panel(UI.NAVY, UI.YELLOW, 18, 14)
-	root.add_child(toast_p)
-	toast_p.anchor_left = 0.5
-	toast_p.anchor_right = 0.5
-	toast_p.anchor_top = 1.0
-	toast_p.anchor_bottom = 1.0
-	toast_p.offset_left = -270
-	toast_p.offset_right = 270
-	toast_p.offset_bottom = -112   # shows in front of the mini map for a few seconds
-	toast_p.offset_top = -210
-	toast_p.grow_vertical = Control.GROW_DIRECTION_BEGIN
-	var tv := VBoxContainer.new()
-	toast_p.add_child(tv)
-	toast_h = UI.label("", 21, UI.YELLOW, 5)
-	tv.add_child(toast_h)
-	toast_b = UI.label("", 16, UI.WHITE, 0, true)
-	toast_b.custom_minimum_size = Vector2(500, 0)
-	tv.add_child(toast_b)
-	toast_p.visible = false
 
 	# ---- celebration layer
 	fx_layer = Control.new()
@@ -378,39 +387,41 @@ func _ready() -> void:
 	overlay.set_anchors_and_offsets_preset(Control.PRESET_FULL_RECT)
 	overlay.mouse_filter = Control.MOUSE_FILTER_STOP
 	var dim := ColorRect.new()
-	dim.color = Color(0.05, 0.05, 0.12, 0.7)
+	dim.color = Color(0.02, 0.05, 0.12, 0.5)
 	overlay.add_child(dim)
 	dim.set_anchors_and_offsets_preset(Control.PRESET_FULL_RECT)
 	var cc := CenterContainer.new()
 	overlay.add_child(cc)
 	cc.set_anchors_and_offsets_preset(Control.PRESET_FULL_RECT)
-	ov_card = UI.panel(UI.NAVY, UI.YELLOW, 28, 26)
+	ov_cc = cc
+	root.resized.connect(_fit_overlay)
+	ov_card = UI.panel(UI.GLASS, UI.GLASS_LINE, 20, 26)
 	ov_card.mouse_filter = Control.MOUSE_FILTER_STOP
 	cc.add_child(ov_card)
 	var ov := VBoxContainer.new()
 	ov.add_theme_constant_override("separation", 12)
 	ov_card.add_child(ov)
-	var tp := _pill("", UI.PINK, 14)
+	var tp := _pill("", UI.ETH_BLUE, 14)
 	ov_tag_p = tp[0]
 	ov_tag = tp[1]
 	ov_tag_p.size_flags_horizontal = Control.SIZE_SHRINK_BEGIN
 	ov.add_child(ov_tag_p)
-	ov_title = UI.label("", 52, UI.YELLOW, 10)
+	ov_title = UI.label("", 48, UI.SKY)
 	ov.add_child(ov_title)
-	ov_body = UI.label("", 18, UI.WHITE, 0, true)
-	ov_body.custom_minimum_size = Vector2(640, 0)
+	ov_body = UI.label("", 18, UI.ON_GLASS, 0, true)
+	ov_body.custom_minimum_size = Vector2(780, 0)
 	ov.add_child(ov_body)
-	ov_hint = UI.label("", 14, UI.MUTED, 0, true)
-	ov_hint.custom_minimum_size = Vector2(640, 0)
+	ov_hint = UI.label("", 14, UI.ON_GLASS2, 0, true)
+	ov_hint.custom_minimum_size = Vector2(780, 0)
 	ov.add_child(ov_hint)
 	var brow := HBoxContainer.new()
 	brow.add_theme_constant_override("separation", 14)
 	ov.add_child(brow)
-	ov_btn = UI.button("", UI.GREEN, 24)
+	ov_btn = UI.button("", UI.ETH_BLUE, 24)
 	ov_btn.custom_minimum_size = Vector2(240, 60)
 	ov_btn.pressed.connect(func(): main.on_overlay_button())
 	brow.add_child(ov_btn)
-	ov_menu = UI.button("Startbildschirm", UI.PURPLE, 18)
+	ov_menu = UI.button("Startbildschirm", Color("4a5878"), 18)
 	ov_menu.custom_minimum_size = Vector2(200, 60)
 	ov_menu.pressed.connect(func(): main.on_overlay_menu())
 	brow.add_child(ov_menu)
@@ -419,15 +430,15 @@ func _ready() -> void:
 # ------------------------------------------------------------------ overlay
 ## kind: "info" (start), "win" (confetti + fanfare), "lose" (shake).
 func show_overlay(title: String, body: String, hint: String, button: String, with_menu: bool = false, kind: String = "info", tag: String = "") -> void:
-	var col := UI.YELLOW
-	var btn := UI.GREEN
+	var col := UI.SKY
+	var btn := UI.ETH_BLUE
 	match kind:
 		"win":
 			col = UI.GREEN
 		"lose":
 			col = UI.RED
-			btn = UI.ORANGE
-	ov_card.add_theme_stylebox_override("panel", UI.box(UI.NAVY, col, 28, 5, 26))
+			btn = UI.RED
+	ov_card.add_theme_stylebox_override("panel", UI.box(UI.GLASS, Color(col, 0.6), 20, 2, 26))
 	ov_title.text = title
 	ov_title.label_settings.font_color = col
 	ov_body.text = body
@@ -435,10 +446,12 @@ func show_overlay(title: String, body: String, hint: String, button: String, wit
 	ov_tag.text = tag
 	ov_tag_p.visible = tag != ""
 	ov_btn.text = button
-	ov_btn.add_theme_stylebox_override("normal", UI._btn_box(btn, 8, 10))
-	ov_btn.add_theme_stylebox_override("hover", UI._btn_box(btn.lightened(0.12), 8, 10))
+	ov_btn.add_theme_stylebox_override("normal", UI._btn_box(btn, 4, 10))
+	ov_btn.add_theme_stylebox_override("hover", UI._btn_box(btn.lightened(0.1), 4, 10))
 	ov_menu.visible = with_menu
 	overlay.visible = true
+	_fit_overlay()
+	_fit_overlay.call_deferred()   # once more when the new texts have been laid out
 	UI.pop_in(ov_card, 0.05)
 	match kind:
 		"win":
@@ -459,62 +472,119 @@ func hide_overlay() -> void:
 	overlay.visible = false
 
 
+## A card with a long text (mission description) can be taller than the screen: then the whole
+## card is shown smaller instead of running over the edge. The container is scaled, not the card,
+## because the card has its own pop-in animation.
+func _fit_overlay() -> void:
+	if ov_cc == null or not overlay.visible:
+		return
+	var vs: Vector2 = root.size
+	var need: Vector2 = ov_card.get_combined_minimum_size()
+	var k := minf(1.0, minf((vs.x - 36.0) / maxf(need.x, 1.0), (vs.y - 36.0) / maxf(need.y, 1.0)))
+	ov_cc.pivot_offset = vs / 2.0
+	ov_cc.scale = Vector2(k, k)
+
+
 # ------------------------------------------------------------------ toast + celebrate
-func toast(head: String, body: String, dur: float = 5.0) -> void:
-	toast_h.text = head
-	toast_b.text = body
-	toast_t = dur
-	if toast_tw and toast_tw.is_valid():
-		toast_tw.kill()
-	toast_p.visible = true
-	toast_p.modulate.a = 1.0
-	UI.pop_in(toast_p, 0.0, 0.8)
+## Popup under the task card of player `pid`. Without `pid` it goes to whoever acted last
+## (main.last_actor: interacting, a minigame), so level code needs no changes.
+func toast(head: String, body: String, dur: float = 5.0, pid: int = -1) -> void:
+	if pid < 0:
+		pid = int(main.last_actor) if "last_actor" in main else 0
+	pid = clampi(pid, 0, 1)
+	var tp_: PanelContainer = toasts[pid][0]
+	(toasts[pid][1] as Label).text = head
+	(toasts[pid][2] as Label).text = body
+	toast_t[pid] = dur
+	if toast_tw[pid] and (toast_tw[pid] as Tween).is_valid():
+		(toast_tw[pid] as Tween).kill()
+	tp_.visible = true
+	tp_.modulate.a = 1.0
+	UI.pop_in(tp_, 0.0, 0.8)
 	UI.sfx("pop", -12.0)
 
 
-## Big "done!" moment: star burst, bouncing title, confetti and a chime.
+## A task is done: a slip of paper with the stamp "ERLEDIGT" in the player's colour comes down,
+## slanted, ink flies, a chime. Short, and nothing is held up by it.
 ## side: 0 = left half, 1 = right half, -1 = middle of the screen.
 func celebrate(title: String, sub: String, col: Color, side: int = -1) -> void:
 	var vs: Vector2 = root.size
+	var wide := vs.x if side < 0 else vs.x / 2.0
 	var cx := vs.x / 2.0 if side < 0 else vs.x * (0.25 + 0.5 * side)
 	var center := Vector2(cx, vs.y * 0.38)
 	var holder := Control.new()
 	holder.mouse_filter = Control.MOUSE_FILTER_IGNORE
 	holder.position = center
 	fx_layer.add_child(holder)
-	var burst := Burst.new()
-	burst.col = col
-	burst.mouse_filter = Control.MOUSE_FILTER_IGNORE
-	holder.add_child(burst)
-	var big := UI.label(title, 50, col, 12)
-	big.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
-	big.position = Vector2(-400, -62)
-	big.size = Vector2(800, 70)
-	holder.add_child(big)
-	var done_l := UI.label("ERLEDIGT!", 24, UI.WHITE, 7)
-	done_l.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
-	done_l.position = Vector2(-400, -100)
-	done_l.size = Vector2(800, 34)
-	holder.add_child(done_l)
+	# the colour of the stamp: the player's, or one that reads on paper (yellow does not)
+	var ink: Color = col.darkened(0.12) if col.get_luminance() < 0.6 else UI.WARN
+	var splat := Splat.new()
+	splat.col = ink
+	splat.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	holder.add_child(splat)
+	var turn := Control.new()      # the part that slams down; its origin is the middle of the stamp
+	turn.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	holder.add_child(turn)
+	var cc := CenterContainer.new()
+	cc.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	cc.position = Vector2(-450, -220)
+	cc.size = Vector2(900, 440)
+	turn.add_child(cc)
+	var v := VBoxContainer.new()
+	v.add_theme_constant_override("separation", 10)
+	v.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	cc.add_child(v)
+	# a slip of paper with a double frame, as a stamp leaves it: the task small, the word big
+	var plate := PanelContainer.new()
+	plate.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	plate.size_flags_horizontal = Control.SIZE_SHRINK_CENTER
+	plate.add_theme_stylebox_override("panel", UI.box(UI.PAPER, ink, 14, 6, 6, true))
+	v.add_child(plate)
+	var inner := PanelContainer.new()
+	inner.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	var isb := StyleBoxFlat.new()
+	isb.bg_color = Color(0, 0, 0, 0)
+	isb.border_color = ink
+	isb.set_border_width_all(2)
+	isb.set_corner_radius_all(8)
+	isb.content_margin_left = 22
+	isb.content_margin_right = 22
+	isb.content_margin_top = 6
+	isb.content_margin_bottom = 4
+	inner.add_theme_stylebox_override("panel", isb)
+	plate.add_child(inner)
+	var pv := VBoxContainer.new()
+	pv.add_theme_constant_override("separation", -8)
+	inner.add_child(pv)
+	var task := UI.label(title, 22, UI.INK, 0, true)
+	task.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
+	task.custom_minimum_size = Vector2(minf(400.0, wide - 150.0), 0)
+	pv.add_child(task)
+	var word := UI.label("ERLEDIGT", 68, ink)
+	word.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
+	pv.add_child(word)
 	var small := UI.label(sub, 20, UI.WHITE, 6)
 	small.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
-	small.position = Vector2(-400, 14)
-	small.size = Vector2(800, 30)
-	holder.add_child(small)
-	holder.scale = Vector2(0.15, 0.15)
-	holder.rotation = -0.25
+	v.add_child(small)
+	turn.scale = Vector2(2.9, 2.9)
+	turn.rotation = -0.42
+	turn.modulate.a = 0.0
 	var tw := holder.create_tween()
-	tw.set_parallel(true)
-	tw.tween_property(holder, "scale", Vector2(1.12, 1.12), 0.32).set_trans(Tween.TRANS_BACK).set_ease(Tween.EASE_OUT)
-	tw.tween_property(holder, "rotation", 0.04, 0.32).set_trans(Tween.TRANS_BACK).set_ease(Tween.EASE_OUT)
-	tw.chain().tween_property(holder, "scale", Vector2.ONE, 0.18)
-	tw.chain().tween_property(holder, "rotation", 0.0, 0.12)
-	tw.chain().tween_interval(1.1)
-	tw.chain().tween_property(holder, "position", center + Vector2(0, -60), 0.45).set_trans(Tween.TRANS_SINE)
-	tw.parallel().tween_property(holder, "modulate:a", 0.0, 0.45)
-	tw.chain().tween_callback(holder.queue_free)
-	UI.confetti(fx_layer, center + Vector2(0, 30), 90, true, 80.0, 1.0)
-	UI.sfx("success")
+	tw.tween_property(turn, "scale", Vector2.ONE, 0.13).set_trans(Tween.TRANS_QUAD).set_ease(Tween.EASE_IN)
+	tw.parallel().tween_property(turn, "rotation", -0.09, 0.13)
+	tw.parallel().tween_property(turn, "modulate:a", 1.0, 0.07)
+	tw.tween_callback(func():
+		splat.t = 0.0
+		UI.sfx("stamp", -3.0)
+		UI.sfx("success", -10.0)
+		UI.confetti(fx_layer, center + Vector2(0, 20), 46, true, 80.0, 0.85)
+		UI.shake(holder, 10.0))
+	tw.tween_property(turn, "scale", Vector2(0.93, 0.93), 0.05)
+	tw.tween_property(turn, "scale", Vector2.ONE, 0.14).set_trans(Tween.TRANS_BACK).set_ease(Tween.EASE_OUT)
+	tw.tween_interval(1.05)
+	tw.tween_property(holder, "modulate:a", 0.0, 0.35)
+	tw.parallel().tween_property(holder, "position", center + Vector2(0, -40), 0.35).set_trans(Tween.TRANS_SINE)
+	tw.tween_callback(holder.queue_free)
 
 
 # ------------------------------------------------------------------ task cards
@@ -552,7 +622,7 @@ func _build_tasks(pid: int, objs: Array) -> void:
 		tick.size_flags_vertical = Control.SIZE_SHRINK_CENTER
 		tick.mouse_filter = Control.MOUSE_FILTER_IGNORE
 		row.add_child(tick)
-		var l := UI.label(String(o[0]), 16, UI.WHITE)
+		var l := UI.label(String(o[0]), 16, UI.ON_GLASS)
 		row.add_child(l)
 		task_rows[pid].append([rowp, tick, l, sb, false])
 
@@ -572,18 +642,18 @@ func _update_tasks() -> void:
 			var active: bool = true if per_player else o[2]
 			if on:
 				n_done += 1
-			# half done (bag taken, not out of the room yet): a note behind the name, in yellow
+			# half done (bag taken, not out of the room yet): a note behind the name, in orange
 			var note: String = String(o[3][pid]) if (per_player and o.size() > 3 and not on) else ""
 			var text := String(o[0]) + ("  ·  " + note if note != "" else "")
 			if (r[2] as Label).text != text:
 				(r[2] as Label).text = text
-			var col := UI.GREEN if on else (UI.WHITE if active else Color(1, 1, 1, 0.35))
-			(r[2] as Label).label_settings.font_color = UI.YELLOW if note != "" else col
+			var col := UI.GREEN if on else (UI.ON_GLASS if active else Color(UI.ON_GLASS, 0.35))
+			(r[2] as Label).label_settings.font_color = UI.ORANGE if note != "" else col
 			var sel: bool = main.picked[pid] == k
 			if sel != r[4]:
 				r[4] = sel
 				var pc := Color(KEYS.TAG_COLORS[pid])
-				(r[3] as StyleBoxFlat).bg_color = Color(pc, 0.3) if sel else Color(0, 0, 0, 0)
+				(r[3] as StyleBoxFlat).bg_color = Color(pc, 0.16) if sel else Color(0, 0, 0, 0)
 				(r[3] as StyleBoxFlat).border_color = pc if sel else Color(0, 0, 0, 0)
 				if sel:
 					UI.pop_in(r[0], 0.0, 0.85)
@@ -612,7 +682,7 @@ func refresh(delta: float) -> void:
 			c = UI.RED
 			txt = "ENTDECKT!"
 		elif m > 0.05:
-			c = UI.YELLOW
+			c = UI.ORANGE
 			txt = "VERDÄCHTIG"
 		meter_l.text = txt
 		meter_l.label_settings.font_color = c
@@ -625,7 +695,7 @@ func refresh(delta: float) -> void:
 		var left: float = main.time_left()
 		var frac: float = left / main.day_total()
 		meter_l.text = "%d:%02d" % [int(left) / 60, int(left) % 60]
-		var c2 := UI.GREEN if frac > 0.4 else (UI.YELLOW if frac > 0.15 else UI.RED)
+		var c2 := UI.GREEN if frac > 0.4 else (UI.ORANGE if frac > 0.15 else UI.RED)
 		meter_l.label_settings.font_color = c2
 		meter_fill.color = c2
 		meter_fill.size = Vector2(BAR_W * frac, 12)
@@ -657,14 +727,18 @@ func refresh(delta: float) -> void:
 			UI.pop_in(pp, 0.0, 0.7)
 		prompts[i][2] = vis
 
-	if toast_t > 0.0:
-		toast_t -= delta
-		if toast_t <= 0.0:
-			toast_tw = toast_p.create_tween()
-			toast_tw.tween_property(toast_p, "modulate:a", 0.0, 0.25)
-			toast_tw.tween_callback(func():
-				if toast_t <= 0.0:
-					toast_p.visible = false)
+	for i in 2:
+		if toast_t[i] > 0.0:
+			toast_t[i] -= delta
+			if toast_t[i] <= 0.0:
+				var tp_: PanelContainer = toasts[i][0]
+				var tw := tp_.create_tween()
+				toast_tw[i] = tw
+				tw.tween_property(tp_, "modulate:a", 0.0, 0.25)
+				var idx := i
+				tw.tween_callback(func():
+					if toast_t[idx] <= 0.0:
+						tp_.visible = false)
 	blackout.visible = main.blackout_t > 0.0
 	arrows.queue_redraw()
 
@@ -681,11 +755,11 @@ func _draw_arrows() -> void:
 		var label: String = String(p.pname).replace("Prof. Dr. ", "")
 		if on_screen:
 			arrows.draw_arc(sp + Vector2(0, -26), 28.0, 0.0, TAU, 32, UI.BLUE, 2.0)
-			arrows.draw_string(font, sp + Vector2(-40, -62), label, HORIZONTAL_ALIGNMENT_LEFT, -1, 13, UI.WHITE)
+			arrows.draw_string(font, sp + Vector2(-40, -62), tr(label), HORIZONTAL_ALIGNMENT_LEFT, -1, 13, UI.WHITE)
 			continue
 		var dirv := (sp - centre).normalized()
 		var edge := centre + dirv * minf(absf((vs.x / 2.0 - 46) / dirv.x) if absf(dirv.x) > 0.001 else 1e9,
 			absf((vs.y / 2.0 - 46) / dirv.y) if absf(dirv.y) > 0.001 else 1e9)
 		var pv := Vector2(-dirv.y, dirv.x)
 		arrows.draw_colored_polygon(PackedVector2Array([edge + dirv * 16, edge - dirv * 8 + pv * 11, edge - dirv * 8 - pv * 11]), UI.BLUE)
-		arrows.draw_string(font, edge - dirv * 30 + Vector2(-36, 4), label, HORIZONTAL_ALIGNMENT_LEFT, -1, 13, UI.WHITE)
+		arrows.draw_string(font, edge - dirv * 30 + Vector2(-36, 4), tr(label), HORIZONTAL_ALIGNMENT_LEFT, -1, 13, UI.WHITE)

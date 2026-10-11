@@ -54,7 +54,7 @@ Anzeigen: Die Aufgaben stehen auf der Seite der jeweiligen Person, links für P1
 | Interagieren / Minigame | E | Enter |
 | Sprinten (2 s, lädt in ca. 3 s auf) | Shift | . |
 | Aufgabe wählen, Weg anzeigen | Tab | , |
-| Schleichen | Ctrl | - (US-Layout: /) |
+| Schleichen | C | - (US-Layout: /) |
 | Minigame abbrechen | Esc | Backspace |
 | Antworten | 1 2 3 | 8 9 0 |
 

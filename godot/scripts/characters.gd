@@ -10,6 +10,13 @@ const SKIN_TONES := ["f5d6bd", "f1c9a5", "e0ac85", "c68863", "9c6644", "6f4a33"]
 const TOP_COLORS := ["2f4f8f", "e07a2f", "3e7d4f", "3b3f46", "a33b5c", "d9a441", "e9ece8", "5d3f7a"]
 const PANTS_COLORS := ["2d3a52", "3b3f46", "6b5440", "1f1f24", "4f6b8a", "7a6450"]
 # top styles: tshirt, hoodie, overall, labcoat, jacket, sweater
+# what the players can choose in the character design (skin_menu.gd), with the names shown there
+const PLAYER_TOPS := ["tshirt", "hoodie", "sweater", "jacket"]
+const TOP_NAMES := {"tshirt": "T-Shirt", "hoodie": "Hoodie", "sweater": "Pulli", "jacket": "Jacke", "overall": "Overall", "labcoat": "Labormantel"}
+const HAIR_NAMES := {"kurz": "Kurz", "lang": "Lang", "zopf": "Zopf", "dutt": "Dutt", "locken": "Locken", "cap": "Cap", "glatze": "Glatze"}
+const EXTRAS := ["", "glasses", "headphones", "beard", "goggles"]      # one accessory to pick; "" = none
+const EXTRA_NAMES := {"": "nichts", "glasses": "Brille", "headphones": "Kopfhörer", "beard": "Bart", "goggles": "Schutzbrille"}
+const SHOE_COLORS := ["1f1f24", "e9ece8", "3b2a1e", "6b5440", "a33b5c", "2f4f8f", "3e7d4f"]
 # accessories: goggles, headphones, glasses, backpack, toolbelt, laptop, flashlight, beard, lanyard, erstibag, tray, loot
 
 

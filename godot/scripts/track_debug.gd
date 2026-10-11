@@ -96,7 +96,7 @@ func _at(x: float, y: float) -> Vector2:
 
 
 func _text(pos: Vector2, s: String, size: int = 16, c: Color = UI.WHITE) -> void:
-	draw_string(ThemeDB.fallback_font, pos, s, HORIZONTAL_ALIGNMENT_LEFT, -1, size, c)
+	draw_string(ThemeDB.fallback_font, pos, tr(s), HORIZONTAL_ALIGNMENT_LEFT, -1, size, c)
 
 
 func _bar(pos: Vector2, v: float, c: Color, label: String) -> void:
