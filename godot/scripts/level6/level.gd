@@ -8,6 +8,7 @@ extends Node2D
 
 const ExamScript = preload("res://scripts/level6/exam.gd")
 const Cutscene = preload("res://scripts/cutscene.gd")
+const Erwischt = preload("res://scripts/level6/erwischt.gd")
 
 const DEF := {
 	"name": "Basisprüfung",
@@ -72,10 +73,21 @@ func _on_exam_done(won: bool, info: Dictionary) -> void:
 		if who >= 0:
 			title = "Erwischt!"
 			body = "Der Streber hat %s beim Abschreiben gesehen und die Aufsicht gerufen. Beide Prüfungen werden eingezogen." % Game.name_of(who)
-		main.hud.visible = true
-		main.hud.show_overlay(title, body, "R nochmals versuchen · M zum Startbildschirm", "Nochmals versuchen", true, "lose", String(DEF["tag"]))
 		layer.queue_free()
 		exam = null
+		var card := func():
+			main.state = "lost"
+			main.hud.visible = true
+			main.hud.show_overlay(title, body, "R nochmals versuchen · M zum Startbildschirm", "Nochmals versuchen", true, "lose", String(DEF["tag"]))
+		if who >= 0:
+			# caught copying: first the supervisor makes clear how serious this is (erwischt.gd)
+			main.state = "cutscene"
+			var sc = Erwischt.new()
+			sc.who = who
+			main.add_child(sc)
+			sc.play(card)
+		else:
+			card.call()
 		return
 	main.mistakes_total = int(info["near"])   # close calls lower the grade a little
 	layer.queue_free()
