@@ -11,6 +11,7 @@ extends Control
 ##   "tips": ["...", "..."]     shown instead of the general tips
 ##   "sky": "abend"             dusk instead of day ("mode" decides between day and night otherwise)
 ##   "ride": "ethlink"          the ETH-Link up to Hönggerberg instead of the Polybahn
+##   "motif": false             no round frame with the motif of the level
 
 signal finished
 
@@ -160,10 +161,11 @@ func _draw() -> void:
 	if secs > 0 and String(lv.get("mode", "day")) != "night":
 		_text(Vector2(68.0, 208.0), "%s %d:%02d" % [String(lv.get("timer_title", "ZEIT")), secs / 60, secs % 60], 20, Color.WHITE, HORIZONTAL_ALIGNMENT_LEFT, 6)
 	# the motif of the level in a round frame
-	var mc := Vector2(900.0, 152.0)
-	draw_circle(mc, 92.0, Color(UI.NAVY, 0.92))
-	draw_arc(mc, 92.0, 0.0, TAU, 64, UI.PAPER, 5.0, true)
-	_motif(mc + Vector2(0, sin(t * 2.2) * 4.0))
+	if bool(lv.get("motif", true)):
+		var mc := Vector2(900.0, 152.0)
+		draw_circle(mc, 92.0, Color(UI.NAVY, 0.92))
+		draw_arc(mc, 92.0, 0.0, TAU, 64, UI.PAPER, 5.0, true)
+		_motif(mc + Vector2(0, sin(t * 2.2) * 4.0))
 	# tip and how far it is
 	var tipw := ThemeDB.fallback_font.get_string_size(tr("Tipp: " + tip), HORIZONTAL_ALIGNMENT_LEFT, -1, 18).x
 	draw_style_box(UI.box(UI.PAPER, UI.ETH_BLUE, 10, 2, 0, false), Rect2(40.0, 662.0, tipw + 36.0, 40.0))
