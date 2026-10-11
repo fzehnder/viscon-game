@@ -28,7 +28,7 @@ const EN := {
 	"D-HEST  ·  Riesenslalom  ·  2 Läufe": "D-HEST  ·  giant slalom  ·  2 runs",
 	"%s: %.2f s · Note %s": "%s: %.2f s · grade %s",
 	"Gut gefahren.": "Well skied.",
-	"%s\n%s\n\nNote %s · %s\nVerpasste Tore: %d\n\nIn der Schweiz ist 6 die Bestnote, ab 4 ist bestanden.": "%s\n%s\n\nGrade %s · %s\nMissed gates: %d\n\nIn Switzerland 6 is the best grade, 4 or more is a pass.",
+	"%s\n%s\n\nNote %s · %s\nVerpasste Tore: %d": "%s\n%s\n\nGrade %s · %s\nMissed gates: %d",
 	"Verpasste Tore: %d": "Missed gates: %d",
 	"R nochmals fahren · L Leistungsüberblick · M zum Startbildschirm": "R ski again · L transcript · M start screen",
 	"Enter weiter · R nochmals fahren · L Leistungsüberblick · M zum Startbildschirm": "Enter continue · R ski again · L transcript · M start screen",

@@ -29,9 +29,9 @@ const DEF := {
 	"time": 180.0,
 	"start": Vector2(22.4, 61.3),   # on the Polyterrasse, in front of the Mensa door
 	"timer_title": "MENSA SCHLIESST IN",
-	"intro": "Mittag! Die Schlange in der Mensa ist endlos, und die Ausgabe macht gleich zu. Hinten anstellen reicht nie. Beide müssen alles erledigen:",
-	"hint": "Wie im Stau: Rückt jemand auf, braucht die Person dahinter einen Moment (grüne Blase). Genau dann leise in die Lücke schleichen.",
-	"start_toast": ["Ab in die Mensa!", "Stellt euch neben die Schlange, wartet auf eine Lücke und schleicht hinein. Vorne an der Kasse passt die Kassiererin auf."],
+	"intro": "Mittag! Die Schlange in der Mensa ist endlos, und die Ausgabe macht gleich zu. Beide müssen alles erledigen:",
+	"hint": "",   # how the queue works shows itself, no explanation on the card (wish of the team, 11.10.2026)
+	"start_toast": ["Ab in die Mensa!", "Die Ausgabe macht gleich zu."],
 	"win_title": "Satt und angemeldet",
 	"win_text": "%s & %s haben sich ein Menü erdrängelt. Die Basisprüfung gibt es gratis dazu.",
 	"lose_title": "Mensa geschlossen",
@@ -689,7 +689,7 @@ func on_noise(at: Vector2, radius: float) -> void:
 		m.alert_t = maxf(m.alert_t, ALERT)
 	if any and not hint_noise and main.time_played > 8.0:
 		hint_noise = true
-		main.hud.toast("Psst! Zu laut!", "Wer euch hört, passt auf und rückt sofort nach. Schleichen: %s Ctrl, %s -" % [Game.name_of(0), Game.name_of(1)], 5.0)
+		main.hud.toast("Psst! Zu laut!", "Wer euch hört, passt auf und rückt sofort nach. Schleichen: %s %s, %s %s" % [Game.name_of(0), KEYS.labels_for(0)["sneak"], Game.name_of(1), KEYS.labels_for(1)["sneak"]], 5.0)
 
 
 func update_near(pid: int) -> void:

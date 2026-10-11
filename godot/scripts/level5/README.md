@@ -14,7 +14,7 @@ Story-Level nach dem Chemiepraktikum (4) und vor der Basisprüfung (7). Nachts i
    - **4 Schrauben:** Daumen und Zeigefinger zusammen (der Schraubenzieher) und mit der Hand Kreise drehen, zwei Umdrehungen pro Schraube. Gezählt wird der Winkel der Fingerspitze um die Mitte ihrer letzten Positionen.
    - **3 Kabel:** Faust machen (packen) und die Hand ruckartig nach unten reissen, **zweimal pro Kabel** (der erste Ruck lockert es, der zweite reisst es heraus, mit Funken). Ein Ruck: 16 % der Bildhöhe nach unten in einer halben Sekunde, gemessen ab dem höchsten Punkt der Faust; langsames Ziehen zählt nicht. Verwischt die Faust beim Ruck kurz, hält der Griff trotzdem 0,6 s; eine Hand, die beim Ruck aus dem Bild fliegt, zählt.
    - Ohne Kamera (oder mit K): links und rechts im Wechsel drehen die Schraube; E bzw. Enter packt ein Kabel, runter reisst es.
-   - Danach sind die Kameras **kaputt** (hängen schief, Funken, Rauch), die Bürotür geht mit der Karte auf, und ein **Countdown von 60 Sekunden** läuft: riesige Zahl in der Bildmitte, die jede Sekunde aufpoppt und zittert, ein roter Rand, der mit der Zeit dicker wird und pulsiert, das ganze Bild wackelt immer stärker (`SHAKE_MAX`), Ticken, ab 20 s doppelt so schnell, in den letzten 10 s rote Blitze und «SCHNELL! / RAUS!». Bei 0 bemerkt der Sicherheitsdienst den Ausfall: Alarm, die Wachen rennen zum Kameraraum. Die Kameras bleiben kaputt.
+   - Danach sind die Kameras **kaputt** (hängen schief, Funken, Rauch), die Bürotür geht mit der Karte auf, und ein **Countdown von 90 Sekunden** läuft (bis zum 11.10.2026 waren es 60, das reichte auch im idealen Lauf nicht): riesige Zahl in der Bildmitte, die jede Sekunde aufpoppt und zittert, ein roter Rand, der mit der Zeit dicker wird und pulsiert, das ganze Bild wackelt immer stärker (`SHAKE_MAX`), Ticken, ab 20 s doppelt so schnell, in den letzten 10 s rote Blitze und «SCHNELL! / RAUS!». Bei 0 bemerkt der Sicherheitsdienst den Ausfall: Alarm, die Wachen rennen zum Kameraraum. Die Kameras bleiben kaputt.
 8. **Am Computer des Profs** (`grade_pc.gd`, auf der eigenen Bildschirmhälfte): Notenliste mit acht Abgaben in zufälliger Reihenfolge, zwei davon mit einer 6. Hoch/runter wählen, E/Enter öffnet; dann den Namen eintippen, indem man E/Enter hämmert, zuerst den eigenen, dann bei der zweiten 6 den der anderen Person. **Eine Person reicht.** Eine falsche Abgabe öffnen piept laut: Die Wachen in der Nähe hören es und kommen. Esc bzw. Rücktaste: weg vom PC.
 9. Sind beide Namen drin, knallt irgendwo eine Tür: Die Wachen werden schneller und sehen weiter.
 10. **In den ETH-Link:** an der Bustür E/Enter, sobald der eigene Name bei der 6 steht. Sind beide drin: Cutscene, Sieg.
@@ -41,7 +41,7 @@ Zeit: 7 Minuten bis zum letzten ETH-Link.
 | `PULL`, `PULL_TIME`, `YANKS` (`vent_game.gd`) | 0.16, 0.5 s, 2 | so weit und so schnell muss die Faust nach unten, Rucke pro Kabel |
 | `GRIP_HOLD`, `LOST_RIP` (`vent_game.gd`) | 0.6 s, 0.6 | Griff hält trotz Unschärfe; ab diesem Anteil zählt ein Ruck aus dem Bild |
 | `SHAKE_MAX` | 9 px | Wackeln des Bildes am Ende des Countdowns |
-| `REBOOT_TIME` | 60 s | nach dem Kabelreissen, bis der Sicherheitsdienst es bemerkt (Alarm) |
+| `REBOOT_TIME` | 90 s | nach dem Kabelreissen, bis der Sicherheitsdienst es bemerkt (Alarm) |
 | `Cam.BOOT` (`watch.gd`) | 0.7 s | Flackern nach dem Loslassen, bevor die Kameras wieder schauen |
 | `SAW_YOU` | 0.35 | ab diesem Verdacht hat die Wache das Verstecken gesehen |
 | `CHARS_PER_PRESS` | 2 | Buchstaben pro Tastendruck beim Eintippen |

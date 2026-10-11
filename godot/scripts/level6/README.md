@@ -60,7 +60,7 @@ Es gibt keine neue Karte. Die Bib ist der Nordflügel des Hauptgebäudes, wie er
 | Fensterplatz | Tisch 3 Südseite links, bei (74.93, 34.35) |
 | Reservierte Plätze | Jacke: Tisch 2 Südseite links. Mäppli: Tisch 3 Nordseite rechts. Laptop: Tisch 2 Nordseite rechts |
 | Noah, Lara, Yannick (denen die Sachen gehören) | (79.5, 22.45), (84.5, 22.45), (85.3, 25.4), im Pavillon |
-| Plätze für Opps aus früheren Levels | (82.5, 22.45), (78.6, 25.4), (86.4, 28.5), älteste zuerst, alle lauernd |
+| Plätze für Opps aus früheren Levels | (82.5, 22.45), (78.6, 25.4), (80.9, 22.45), älteste zuerst, alle lauernd, alle drei im Pavillon (der dritte stand zuerst am Ostende des Gangs neben dem Steckdosenturm und beendete dort das Level) |
 
 Wer wo sitzt, steht als Liste `SEATS` oben in `level.gd`: pro Stuhl Tisch, Stuhl am Tisch, Seite und wer dort ist (jemand, der lernt, eine Person aus `DEF.npcs`, oder die id der Person, die den Platz reserviert hat).
 

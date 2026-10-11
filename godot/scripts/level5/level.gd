@@ -32,7 +32,8 @@ const CHECK_TIME := 1.2             # a suspicious guard next to your cupboard o
 const CHECK_NEAR := 1.7             # ... when he is this close (tiles)
 const SAW_YOU := 0.35               # hiding while a guard's suspicion is above this: he saw it
 const DANGER_NEAR := 5.0            # heartbeat and red edges from this distance (tiles)
-const REBOOT_TIME := 60.0           # after the cables are out: seconds until security notices (alarm)
+const REBOOT_TIME := 90.0           # after the cables are out: seconds until security notices (alarm). 60 was not
+                                    # enough even for a perfect run (about 58 s to get out of the west wing unseen)
 const SHAKE_MAX := 9.0              # px the picture shakes in the last seconds of the countdown
 const ROOM_SEE := 0.35              # the cameras in the camera room raise the alarm after this long
 const ROOM := Rect2(16, 9, 12, 15)  # the camera room (tiles)
@@ -502,7 +503,7 @@ func _break_cams() -> void:
 	if not main.done[0].has("cams"):
 		main._coop_done("cams")
 	UI.sfx("grant")
-	main.hud.toast("Kameras kaputt! 60 Sekunden", "Bis der Sicherheitsdienst den Ausfall bemerkt. Ins Büro, beide Namen bei der 6 und raus aus dem Westflügel!", 5.0)
+	main.hud.toast("Kameras kaputt! 90 Sekunden", "Bis der Sicherheitsdienst den Ausfall bemerkt. Ins Büro, beide Namen bei der 6 und raus aus dem Westflügel!", 5.0)
 
 
 # ------------------------------------------------------------------ interaction

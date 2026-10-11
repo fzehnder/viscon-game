@@ -32,6 +32,7 @@ const READ_FROM := 0.8          # view this far over: reading
 const WRITE_BELOW := 0.2        # view less than this: typing
 const SEEN_FROM := 0.35         # a watcher catches you from this far over
 const LOST_WARN := 1.0          # seconds without a face before the warning
+const CAM_WAIT := 6.0           # calibration: seconds without a camera picture until the keys take over
 # ---- Streber
 const WRITE_TIME := Vector2(3.5, 6.0)    # seconds he writes before getting restless (shrinks with alert)
 const TELL_TIME := Vector2(0.8, 0.3)     # warning time at alert 0 and 1
@@ -63,7 +64,8 @@ const INK := Color("1c1d33")
 
 var main
 var font: Font
-var keys_ok := false           # --exam-keys
+var keys_ok := false           # the keys count as well: no camera (see _process_calib), K, or --exam-keys
+var no_cam_t := 0.0
 var phase := "calib"           # calib, exam, caught, done
 var t := 0.0
 var phase_t := 0.0
@@ -212,6 +214,14 @@ func _process(delta: float) -> void:
 ## Before the exam: both have to be in the picture and turn their head towards the Streber once;
 ## that sets the direction (the camera picture may be mirrored). No camera, no exam.
 func _process_calib(delta: float) -> void:
+	# No camera or no tracker: after a moment the keys take over, as in every camera minigame
+	# (P1 holds A, P2 holds the right arrow to look over). K switches them on by hand. Whoever
+	# turns the head in front of a camera that comes later still plays with the camera.
+	if not keys_ok:
+		no_cam_t = 0.0 if Track.alive else no_cam_t + delta
+		if no_cam_t >= CAM_WAIT or (not Track.alive and Track.status.begins_with("kein")) or Input.is_physical_key_pressed(KEY_K):
+			keys_ok = true
+			UI.sfx("pop")
 	var ready_n := 0
 	for pid in 2:
 		_update_view(pid, delta)
@@ -590,8 +600,10 @@ func _draw_hud(ci: Control, pid: int) -> void:
 			hint = "Dreh den Kopf nach %s zum Streber!" % way if not is_nan(_head(pid)) else "Setz dich vor die Kamera"
 			if wrong_t[pid] > 0.3:
 				hint = "Andere Richtung! Nach %s!" % way
+			if keys_ok and not Track.alive:
+				hint = "Keine Kamera: halte %s" % ("A" if pid == 0 else "Pfeil rechts")
 		elif view[pid] >= WRITE_BELOW:
-			hint = "Gut! Jetzt wieder nach vorne"
+			hint = "Gut! Jetzt loslassen" if yaw_sign[pid] == 2 else "Gut! Jetzt wieder nach vorne"
 		else:
 			hint = "Bereit"
 	elif phase == "exam":
@@ -624,7 +636,8 @@ func _draw_over(ci: Control) -> void:
 			_text(ci, Vector2(0, h * 0.2 + 42), "Für diese Prüfung braucht es die Kamera. %s" % Track.status, 20, UI.RED, w, HORIZONTAL_ALIGNMENT_CENTER)
 			_text(ci, Vector2(0, h * 0.2 + 70), "Einrichtung: tracker/README.md (uv installieren, einmal uv run tracker/tracker.py --selftest)", 16, UI.WHITE, w, HORIZONTAL_ALIGNMENT_CENTER)
 		else:
-			_text(ci, Vector2(0, h * 0.2 + 40), "Kopf zum Streber: spicken · Kopf zum eigenen Bildschirm: eintippen", 18, UI.WHITE, w, HORIZONTAL_ALIGNMENT_CENTER)
+			_text(ci, Vector2(0, h * 0.2 + 40), "Taste halten: zum Streber schauen · loslassen: eintippen" if (keys_ok and not Track.alive)
+				else "Kopf zum Streber: spicken · Kopf zum eigenen Bildschirm: eintippen", 18, UI.WHITE, w, HORIZONTAL_ALIGNMENT_CENTER)
 			_text(ci, Vector2(0, h * 0.2 + 66), "Der Streber zuckt, bevor er sich umdreht. Die Aufsicht steht auf, bevor sie in die Halle schaut.", 17, UI.WHITE, w, HORIZONTAL_ALIGNMENT_CENTER)
 			_text(ci, Vector2(0, h * 0.2 + 92), "Wer mit gedrehtem Kopf erwischt wird, fliegt, und ihr beide mit.", 17, UI.ORANGE, w, HORIZONTAL_ALIGNMENT_CENTER)
 	if shout != "" and phase != "calib":

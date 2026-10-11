@@ -136,11 +136,13 @@ const DEF := {
 			"bag_name": "Steckdosenturm", "bag_acc": "l6_turm", "bag_col": "e9ece8"},
 	],
 	# Opps from earlier levels come back here, oldest first: two between the shelves of the
-	# pavilion, the third at the east end of the aisle.
+	# pavilion, the third next to them.
 	"opp_spots": [
 		{"pos": Vector2(82.5, 22.45), "face": PI / 2.0, "mode": "lauert"},
 		{"pos": Vector2(78.6, 25.4), "face": 0.0, "mode": "lauert"},
-		{"pos": Vector2(86.4, 28.5), "face": PI, "mode": "lauert"},
+		# (the third one stood at the east end of the aisle, 3 tiles from the socket tower and the exit:
+		# whoever worked at the tower was caught within seconds, and that ends the level)
+		{"pos": Vector2(80.9, 22.45), "face": 0.0, "mode": "lauert"},
 	],
 	"tasks": [
 		{"id": "platz", "name": "Platz besetzen", "where": "Reservation wegräumen, hinsetzen, 10 Sekunden sitzen bleiben", "type": "level"},

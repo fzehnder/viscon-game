@@ -106,7 +106,7 @@ func finale(_done: Callable) -> void:
 	var nxt := LV.next_after(Game.level)
 	var more := nxt > 0
 	main.hud.show_overlay(String(DEF["win_title"]),
-		"%s\n%s\n\nNote %s · %s\nVerpasste Tore: %d\n\nIn der Schweiz ist 6 die Bestnote, ab 4 ist bestanden." % [
+		"%s\n%s\n\nNote %s · %s\nVerpasste Tore: %d" % [
 			String(DEF["win_text"]) % [Game.name_of(0), Game.name_of(1)], lines, String.num(grade, 2), verdict, misses],
 		("Enter weiter · " if more else "") + "R nochmals fahren · L Leistungsüberblick · M zum Startbildschirm",
 		"Weiter zu Level %d" % nxt if more else "Nochmals fahren", true, "win", String(DEF["tag"]))

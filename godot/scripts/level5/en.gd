@@ -75,7 +75,7 @@ const EN := {
 	"Eine Kamera hat euch gesehen. Der Sicherheitsdienst rennt hin. Versteckt euch!": "A camera saw you. Security is running there. Hide!",
 	"Der Sicherheitsdienst hat es bemerkt!": "Security noticed!",
 	"Alle rennen zum Kameraraum. Weg da!": "Everyone is running to the camera room. Get away!",
-	"Kameras kaputt! 60 Sekunden": "Cameras down! 60 seconds",
+	"Kameras kaputt! 90 Sekunden": "Cameras down! 90 seconds",
 	"Bis der Sicherheitsdienst den Ausfall bemerkt. Ins Büro, beide Namen bei der 6 und raus aus dem Westflügel!": "Until security notices the outage. Into the office, both names next to the 6 and out of the west wing!",
 	"Die Bürotür hängt an der Sicherheitsanlage. Erst den Kameraraum lahmlegen: Lüftungsschacht im Technikraum am Nordgang.": "The office door is wired to the security system. Knock out the camera room first: ventilation shaft in the plant room on the north corridor.",
 	"Der Leser will eine Karte. Die Ersatzkarte liegt in der Campus Info.": "The reader wants a card. The spare card is in the campus info.",

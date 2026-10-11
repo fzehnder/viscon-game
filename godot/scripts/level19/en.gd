@@ -28,7 +28,7 @@ const EN := {
 	"Absage": "Rejected",
 	"•  %s: %s": "•  %s: %s",
 	"%s & %s haben es versucht. Diesmal hat es mit dem Job nicht geklappt.": "%s & %s gave it a try. This time the job didn't work out.",
-	"%s\n\nEure Bewerbung:%s\n\nNote %s · %s\n\nIn der Schweiz ist 6 die Bestnote, ab 4 ist bestanden.": "%s\n\nYour application:%s\n\nGrade %s · %s\n\nIn Switzerland 6 is the best grade, 4 or more is a pass.",
+	"%s\n\nEure Bewerbung:%s\n\nNote %s · %s": "%s\n\nYour application:%s\n\nGrade %s · %s",
 	"Eure Bewerbung:%s": "Your application:%s",
 	"Eure Bewerbung:": "Your application:",
 	"R neu starten · L Leistungsüberblick · M zum Startbildschirm": "R restart · L transcript · M start screen",

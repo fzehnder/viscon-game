@@ -141,7 +141,7 @@ class Overlay:
 	## second and shake, a red edge that gets thicker, red flashes in the last ten seconds.
 	func _countdown(vs: Vector2) -> void:
 		var left: float = level.reboot_t
-		var k := clampf(1.0 - left / 60.0, 0.0, 1.0)            # 0 at the start, 1 at the end
+		var k := clampf(1.0 - left / float(level.REBOOT_TIME), 0.0, 1.0)   # 0 at the start, 1 at the end
 		var urgent := left < 10.0
 		var sec_frac := fmod(left, 1.0)                           # 1 -> 0 within each second
 		var pop := 1.0 + 0.35 * pow(sec_frac, 3.0)                # every new second jumps big

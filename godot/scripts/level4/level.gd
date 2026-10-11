@@ -168,7 +168,8 @@ const BOTTLES := ["8c5a2b", "2f5d8c", "e9ece8", "3e7d4f", "b7352d", "d9a441", "5
 const LIQUIDS := ["3ddc97", "ff8c42", "4d8dff", "ff5d8f", "ffc93c", "9b6bff"]
 const LIQUID := Color("4d8dff")   # what the players pipette
 
-static var attempts := 0      # failed Testate in a row: survives the reload, the professor remembers
+static var attempts := 0      # failed Testate in a row: survives the reload, the professor remembers. Kept with the
+                              # game (Game.electives, "l4_attempts"), so a new game starts at zero again
 
 var main
 var t := 0.0
@@ -267,6 +268,7 @@ static func build_map(md) -> void:
 
 # ================================================================== setup
 func _ready() -> void:
+	attempts = int(Game.elective("l4_attempts", 0))
 	z_index = -5   # floor decoration and furniture: above the map, below the characters
 	rng.randomize()
 	sfx = LabSfx.new()
@@ -793,6 +795,7 @@ func _fail(pid: int, k: int, got: int, why: String) -> void:
 		return
 	failing = true
 	attempts += 1
+	Game.set_elective("l4_attempts", attempts)
 	desk_failed = k
 	if k >= 0:
 		desk_props[k].queue_redraw()
@@ -1029,6 +1032,7 @@ func on_noise(at: Vector2, radius: float) -> void:
 ## Called by main.gd when every task is done: a short scene, then the win screen.
 func finale(done: Callable) -> void:
 	attempts = 0
+	Game.set_elective("l4_attempts", 0)
 	main.state = "cutscene"
 	main.hud.visible = false
 	for pl in main.players:

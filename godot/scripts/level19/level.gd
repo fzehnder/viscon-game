@@ -117,7 +117,7 @@ func finale(_done: Callable) -> void:
 		story = "%s & %s haben den Job bei %s nicht bekommen." % [Game.name_of(0), Game.name_of(1),
 			String(JOBS.job(String(a["id"])).get("name", a["id"]))]
 	main.hud.show_overlay(title,
-		"%s\n\nEure Bewerbung:%s\n\nNote %s · %s\n\nIn der Schweiz ist 6 die Bestnote, ab 4 ist bestanden." % [
+		"%s\n\nEure Bewerbung:%s\n\nNote %s · %s" % [
 			story, jobs, String.num(grade, 2), verdict],
 		"R neu starten · L Leistungsüberblick · M zum Startbildschirm",
 		"Neu starten", true, "win" if passed else "lose", String(DEF["tag"]))

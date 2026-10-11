@@ -18,7 +18,7 @@ const DEF := {
 	"course": "252-0007-00 L", "ects": 8, "block": "B",
 	"start": Vector2(26.0, 42.0),
 	"intro": "Prüfungstag in der ONA-Halle, Computerprüfung. Gelernt habt ihr nichts, aber neben euch sitzt der Streber des Jahrgangs.\n\nSetzt euch nebeneinander vor die Kamera. Dreht den Kopf zu ihm (links sitzende Person nach links, rechts sitzende nach rechts), um auf seinen Bildschirm zu schauen, und wieder nach vorne, um es einzutippen. Der Streber zuckt, bevor er sich umdreht, die Aufsicht steht auf, bevor sie in die Halle schaut. Wer mit gedrehtem Kopf erwischt wird, fliegt, und ihr beide mit.",
-	"hint": "Diese Prüfung geht nur mit Kamera.",
+	"hint": "Am besten mit Kamera. Ohne Kamera: A bzw. Pfeil rechts halten, um zum Streber zu schauen.",
 	"start_toast": ["Prüfung", "Viel Glück."],
 	"win_title": "Basisprüfung bestanden!",
 	"win_text": "%s & %s haben die Basisprüfung bestanden. Wie, fragt besser niemand.",
