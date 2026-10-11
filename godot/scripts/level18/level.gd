@@ -63,6 +63,13 @@ const DEF := {
 # ---- tuning
 const REACH := 0.9            # tiles: this close to a place it can be used, from any side
 const PARTNER_DIST := 3.0     # tiles: everything here needs the second player this close
+# the beat of the party is heard from the start and gets louder the closer one comes (wish of the team:
+# the way to the party has to be heard clearly)
+const BEAT_NEAR := -6.0       # dB in the middle of the dance floor
+const BEAT_FAR := -34.0       # dB at BEAT_REACH tiles from there, and further away
+const BEAT_FULL := 1.5        # tiles around the middle in which it is at its loudest
+const BEAT_REACH := 15.0
+const BEAT_WALL := 8.0        # dB less as long as nobody is inside
 const BPM := 120.0
 
 # ---- places
@@ -98,6 +105,7 @@ var guests: Array = []
 var dj_scores: Array = []     # [P1, P2] once the DJ battle is over
 var dance_scores: Array = []
 var hint_bouncer := false
+var beat_db := -40.0
 
 
 # ================================================================== map
@@ -151,7 +159,26 @@ func _person(look: Dictionary, at: Vector2, facing: int, dancing: bool):
 
 func _process(delta: float) -> void:
 	t += delta
+	_beat(delta)
 	queue_redraw()
+
+
+## How loud the party is: by how far the nearer player is from the middle of the dance floor, and
+## duller through the wall. The three games set the beat themselves while they are open.
+func _beat(delta: float) -> void:
+	if main == null or not (String(main.state) in ["intro", "play"]) or main.minis[0] != null or main.minis[1] != null:
+		return
+	var d := INF
+	var inside := false
+	for pl in main.players:
+		var p: Vector2 = pl.global_position / TS
+		d = minf(d, p.distance_to(FLOOR_MID))
+		inside = inside or MENSA.has_point(p)
+	var db := lerpf(BEAT_NEAR, BEAT_FAR, clampf((d - BEAT_FULL) / BEAT_REACH, 0.0, 1.0)) - (0.0 if inside else BEAT_WALL)
+	beat_db = lerpf(beat_db, db, 1.0 - exp(-delta / 0.35))
+	if not sfx.beat_p.playing:
+		sfx.beat_on(beat_db)
+	sfx.beat_p.volume_db = beat_db
 
 
 # ================================================================== opening the three games

@@ -34,6 +34,7 @@ const LANE_DIRS := [Vector2(-1, 0), Vector2(0, 1), Vector2(0, -1), Vector2(1, 0)
 const P1_LETTERS := ["A", "S", "W", "D"]
 
 var sfx = null
+var ambience := "none"         # for scripts/ambience.gd: this game brings its own beat
 var clock := 0.0
 var notes: Array = []                    # {"t": seconds, "lane": 0..3}
 var state: Array = [[], []]              # per player and note: 0 = coming, 1 = hit, 2 = missed
