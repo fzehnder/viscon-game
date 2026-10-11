@@ -56,6 +56,7 @@ const KEY_SAME := 0.35
 
 var first := 0                 # who dances first
 var sfx = null
+var ambience := "none"         # for scripts/ambience.gd: this game brings its own beat
 var mode := "wait"             # wait (for the camera), cam, keys
 var wait_t := 0.0
 var chose_keys := false

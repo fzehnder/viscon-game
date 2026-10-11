@@ -54,6 +54,7 @@ var clack := 0.0
 
 func _ready() -> void:
 	set_anchors_and_offsets_preset(Control.PRESET_FULL_RECT)
+	add_to_group("loading_screen")   # Ambience plays the ride while a loading screen is up
 	mouse_filter = Control.MOUSE_FILTER_IGNORE
 	if standalone:
 		Game._apply_level()
