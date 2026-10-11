@@ -4,7 +4,9 @@ extends RefCounted
 
 # ------------------------------------------------------------------ design options
 # hair styles understood by character_art.gd
-const HAIR_STYLES := ["kurz", "lang", "zopf", "dutt", "locken", "cap", "glatze"]
+const HAIR_STYLES := ["kurz", "lang", "zopf", "dutt", "locken", "cap", "glatze", "bob", "afro", "zoepfe", "iro", "scheitel", "muetze"]
+# what somebody in a crowd wears (random_student): everything but the bald head
+const CROWD_HAIR := ["kurz", "lang", "zopf", "dutt", "locken", "cap", "bob", "afro", "zoepfe", "scheitel", "muetze", "iro"]
 const HAIR_COLORS := ["2b2018", "5a3a22", "8a3b22", "c9a46a", "e8d9b0", "1a1a1a", "b8b8b8", "6b2d8f"]
 const SKIN_TONES := ["f5d6bd", "f1c9a5", "e0ac85", "c68863", "9c6644", "6f4a33"]
 const TOP_COLORS := ["2f4f8f", "e07a2f", "3e7d4f", "3b3f46", "a33b5c", "d9a441", "e9ece8", "5d3f7a"]
@@ -13,7 +15,8 @@ const PANTS_COLORS := ["2d3a52", "3b3f46", "6b5440", "1f1f24", "4f6b8a", "7a6450
 # what the players can choose in the character design (skin_menu.gd), with the names shown there
 const PLAYER_TOPS := ["tshirt", "hoodie", "sweater", "jacket"]
 const TOP_NAMES := {"tshirt": "T-Shirt", "hoodie": "Hoodie", "sweater": "Pulli", "jacket": "Jacke", "overall": "Overall", "labcoat": "Labormantel"}
-const HAIR_NAMES := {"kurz": "Kurz", "lang": "Lang", "zopf": "Zopf", "dutt": "Dutt", "locken": "Locken", "cap": "Cap", "glatze": "Glatze"}
+const HAIR_NAMES := {"kurz": "Kurz", "lang": "Lang", "zopf": "Zopf", "dutt": "Dutt", "locken": "Locken", "cap": "Cap", "glatze": "Glatze",
+	"bob": "Bob", "afro": "Afro", "zoepfe": "Zöpfe", "iro": "Irokese", "scheitel": "Mittelscheitel", "muetze": "Mütze"}
 const EXTRAS := ["", "glasses", "headphones", "beard", "goggles"]      # one accessory to pick; "" = none
 const EXTRA_NAMES := {"": "nichts", "glasses": "Brille", "headphones": "Kopfhörer", "beard": "Bart", "goggles": "Schutzbrille"}
 const SHOE_COLORS := ["1f1f24", "e9ece8", "3b2a1e", "6b5440", "a33b5c", "2f4f8f", "3e7d4f"]
@@ -88,7 +91,7 @@ static func random_student(rng: RandomNumberGenerator) -> Dictionary:
 	if rng.randf() < 0.15: accs.append("headphones")
 	if rng.randf() < 0.1: accs.append("laptop")
 	return {"skin": SKIN_TONES[rng.randi() % SKIN_TONES.size()], "hair": HAIR_COLORS[rng.randi() % 6],
-		"hair_style": HAIR_STYLES[rng.randi() % 6], "top": TOP_COLORS[rng.randi() % TOP_COLORS.size()],
+		"hair_style": CROWD_HAIR[rng.randi() % CROWD_HAIR.size()], "top": TOP_COLORS[rng.randi() % TOP_COLORS.size()],
 		"top_style": styles[rng.randi() % styles.size()], "accent": TOP_COLORS[rng.randi() % TOP_COLORS.size()],
 		"pants": PANTS_COLORS[rng.randi() % PANTS_COLORS.size()], "shoes": ["1f1f24", "e9ece8", "6b5440", "a33b5c"][rng.randi() % 4],
 		"acc": accs}

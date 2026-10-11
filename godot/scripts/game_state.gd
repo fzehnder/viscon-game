@@ -36,7 +36,6 @@ var names: Array = ["", ""]
 var photos: Array = [null, null]      # Texture2D from the camera, or null (then the character is drawn)
 var legi_ids: Array = ["26-622-806", "26-706-606"]
 var birthdays: Array = ["01.11.2005", "06.06.2006"]
-var surnames: Array = ["", ""]        # optional, only shown on the Legi
 var programmes: Array = [0, 1]        # index into PROGRAMMES, chosen with the character design
 var player_looks: Array = []
 
