@@ -36,6 +36,7 @@ const KEYS = preload("res://scripts/controls.gd")
 const LevelDone = preload("res://scripts/level_done.gd")
 const LV = preload("res://scripts/levels.gd")
 const UI = preload("res://scripts/ui.gd")
+const Scold = preload("res://scripts/scold.gd")
 const Transcript = preload("res://scripts/transcript.gd")
 const PauseMenu = preload("res://scripts/pause_menu.gd")
 const TS := 32.0
@@ -1116,6 +1117,7 @@ func opp_catch(op, pl) -> void:
 		fx.sound(pl.global_position, 3.0 * TS, Color(1.0, 0.4, 0.4, 0.7), 0.8)
 		UI.sfx("fail")
 		hud.toast("Erwischt!", "%s hat die Beute zurück und passt jetzt besser auf. Hol sie dir nochmals, wenn niemand hinschaut." % op.pname, 4.5, pid)
+		Scold.tell(self, pid, op.look, op.pname, Scold.line(Scold.BAG, op.bag_name), "bag")   # the owner has a word with you
 		return
 	caught(op)
 
@@ -1282,6 +1284,8 @@ func open_coop_minigame(kind: String, params: Dictionary, on_success: Callable) 
 
 func _on_mini_mistake(pid: int) -> void:
 	mistakes_total += 1
+	if pid >= 0:      # a small moment of shame, not more often than every few seconds
+		Scold.tell(self, pid, players[pid].look, Game.name_of(pid), Scold.line(Scold.OOPS), "oops", true)
 	var at: Vector2 = (players[0].global_position + players[1].global_position) / 2.0
 	if pid >= 0:
 		at = players[pid].global_position
