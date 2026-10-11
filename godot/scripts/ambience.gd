@@ -18,7 +18,9 @@ extends Node
 ##   "ambience": {"music": false}                       room sounds, but no music from here
 ##   "ambience": {"zones": {"Mensa Polyterrasse": "none", "Lounge": "office"}}   rooms by name
 ##   "ambience": {"all": "lecture"}                     one kind of room everywhere
-## Levels that bring their own sound world and say nothing are listed in QUIET.
+##   "ambience": {"rest": "none"}                       every room that is not named in "zones"
+##   "ambience": {"tasks": false}                       no tune for working in the minigames (silence)
+## What levels get that say nothing themselves is listed in LEVELS.
 ##
 ## Switch it off for a test run: -- --noambience
 
@@ -34,7 +36,12 @@ const RIDE_DB := -17.0         # the ride on the loading screen
 const GAIN_DB := 10.0          # everything from here, louder or quieter: the one knob to turn
 const MUSIC_DB := -21.0
 const DUCK_STATE := -7.0       # start card, cutscene, win and lose card: this much quieter
-const QUIET := {3: "own music (level3/musik.gd)", 19: "listens to the microphone", 20: "own scene"}
+# for levels that say nothing in their DEF (their own "ambience" wins)
+const LEVELS := {
+	3: {"music": false, "tasks": false, "rest": "none", "zones": {"Mensa Polyterrasse": "kitchen"}},   # Polyball: its own music (level3/musik.gd); the Mensa is the kitchen of the ball and sounds like one
+	19: false,                                # Freelancing listens to the microphone
+	20: {"music": false, "all": "ski"},       # Skiing: wind and trees on the slope, nothing else
+}
 
 # kind of room -> beds {name: dB}, single sounds [name, shortest gap s, longest gap s, dB], echo 0..1, music
 # The beds are kept low on purpose (first round of listening: too much rustling, above all in the
@@ -48,7 +55,9 @@ const KINDS := {
 	"lecture": {"beds": {"roomtone": -42.0}, "shots": [["chalk", 5.0, 11.0, -27.0], ["page", 8.0, 18.0, -29.0], ["steps", 12.0, 26.0, -24.0], ["clock", 2.0, 2.0, -31.0]], "wet": 0.3},
 	"library": {"beds": {"roomtone": -44.0}, "shots": [["page", 5.0, 12.0, -29.0], ["clock", 2.0, 2.0, -29.0], ["keys", 8.0, 20.0, -27.0]], "wet": 0.22},
 	"lab": {"beds": {"hood": -43.0}, "shots": [["bubble", 2.0, 5.0, -19.0], ["glass", 4.0, 10.0, -22.0], ["beep", 9.0, 20.0, -25.0], ["keys", 12.0, 26.0, -27.0]], "wet": 0.14},
-	"canteen": {"beds": {"murmur": -31.0, "kitchen": -42.0}, "shots": [["cutlery", 1.2, 3.2, -16.0], ["plates", 2.5, 6.0, -18.0], ["drop", 8.0, 18.0, -14.0], ["glass", 3.0, 7.0, -23.0], ["bell", 14.0, 30.0, -22.0]], "wet": 0.25},
+	"canteen": {"beds": {"murmur": -33.0, "kitchen": -44.0}, "shots": [["clink", 1.0, 2.6, -11.0], ["cutlery", 1.5, 3.5, -14.0], ["plates", 2.5, 6.0, -15.0], ["drop", 8.0, 18.0, -12.0], ["bell", 14.0, 30.0, -22.0]], "wet": 0.12},
+	"kitchen": {"beds": {"kitchen": -42.0}, "shots": [["clink", 1.2, 3.0, -11.0], ["cutlery", 1.5, 3.5, -14.0], ["plates", 2.0, 5.0, -14.0], ["chop", 4.0, 9.0, -17.0], ["drop", 8.0, 18.0, -12.0]], "wet": 0.12},
+	"ski": {"beds": {"wind": -29.0, "trees": -33.0}, "shots": [], "wet": 0.0},
 	"office": {"beds": {"fan": -42.0}, "shots": [["keys", 2.0, 6.0, -23.0], ["clock", 2.0, 2.0, -29.0], ["page", 12.0, 26.0, -30.0]], "wet": 0.05},
 	"lounge": {"beds": {"roomtone": -44.0}, "shots": [["glass", 6.0, 14.0, -24.0]], "wet": 0.1, "music": "lounge"},
 	# at night
@@ -65,9 +74,9 @@ const ROOMS := [
 	["polybahn", "polybahn"], ["strasse", "street"], ["gasse", "street"], ["haltestelle", "street"],
 ]
 const OUTSIDE := ["outside", "street", "polybahn"]
-const BEDS := ["wind", "night", "roomtone", "murmur", "kitchen", "hood", "fan", "ride", "bus"]
+const BEDS := ["wind", "night", "roomtone", "murmur", "kitchen", "hood", "fan", "ride", "bus", "trees"]
 const SHOTS := ["bird", "bird2", "tram", "car", "steps", "door", "chalk", "page", "clock", "keys", "bubble", "glass", "plates", "bell", "owl",
-	"cutlery", "drop", "beep", "arrive", "hiss"]
+	"cutlery", "drop", "beep", "arrive", "hiss", "clink", "chop"]
 const SONGS := ["menu", "day", "suspense", "chase", "lounge", "task"]
 
 var enabled := true
@@ -166,12 +175,14 @@ func _process(delta: float) -> void:
 			music = "menu"
 	else:
 		var lv: Dictionary = LV.level()
-		var opt = lv.get("ambience", not QUIET.has(LV.current))
+		var opt = lv.get("ambience", LEVELS.get(LV.current, true))
+		var o: Dictionary = opt if opt is Dictionary else {}
 		var task := _task(main)
+		if task != "" and not bool(o.get("tasks", true)):
+			task = "none"
 		if (opt is bool and not opt) or task == "none" or main.world == null:
 			main = null
 		else:
-			var o: Dictionary = opt if opt is Dictionary else {}
 			var night: bool = String(lv.get("mode", "day")) == "night" or String(lv.get("sky", "")) == "night"
 			for pl in main.players:
 				if not is_instance_valid(pl):
@@ -275,6 +286,9 @@ func _kind(zone: String, o: Dictionary, night: bool) -> String:
 	var zones: Dictionary = o.get("zones", {})
 	if zones.has(zone):
 		kind = String(zones[zone])
+		by_level = true
+	elif not by_level and o.has("rest"):
+		kind = String(o["rest"])
 		by_level = true
 	elif not by_level:
 		var z := zone.to_lower()
@@ -384,6 +398,8 @@ static func make(sound: String, r: RandomNumberGenerator) -> PackedFloat32Array:
 			return _norm(_air(4.0, r, 230.0, 1.0, 600.0, 100.0), 0.8)
 		"fan":
 			return _norm(_air(4.0, r, 380.0, 0.6, 800.0, 120.0), 0.8)
+		"trees":
+			return _norm(_trees(7.0, r), 0.8)
 		"ride":
 			return _norm(_ride(4.8, r, false), 0.8)
 		"bus":
@@ -549,6 +565,22 @@ static func _air(secs: float, r: RandomNumberGenerator, fc: float, damp: float, 
 	return _wrap(b, n)
 
 
+## Wind in firs: a soft hiss that comes in waves and never stays the same for long.
+static func _trees(secs: float, r: RandomNumberGenerator) -> PackedFloat32Array:
+	var n := int(secs * RATE)
+	var m := n + (RATE >> 1)
+	var leaves := _band(m, r, 2600.0, 1.3)
+	var needles := _band(m, r, 4200.0, 1.1)
+	var b := _zeros(m)
+	var flutter := 0.5
+	for i in m:
+		var t := float(i) / n
+		flutter += 0.0004 * (r.randf() - flutter)
+		var wave := maxf(0.0, 0.35 + 0.4 * sin(TAU * t + 0.6) + 0.25 * sin(TAU * 2.0 * t + 2.1) + 0.2 * sin(TAU * 5.0 * t))
+		b[i] = (leaves[i] + needles[i] * 0.5) * wave * (0.6 + flutter)
+	return _wrap(b, n)
+
+
 ## The ride on the loading screen. Polybahn: a low rumble and the wheels over the joints of the
 ## rails, two knocks at a time. Bus: the engine and the road.
 static func _ride(secs: float, r: RandomNumberGenerator, bus: bool) -> PackedFloat32Array:
@@ -586,6 +618,32 @@ static func _tone(b: PackedFloat32Array, t0: float, dur: float, f0: float, f1: f
 		var x := float(k) / cnt
 		ph += TAU * lerpf(f0, f1, x) / RATE
 		b[i0 + k] += sin(ph) * vol * exp(-decay * x) * minf(1.0, k / 40.0) * minf(1.0, (cnt - k) / 60.0)
+
+
+## Something hard is struck and rings: a tone that is there at once (no soft start, that is what
+## makes it sharp) and dies away. Nothing above 10 kHz, the sample rate cannot carry it.
+static func _ping(b: PackedFloat32Array, t0: float, dur: float, f: float, vol: float, decay: float) -> void:
+	if f > 10000.0:
+		return
+	var i0 := int(t0 * RATE)
+	var cnt := int(dur * RATE)
+	var w := TAU * f / RATE
+	for k in cnt:
+		if i0 + k >= b.size():
+			return
+		var x := float(k) / cnt
+		b[i0 + k] += cos(w * k) * vol * exp(-decay * x) * minf(1.0, k / 3.0) * minf(1.0, (cnt - k) / 60.0)
+
+
+## Two glasses touch: both ring, a little apart in pitch, with the tick of the contact in front.
+static func _clink(b: PackedFloat32Array, r: RandomNumberGenerator, t0: float, f: float, vol: float) -> void:
+	for g in 2:
+		var fg := f * (1.0 if g == 0 else r.randf_range(1.12, 1.26))
+		var t := t0 + g * r.randf_range(0.0, 0.004)
+		_ping(b, t, 0.75, fg, vol * 0.55, 6.5)
+		_ping(b, t, 0.5, fg * 2.32, vol * 0.4, 9.0)
+		_ping(b, t, 0.3, fg * 3.1, vol * 0.25, 12.0)
+	_puff(b, r, t0, 0.004, 6500.0, 0.9, vol * 0.8, 3.0)
 
 
 ## A puff of noise around `fc`, added to `b` at second `t0`.
@@ -672,21 +730,25 @@ static func _shot(sound: String, r: RandomNumberGenerator) -> PackedFloat32Array
 				_tone(b, t4, 0.07, f2, f2 * 2.3, 0.5, 2.0)
 				t4 += r.randf_range(0.07, 0.18)
 			end = t4 + 0.1
-		"glass":      # glass touches glass
-			var f3 := r.randf_range(2300.0, 3100.0)
-			_tone(b, 0.0, 0.3, f3, f3, 0.5, 9.0)
-			_tone(b, 0.0, 0.3, f3 * 1.62, f3 * 1.62, 0.25, 11.0)
-			_tone(b, 0.0, 0.2, f3 * 2.55, f3 * 2.55, 0.12, 13.0)
-			end = 0.35
+		"glass":      # two glasses touch
+			_clink(b, r, 0.0, r.randf_range(2000.0, 2800.0), 1.0)
+			end = 0.8
+		"clink":      # glasses against each other, two or three times
+			var t8 := 0.0
+			for i in r.randi_range(1, 3):
+				_clink(b, r, t8, r.randf_range(1900.0, 2900.0), r.randf_range(0.6, 1.0))
+				t8 += r.randf_range(0.12, 0.3)
+			end = t8 + 0.7
 		"plates":     # plates are stacked
 			var t5 := 0.0
 			for i in r.randi_range(2, 4):
-				var f4 := r.randf_range(1500.0, 2400.0)
-				_tone(b, t5, 0.2, f4, f4, 0.45, 10.0)
-				_tone(b, t5, 0.16, f4 * 1.47, f4 * 1.47, 0.25, 12.0)
-				_puff(b, r, t5, 0.03, 600.0, 0.6, 0.35, 5.0)
+				var f4 := r.randf_range(1700.0, 2600.0)
+				_ping(b, t5, 0.3, f4, 0.5, 9.0)
+				_ping(b, t5, 0.22, f4 * 1.47, 0.35, 11.0)
+				_ping(b, t5, 0.14, f4 * 2.9, 0.25, 13.0)
+				_puff(b, r, t5, 0.004, 5000.0, 0.9, 0.5, 3.0)
 				t5 += r.randf_range(0.09, 0.26)
-			end = t5 + 0.25
+			end = t5 + 0.3
 		"bell":       # the bell on the counter
 			_tone(b, 0.0, 1.3, 2093.0, 2093.0, 0.5, 5.0)
 			_tone(b, 0.0, 1.0, 4186.0, 4186.0, 0.15, 7.0)
@@ -694,28 +756,37 @@ static func _shot(sound: String, r: RandomNumberGenerator) -> PackedFloat32Array
 		"cutlery":    # knives and forks against each other and against the plate
 			var t6 := 0.0
 			for i in r.randi_range(3, 6):
-				var f5 := r.randf_range(2900.0, 4300.0)
-				var loud := r.randf_range(0.3, 0.6)
-				_tone(b, t6, 0.14, f5, f5, loud, 9.0)
-				_tone(b, t6, 0.11, f5 * 1.51, f5 * 1.51, loud * 0.6, 11.0)
-				_tone(b, t6, 0.08, f5 * 2.18, f5 * 2.18, loud * 0.35, 13.0)
+				var f5 := r.randf_range(3200.0, 4600.0)
+				var loud := r.randf_range(0.4, 0.7)
+				_ping(b, t6, 0.2, f5, loud, 8.0)
+				_ping(b, t6, 0.15, f5 * 1.51, loud * 0.7, 10.0)
+				_ping(b, t6, 0.1, f5 * 2.18, loud * 0.45, 12.0)
+				_puff(b, r, t6, 0.003, 7000.0, 0.9, loud * 0.7, 3.0)
 				t6 += r.randf_range(0.05, 0.19)
-			end = t6 + 0.2
+			end = t6 + 0.25
 		"drop":       # a fork falls on the floor and dances until it lies still
 			var t7 := 0.0
 			var gap := r.randf_range(0.2, 0.27)
 			var loud2 := 0.7
-			var f6 := r.randf_range(2300.0, 2900.0)
-			_puff(b, r, 0.0, 0.05, 260.0, 0.6, 0.5, 5.0)
+			var f6 := r.randf_range(2500.0, 3100.0)
+			_puff(b, r, 0.0, 0.05, 260.0, 0.6, 0.4, 5.0)
 			for i in 10:
 				var ff := f6 * r.randf_range(0.96, 1.05)
-				_tone(b, t7, 0.2, ff, ff, loud2, 8.0)
-				_tone(b, t7, 0.17, ff * 1.59, ff * 1.59, loud2 * 0.7, 9.0)
-				_tone(b, t7, 0.12, ff * 2.71, ff * 2.71, loud2 * 0.4, 11.0)
+				_ping(b, t7, 0.25, ff, loud2, 7.0)
+				_ping(b, t7, 0.2, ff * 1.59, loud2 * 0.75, 8.0)
+				_ping(b, t7, 0.14, ff * 2.71, loud2 * 0.5, 10.0)
+				_puff(b, r, t7, 0.003, 7000.0, 0.9, loud2 * 0.6, 3.0)
 				t7 += gap
 				gap *= 0.72
 				loud2 *= 0.8
-			end = t7 + 0.3
+			end = t7 + 0.35
+		"chop":       # a knife on a board, quick
+			var t9 := 0.0
+			for i in r.randi_range(4, 8):
+				_puff(b, r, t9, 0.03, 480.0, 0.5, 0.9, 5.0)
+				_puff(b, r, t9, 0.003, 5000.0, 0.9, 0.4, 3.0)
+				t9 += r.randf_range(0.11, 0.16)
+			end = t9 + 0.1
 		"beep":       # some instrument in the lab reports
 			_tone(b, 0.0, 0.09, 1568.0, 1568.0, 0.4, 0.5)
 			_tone(b, 0.16, 0.09, 1568.0, 1568.0, 0.4, 0.5)
