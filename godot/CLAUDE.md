@@ -1,4 +1,4 @@
-# ETH Zentrum – Tag & Nacht (Godot)
+# Bib Bob – ETH Zentrum (Godot)
 
 2D-Spiel in **Godot 4** (getestet mit 4.3 und 4.7, Renderer `gl_compatibility`) für den VISCON-Hackathon.
 Liegt im Ordner `godot/` des Repos `fzehnder/viscon-game`. Der Rest des Repos (`src/`, `index.html`, Vite) ist ein
