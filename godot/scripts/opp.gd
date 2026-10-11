@@ -432,7 +432,9 @@ func _physics_process(delta: float) -> void:
 			# watches their place: seated people turn around towards their backpack
 			var base := home_dir + (PI if seated else 0.0)
 			dir = lerp_angle(dir, base + sin(t * 0.8) * 1.2, minf(1.0, delta * 5.0))
-			_watch(delta)
+			_bag_clock(delta)   # stolen again behind their back: they miss it after a moment here too
+			if state == LAUERN:
+				_watch(delta)
 		JAGD:
 			_hunt(delta)
 		SUCHEN:
@@ -451,10 +453,12 @@ func _physics_process(delta: float) -> void:
 			if state == SUCHEN and path.is_empty() and timer <= 0.0:
 				_go_home()
 		ZURUECK:
-			if _follow(delta, WALK_SPEED):
-				_arrive_home()
-			elif angry:
-				_watch(delta)
+			_bag_clock(delta)
+			if state == ZURUECK:
+				if _follow(delta, WALK_SPEED):
+					_arrive_home()
+				elif angry:
+					_watch(delta)
 	if moving:
 		phase += delta * (13.0 if (state == JAGD and not bag_is_back()) else 9.0)
 	_update_cone()
@@ -511,14 +515,42 @@ func _hunt(delta: float) -> void:
 		meter = 0.6
 		_search(last_seen)
 		return
-	if sees and d < 2.5 * TS:
+	# Straight at them only if nothing stands in between: over a table they see you, but they have
+	# to walk around it.
+	var free: bool = sees and world.step_clear(global_position, pl.global_position)
+	if free and d < 2.5 * TS:
 		_step(to, spd, delta)   # close enough: straight at them
 		return
 	repath_t -= delta
 	if repath_t <= 0.0 or path.is_empty():
 		repath_t = 0.3
-		path = world.find_path(global_position, last_seen)
+		path = world.find_path(global_position, _reach_point(last_seen))
+	if path.is_empty() and free:
+		_step(to, spd, delta)   # the way ends here: the rest straight ahead
+		return
 	_follow(delta, spd)
+
+
+## Where to walk to get at somebody at `p` (px). Usually `p` itself. The way finding counts in
+## whole tiles, and a piece of furniture that reaches into a tile blocks all of it, while a player
+## can still stand in what is left. Then: the nearest free tile from which the way to `p` is clear.
+func _reach_point(p: Vector2) -> Vector2:
+	var t := Vector2i((p / TS).floor())
+	if world.astar.is_in_boundsv(t) and not world.astar.is_point_solid(t):
+		return p
+	var best := p
+	var best_d := INF
+	for dy in range(-2, 3):
+		for dx in range(-2, 3):
+			var c := t + Vector2i(dx, dy)
+			if not world.astar.is_in_boundsv(c) or world.astar.is_point_solid(c):
+				continue
+			var cp := (Vector2(c) + Vector2(0.5, 0.5)) * TS
+			var cd := cp.distance_to(p)
+			if cd < best_d and world.step_clear(cp, p):
+				best_d = cd
+				best = cp
+	return best
 
 
 # ------------------------------------------------------------------ drawing

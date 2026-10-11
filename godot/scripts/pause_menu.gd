@@ -15,6 +15,8 @@ const Logo = preload("res://scripts/logo.gd")
 
 const ENTRIES := [["Weiter", "resume"], ["Level neu starten", "restart"], ["Leistungsüberblick", "transcript"],
 	["Startbildschirm", "to_menu"]]
+# entries that throw progress away: [what the button says once it is armed, the key that confirms]
+const CONFIRM := {"restart": ["Neu starten? R drücken", KEY_R], "to_menu": ["Zum Start? M drücken", KEY_M]}
 # the table of keys: [what, entry in KEYS.LABELS]
 const KEY_ROWS := [["Bewegen", "dirs"], ["Benutzen", "ok"], ["Rennen", "sprint"], ["Schleichen", "sneak"],
 	["Weg zur Aufgabe", "select"], ["Antworten", "nums"], ["Minigame verlassen", "abort"]]
@@ -23,6 +25,7 @@ var title := ""          # which level is paused, set by main before the menu is
 var buttons: Array = []
 var marks: Array = []
 var sel := 0
+var armed := -1          # entry that waits for its confirm key (see _arm), -1 = none
 var born := 0
 var leaving := false
 
@@ -84,7 +87,7 @@ func _ready() -> void:
 		var b := UI.button(String(ENTRIES[i][0]), UI.ETH_BLUE if i == 0 else UI.INK2, 20)
 		b.custom_minimum_size = Vector2(300, 48)
 		var idx := i
-		b.pressed.connect(func(): _press(idx))
+		b.pressed.connect(func(): _press(idx, true))
 		b.mouse_entered.connect(func(): _select(idx))
 		row.add_child(b)
 		buttons.append(b)
@@ -125,10 +128,26 @@ func _select(i: int) -> void:
 		(marks[k] as Mark).queue_redraw()
 
 
-func _press(i: int) -> void:
+## Restarting the level and going to the start screen throw the progress away, and E, Enter and
+## Space are the keys both players press all the time. So these two entries only arm themselves
+## and then want a key nobody presses while playing: R to restart, M for the start screen (the
+## same keys as on the card at the end of a level). A second click with the mouse confirms as well.
+func _arm(i: int) -> void:
+	armed = i
+	for k in buttons.size():
+		(buttons[k] as Button).text = String(ENTRIES[k][0])
+	if i >= 0:
+		(buttons[i] as Button).text = String(CONFIRM[String(ENTRIES[i][1])][0])
+		UI.sfx("tick")
+
+
+func _press(i: int, by_mouse: bool = false) -> void:
 	if leaving:
 		return
 	var what := String(ENTRIES[i][1])
+	if CONFIRM.has(what) and not (by_mouse and armed == i):
+		_arm(i)
+		return
 	if what == "resume":
 		# E, Enter and Space are also the keys that interact: the game stays paused until that
 		# press is over, or it would take it as an interaction the moment it runs again
@@ -144,14 +163,22 @@ func _input(event: InputEvent) -> void:
 	get_viewport().set_input_as_handled()        # no key reaches the game while the menu is open
 	if event.echo or Engine.get_process_frames() - born < 2:
 		return                                   # (the press that opened the menu is not for the menu)
-	match event.physical_keycode:
+	var k: int = event.physical_keycode
+	if armed >= 0 and k == int(CONFIRM[String(ENTRIES[armed][1])][1]):
+		UI.sfx("click")
+		emit_signal(String(ENTRIES[armed][1]))
+		return
+	match k:
 		KEY_ESCAPE:
 			resume.emit()
 		KEY_W, KEY_UP:
-			_select(posmod(sel - 1, buttons.size()))
+			# no way round from "Weiter" to the last entry: W and S are keys the players hold anyway
+			_select(maxi(sel - 1, 0))
+			_arm(-1)
 			UI.sfx("tick")
 		KEY_S, KEY_DOWN:
-			_select(posmod(sel + 1, buttons.size()))
+			_select(mini(sel + 1, buttons.size() - 1))
+			_arm(-1)
 			UI.sfx("tick")
 		KEY_E, KEY_ENTER, KEY_KP_ENTER, KEY_SPACE:
 			UI.sfx("click")

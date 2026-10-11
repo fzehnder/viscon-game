@@ -37,7 +37,7 @@ const TIPS := [
 	"Schleichen macht fast keinen Lärm. Sprinten hört man weit.",
 	"Die Aufgabentaste zeigt den Weg zur nächsten Aufgabe.",
 	"Wer euch erwischt, merkt sich das: Opps trefft ihr in späteren Levels wieder.",
-	"Die Note sinkt mit jedem Fehler und mit der Zeit. 6 ist die Bestnote, ab 4 ist bestanden.",
+	"Die Note sinkt mit jedem Fehler und mit der Zeit.",
 	"Mit L öffnet ihr jederzeit den Leistungsüberblick.",
 	"Im Lichtkegel füllt sich der Balken über dem Kopf. Raus aus der Sicht, dann sinkt er wieder.",
 ]

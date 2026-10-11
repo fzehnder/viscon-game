@@ -243,6 +243,13 @@ func line_clear(a: Vector2, b: Vector2) -> bool:
 	return space.intersect_ray(q).is_empty()
 
 
+## True if nothing solid (wall, door or any furniture) lies on the straight line from a to b:
+## somebody can walk it without going around something.
+func step_clear(a: Vector2, b: Vector2) -> bool:
+	var q := PhysicsRayQueryParameters2D.create(a, b, 1 | 2)
+	return get_world_2d().direct_space_state.intersect_ray(q).is_empty()
+
+
 ## Like line_clear and ray_end, but shelves and other tall furniture block the view as well.
 func sight_clear(a: Vector2, b: Vector2) -> bool:
 	var space := get_world_2d().direct_space_state

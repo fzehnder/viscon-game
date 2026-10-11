@@ -33,6 +33,7 @@ const LEVEL1 := {
 	"bags": 0,                            # Erstis in the crowd who carry a bag to steal ("steal" task, not used any more)
 	"gather": 7.0,                        # seconds the crowd stays together after the start
 	"intro": "Willkommen an der ETH! Ihr steht mitten in der Ersti-Menge auf der Polyterrasse. Beide müssen alles erledigen:",
+	"hint": "Leise sein (schleichen) müsst ihr nur in der Bibliothek.",
 	"start_toast": ["Willkommen, Erstis!", "Deniz und Livia sitzen am Lesetisch in der Bibliothek, ihre Ersti-Bags stehen neben dem Stuhl. Leise von hinten heran, nicht rennen!"],
 	# People who can turn into Opps (opp.gd). Two Erstis at a reading table, each with an Ersti bag
 	# next to the chair: steal it unseen and they notice a little later, get seen and they are

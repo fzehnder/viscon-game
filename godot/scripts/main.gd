@@ -149,6 +149,10 @@ var tr_closed_frame := -10
 var pause_layer: CanvasLayer = null
 var pause_closed_frame := -10
 var mini_frame := -10      # the last frame in which a minigame was open: its Esc must not open the menu as well
+var winning := false       # every task is done: the clock stands while the last stamp plays (_check_win)
+var won_t := 0.0           # seconds the win card has been up: Enter (P2's interact key) only counts after WIN_KEY_WAIT
+const WIN_KEY_WAIT := 1.0
+const OPP_CALM := 6.0      # seconds an Opp of this level leaves you alone after stopping you (opp_catch)
 
 
 ## Layer for the transcript that keeps running while the game is paused; L closes it again
@@ -168,6 +172,9 @@ func _ready() -> void:
 	_setup_input()
 	KEYS.setup()
 	Game.begin_level()
+	if not LV.is_elective(Game.level):
+		Game.story_level = Game.level
+	Game.save_game()   # who plays and where the story stands: "Weiterspielen" is still there after the game was closed
 	dept = Game.dept
 	mode = Game.mode
 	night = mode == "night"
@@ -579,9 +586,11 @@ func _process(delta: float) -> void:
 		open_transcript()
 		return
 	if state in ["caught", "won", "lost"]:
+		if state == "won":
+			won_t += delta
 		if Input.is_action_just_pressed("restart"):
 			get_tree().reload_current_scene()
-		elif state == "won" and Input.is_action_just_pressed("start") and LV.next_after(Game.level) > 0:
+		elif state == "won" and won_t >= WIN_KEY_WAIT and Input.is_action_just_pressed("start") and LV.next_after(Game.level) > 0:
 			_next_level()
 		elif Input.is_action_just_pressed("menu"):
 			get_tree().change_scene_to_file("res://menu.tscn")
@@ -592,7 +601,8 @@ func _process(delta: float) -> void:
 			if Input.is_action_just_pressed("start") or Input.is_action_just_pressed("interact"):
 				start_game()
 		"play":
-			time_played += delta
+			if not winning:
+				time_played += delta
 			cooldown = maxf(0.0, cooldown - delta)
 			blackout_t = maxf(0.0, blackout_t - delta)
 			ping_t = maxf(0.0, ping_t - delta)
@@ -742,6 +752,7 @@ func open_transcript() -> void:
 	tr_layer.process_mode = Node.PROCESS_MODE_ALWAYS
 	add_child(tr_layer)
 	var tr := Transcript.new()
+	tr.in_game = true   # E, Space and Enter do not start a level there, only a click does
 	tr_layer.add_child(tr)
 	tr.set_anchors_and_offsets_preset(Control.PRESET_FULL_RECT)
 	tr.back.connect(close_transcript)
@@ -854,6 +865,8 @@ func _update_near(i: int) -> void:
 func _interact(i: int) -> void:
 	last_actor = i
 	var pl = players[i]
+	if pl.hidden_mode and not pl.visible:
+		return   # out of the picture for good (on the bus in level 5): nothing to step out of
 	if pl.hidden_mode:
 		pl.hidden_mode = false
 		hud.toast("Raus aus dem Versteck", "Schau dich um, bevor du losgehst.", 2.5)
@@ -1035,7 +1048,7 @@ func _steal_bag(i: int, op) -> void:
 	op.bag_taken(i)   # the owner reacts at once if they saw it, otherwise a little later
 	# the task is not done yet: the thief has to get out of the room with it (_check_escapes)
 	if state == "play" and not op.angry:
-		hud.toast("Geklaut!", "Jetzt leise raus hier. Die Beute zählt erst, wenn du draussen bist (%s verlassen), ohne erwischt zu werden." % op.home_zone, 4.5)
+		hud.toast("Geklaut!", "Jetzt leise raus hier. Die Beute zählt erst, wenn du draussen bist (%s verlassen) und dir niemand mehr nachrennt." % op.home_zone, 4.5)
 
 
 ## A stolen bag counts once its thief has left the room it was taken from without being caught.
@@ -1047,8 +1060,18 @@ func _check_escapes() -> void:
 		if op.bag_state != "stolen" or op.bag_thief < 0:
 			continue
 		var pid: int = op.bag_thief
-		if not done[pid].has(id) and world.zone_at(players[pid].global_position) != op.home_zone:
+		# out of the room, and nobody on their heels: while somebody is still running after the
+		# thief the loot does not count yet (shake them off first)
+		if not done[pid].has(id) and world.zone_at(players[pid].global_position) != op.home_zone and not _chased(pid):
 			_task_done(pid, id)
+
+
+## True while an Opp is running after this player (JAGD in opp.gd).
+func _chased(pid: int) -> bool:
+	for op in opps:
+		if op.state == OppScript.JAGD and op.target == players[pid]:
+			return true
+	return false
 
 
 ## The Opp whose bag this player is carrying out right now (stolen, not out of the room yet), or null.
@@ -1100,26 +1123,54 @@ func opp_catch(op, pl) -> void:
 	var pid := players.find(pl)
 	if logic != null and logic.has_method("on_opp_catch") and logic.on_opp_catch(op, pid):
 		return
-	if op.bag_state == "stolen" and op.bag_thief == pid:
+	# The loot goes back only while it still has to be carried out. Once the task is done (the
+	# thief got out of the room with it), it is safe: a later catch cannot undo the task.
+	if op.bag_state == "stolen" and op.bag_thief == pid and not done[pid].has(_bag_task()):
 		mistakes_total += 1
 		ART.set_acc(pl.look, op.bag_acc, false)
 		pl.queue_redraw()
-		done[pid].erase(_bag_task())
 		op.take_back()
-		if minis[pid] != null:
-			_abort_mini(pid)
-		pl.enabled = false
-		var tw := create_tween()
-		tw.tween_interval(1.2)
-		tw.tween_callback(func():
-			if state == "play" and not busy(pid):
-				pl.enabled = true)
+		_hold(pid)
 		fx.sound(pl.global_position, 3.0 * TS, Color(1.0, 0.4, 0.4, 0.7), 0.8)
 		UI.sfx("fail")
 		hud.toast("Erwischt!", "%s hat die Beute zurück und passt jetzt besser auf. Hol sie dir nochmals, wenn niemand hinschaut." % op.pname, 4.5, pid)
 		Scold.tell(self, pid, op.look, op.pname, Scold.line(Scold.BAG, op.bag_name), "bag")   # the owner has a word with you
 		return
+	# Somebody who became an Opp in this very level only stops you and has a word with you: a
+	# mistake, and they leave you alone for a moment (the rule of levels 3 and 6, for every level).
+	# Opps from earlier levels end the level, as before.
+	if _opp_of_this_level(op):
+		mistakes_total += 1
+		_hold(pid)
+		op.meter = 0.0
+		op.calm_t = OPP_CALM
+		op._go_home()
+		fx.sound(pl.global_position, 3.0 * TS, Color(1.0, 0.4, 0.4, 0.7), 0.8)
+		UI.sfx("fail")
+		hud.toast("Erwischt!", "%s hält dich auf und sagt dir die Meinung. Das gibt einen Fehler. Geh aus dem Blickfeld, bevor du es nochmals versuchst." % op.pname, 4.5, pid)
+		return
 	caught(op)
+
+
+## True if this Opp was made in the running level (or is nobody the save game knows): such a
+## person does not end the level when they catch somebody, see opp_catch.
+func _opp_of_this_level(op) -> bool:
+	if op.opp_id == "" or not Game.opps.has(op.opp_id):
+		return true
+	return int(Game.opps[op.opp_id]["level"]) >= Game.level
+
+
+## Caught: whatever minigame is open closes, and the player cannot move for a moment.
+func _hold(pid: int) -> void:
+	var pl = players[pid]
+	if minis[pid] != null:
+		_abort_mini(pid)
+	pl.enabled = false
+	var tw := create_tween()
+	tw.tween_interval(1.2)
+	tw.tween_callback(func():
+		if state == "play" and not busy(pid):
+			pl.enabled = true)
 
 
 func _left(pid: int) -> int:
@@ -1149,8 +1200,9 @@ func _coop_done(id: String) -> void:
 
 
 func _check_win() -> void:
-	if _left(0) == 0 and _left(1) == 0:
-		get_tree().create_timer(1.4).timeout.connect(func():
+	if _left(0) == 0 and _left(1) == 0 and not winning:
+		winning = true   # the clock stands from here on: the last task cannot run out of time any more
+		get_tree().create_timer(1.4, false).timeout.connect(func():   # false: it waits while the game is paused
 			if state != "play":
 				return
 			if logic != null and logic.has_method("finale"):
@@ -1180,7 +1232,7 @@ func _win_day() -> void:
 		"mistakes": mistakes_total, "best": best}, func():
 		state = "won"
 		hud.show_overlay(String(lv.get("win_title", "Ersti-Tag geschafft!")),
-			"%s\n\nNote %s · %s\n\nIn der Schweiz ist 6 die Bestnote, ab 4 ist bestanden." % [story, String.num(grade, 2), verdict],
+			"%s\n\nNote %s · %s" % [story, String.num(grade, 2), verdict],
 			("Enter weiter · " if more else "") + "R nochmals spielen · M zum Startbildschirm",
 			"Weiter zu Level %d" % nxt if more else "Nochmals spielen", true, "win", "LEVEL %d" % Game.level))
 
@@ -1343,8 +1395,9 @@ func objectives() -> Array:
 		var notes: Array = ["", ""]
 		if String(tk.get("type", "")) == "bag":
 			for pid in 2:
-				if _carrying(pid) != null:
-					notes[pid] = "raus!"
+				var mine = _carrying(pid)
+				if mine != null:   # still in the room: out. Outside with somebody on their heels: shake them off
+					notes[pid] = "raus!" if world.zone_at(players[pid].global_position) == mine.home_zone else "abhängen!"
 		out.append([tk["name"], tk["where"], [done[0].has(id), done[1].has(id)], notes])
 	return out
 
