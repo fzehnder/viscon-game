@@ -48,6 +48,7 @@ void fragment() {
 """
 
 var stage := ""
+var fresh := false         # START was pressed: the old study is deleted once the new one really begins (_legi_next)
 var stage_root: Control
 var bg: Control
 var t := 0.0
@@ -288,7 +289,7 @@ func _build_title() -> void:
 			Game.set_level(Game.story_level)
 			_go("custom"))
 		v.add_child(again)
-	v.add_child(_centered(UI.label("Enter drücken", 15, UI.INK2)))
+	v.add_child(_centered(UI.label("Enter: neues Studium" if Game.has_profile() else "Enter drücken", 15, UI.INK2)))
 	# the levels as a transcript of records: grades so far, and a click goes straight into a level
 	# (skips the intro), handy for testing and demos
 	var levels := UI.button("Leistungsüberblick · Level wählen", UI.INK2, 16)
@@ -332,8 +333,11 @@ func _add_lang_toggle() -> void:
 		row.add_child(b)
 
 
+## START. Nothing is deleted yet: Enter, E and Space are keys the players press all the time, and
+## one press on the start page must not throw a whole study away. The old one goes when the new
+## one really begins (_legi_next); until then Esc leads back to the start page.
 func _new_game() -> void:
-	Game.new_game()   # level 1, nobody is an Opp yet, no grades
+	fresh = true
 	_go("hack")
 
 
@@ -467,7 +471,7 @@ func _build_hack() -> void:
 	glitch.mouse_filter = Control.MOUSE_FILTER_IGNORE
 	stage_root.add_child(glitch)
 	glitch.set_anchors_and_offsets_preset(Control.PRESET_FULL_RECT)
-	var skip := UI.label("Enter = überspringen", 14, UI.MUTED)
+	var skip := UI.label("Enter = überspringen  ·  Esc = zurück", 14, UI.MUTED)
 	stage_root.add_child(skip)
 	skip.position = Vector2(20, 16)
 
@@ -839,6 +843,9 @@ func _build_legi() -> void:
 
 
 func _legi_next() -> void:
+	if fresh:
+		fresh = false
+		Game.new_game()   # level 1, nobody is an Opp yet, no grades
 	_go("loading")
 
 
@@ -872,6 +879,11 @@ func _unhandled_input(event: InputEvent) -> void:
 		return
 	var k: int = event.physical_keycode
 	var ok := k in [KEY_ENTER, KEY_KP_ENTER, KEY_SPACE, KEY_E]
+	if k == KEY_ESCAPE and fresh and stage in ["hack", "names"]:
+		fresh = false   # START was a slip: back, and the study so far stays
+		get_viewport().set_input_as_handled()
+		_go("title")
+		return
 	match stage:
 		"title":
 			if ok:

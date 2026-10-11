@@ -50,6 +50,7 @@ var inner: Control
 var start_btn: Button
 var order: Array = []     # level numbers from top to bottom
 var sel := 1
+var in_game := false    # opened over the running game (main.open_transcript): see _unhandled_input
 
 
 ## Hand-drawn parts of the page: text on whole pixels, hairlines, the little triangles.
@@ -276,7 +277,7 @@ func _ready() -> void:
 	legend.add_theme_font_size_override("normal_font_size", 13)
 	legend.add_theme_font_size_override("bold_font_size", 13)
 	legend.add_theme_color_override("default_color", INK)
-	legend.text = "[b]Legende: Sess.:[/b] Prüfungssession (W27: Winter 2026/27); [b]Note:[/b] 6 ist die Bestnote, ab 4 ist bestanden; [b]Gew.:[/b] Gewicht der Note im Prüfungsblock; [b]Erw.:[/b] erworbene Kreditpunkte; [b]Erf.:[/b] gemäss Reglement minimal erforderliche Kreditpunkte; [b]Diff.:[/b] noch zu erwerbende Kreditpunkte"
+	legend.text = "[b]Legende: Sess.:[/b] Prüfungssession (W27: Winter 2026/27); [b]Gew.:[/b] Gewicht der Note im Prüfungsblock; [b]Erw.:[/b] erworbene Kreditpunkte; [b]Erf.:[/b] gemäss Reglement minimal erforderliche Kreditpunkte; [b]Diff.:[/b] noch zu erwerbende Kreditpunkte"
 	kv.add_child(legend)
 	v.add_child(key)
 
@@ -297,7 +298,8 @@ func _ready() -> void:
 	var back_btn := _button("Zurück")
 	back_btn.pressed.connect(func(): back.emit())
 	fh.add_child(back_btn)
-	var hint := _text("W/S oder Pfeiltasten: Fach wählen  ·  Enter: Level starten  ·  Esc: zurück", 14)
+	var hint := _text("W/S oder Pfeiltasten: Fach wählen  ·  Level starten: anklicken  ·  Esc: zurück ins Spiel" if in_game
+		else "W/S oder Pfeiltasten: Fach wählen  ·  Enter: Level starten  ·  Esc: zurück", 14)
 	hint.size_flags_horizontal = Control.SIZE_EXPAND_FILL
 	hint.horizontal_alignment = HORIZONTAL_ALIGNMENT_RIGHT
 	fh.add_child(hint)
@@ -465,7 +467,10 @@ func _unhandled_input(event: InputEvent) -> void:
 			_select(int(order[i]))
 	elif k in [KEY_ENTER, KEY_KP_ENTER, KEY_SPACE, KEY_E]:
 		get_viewport().set_input_as_handled()
-		_start(sel)
+		# Over the running game these are the keys both players press all the time, and starting a
+		# level throws the running one away: there a level is only started with the mouse.
+		if not in_game:
+			_start(sel)
 		return
 	elif k in [KEY_ESCAPE, KEY_BACKSPACE]:
 		get_viewport().set_input_as_handled()

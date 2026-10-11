@@ -53,9 +53,11 @@ func _ready() -> void:
 	player_looks = [_default_look(0), _default_look(1)]
 	# dev shortcut, straight into a level: godot --path godot res://main.tscn -- --level=2
 	var forced_lang := ""
+	var forced_level := false
 	for a in OS.get_cmdline_user_args():
 		if a.begins_with("--level="):
 			level = int(a.trim_prefix("--level="))
+			forced_level = true
 		elif a == "--nosave":
 			persist = false
 		elif a.begins_with("--lang="):
@@ -66,7 +68,10 @@ func _ready() -> void:
 	english = I18n.new()
 	english.load_all()
 	apply_lang()
+	var saved_story := story_level   # from the save game: where "Weiterspielen" goes on
 	_apply_level()
+	if not forced_level and LV.has_level(saved_story) and not LV.is_elective(saved_story):
+		story_level = saved_story
 
 
 ## The English is a script; Godot must let go of it before the scripts are freed at the end.
@@ -218,6 +223,12 @@ func save_game() -> void:
 	for key in electives:
 		cfg.set_value("electives", key, electives[key])
 	cfg.set_value("settings", "lang", lang)
+	# who plays and how far the story got, so that "Weiterspielen" is still there after the game was closed
+	# (the Legi photos are not kept: without one the Legi shows the drawn character)
+	cfg.set_value("players", "names", names)
+	cfg.set_value("players", "looks", player_looks)
+	cfg.set_value("players", "programmes", programmes)
+	cfg.set_value("players", "story_level", story_level)
 	cfg.save(save_path)
 
 
@@ -232,6 +243,19 @@ func load_game() -> void:
 	if cfg.load(save_path) != OK:
 		return
 	lang = String(cfg.get_value("settings", "lang", lang))
+	var pn = cfg.get_value("players", "names", null)
+	if pn is Array and pn.size() == 2:
+		names = [String(pn[0]), String(pn[1])]
+	var pl = cfg.get_value("players", "looks", null)
+	if pl is Array and pl.size() == 2 and pl[0] is Dictionary and pl[1] is Dictionary:
+		for i in 2:
+			var look_i: Dictionary = _default_look(i)
+			look_i.merge(pl[i] as Dictionary, true)
+			player_looks[i] = look_i
+	var pp = cfg.get_value("players", "programmes", null)
+	if pp is Array and pp.size() == 2:
+		programmes = [int(pp[0]), int(pp[1])]
+	story_level = int(cfg.get_value("players", "story_level", story_level))
 	if cfg.has_section("opps"):
 		for id in cfg.get_section_keys("opps"):
 			var d = cfg.get_value("opps", id)
