@@ -59,7 +59,7 @@ class Sheet:
 	var bold: Font
 
 	func width(f: Font, s: String, fs: int) -> float:
-		return f.get_string_size(s, HORIZONTAL_ALIGNMENT_LEFT, -1, fs).x
+		return f.get_string_size(tr(s), HORIZONTAL_ALIGNMENT_LEFT, -1, fs).x
 
 	## Text in a line of height `h` that starts at `y`; with `right` the text ends at `x`.
 	func put(f: Font, s: String, x: float, y: float, h: float, fs: int, col: Color, right: bool = false) -> void:
@@ -68,7 +68,7 @@ class Sheet:
 		if right:
 			x -= width(f, s, fs)
 		var base := y + (h + f.get_ascent(fs) - f.get_descent(fs)) / 2.0
-		draw_string(f, Vector2(roundf(x), roundf(base)), s, HORIZONTAL_ALIGNMENT_LEFT, -1, fs, col)
+		draw_string(f, Vector2(roundf(x), roundf(base)), tr(s), HORIZONTAL_ALIGNMENT_LEFT, -1, fs, col)
 
 	func hline(y: float, col: Color) -> void:
 		draw_rect(Rect2(0.0, y, size.x, 1.0), col)

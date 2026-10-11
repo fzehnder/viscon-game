@@ -110,7 +110,7 @@ def main():
         text = ""
         try:
             segs, _ = state["model"].transcribe(
-                msg["wav"], language="de", beam_size=1, vad_filter=True,
+                msg["wav"], language=msg.get("lang") or "de", beam_size=1, vad_filter=True,
                 initial_prompt=msg.get("prompt") or None)
             text = " ".join(s.text.strip() for s in segs).strip()
         except Exception as e:

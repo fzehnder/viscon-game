@@ -152,7 +152,7 @@ func _process(delta: float) -> void:
 	if typed != null and typed.visible_characters >= 0:
 		var before := int(shown)
 		shown += delta * type_speed
-		if int(shown) >= typed.text.length():
+		if int(shown) >= tr(typed.text).length():   # the length of what is shown (it may be translated)
 			typed.visible_characters = -1
 		elif int(shown) != before:
 			typed.visible_characters = int(shown)
