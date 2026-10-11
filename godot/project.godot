@@ -33,6 +33,7 @@ driver/enable_input=true
 Game="*res://scripts/game_state.gd"
 Sfx="*res://scripts/sfx.gd"
 Track="*res://scripts/tracking.gd"
+Ambience="*res://scripts/ambience.gd"
 
 [display]
 
